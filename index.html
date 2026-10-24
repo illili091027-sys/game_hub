@@ -72,266 +72,81 @@ window.addEventListener('load', function () {
         </div>
         <div class="game-desc" id="desc-channels">디스코드처럼 여러 개의 대화방(채널)을 만들고, 누가 어떤 채널에 들어가있는지 미리 보면서 원하는 채널에 들어가 따로따로 대화할 수 있어요. 아무도 없는 채널은 자동으로 사라져요.</div>
       </button>
-      <!-- 혼자하기/온라인 둘 다 되는 게임을 앞쪽 번호로, 한쪽 모드에서만 되는 게임(혼자하기 전용 또는 온라인 전용)은 뒤쪽 번호로 배치 -->
-      <button class="game-card" id="card-pixel" onclick="cardClicked('pixel')">
-        <div class="game-card-top">
-          <div class="game-icon">1</div>
-          <div class="game-name">픽셀 디텍터</div>
-        </div>
-        <div class="game-desc" id="desc-pixel">뿌옇던 그림이 점점 선명해져요. 뭔지 빨리 맞혀보세요.</div>
-      </button>
-      <button class="game-card" id="card-person" onclick="cardClicked('person')">
-        <div class="game-card-top">
-          <div class="game-icon">2</div>
-          <div class="game-name">이목구비 탐정</div>
-        </div>
-        <div class="game-desc" id="desc-person">눈, 코, 입만 보고 어떤 인물인지 맞혀보세요.</div>
-      </button>
+      <!-- 온라인 게임들 (혼자하기 모드에서는 숨김 - 혼자하기는 영어 낱말 찾기 전용) -->
       <button class="game-card" id="card-sudoku" onclick="cardClicked('sudoku')">
         <div class="game-card-top">
-          <div class="game-icon">3</div>
+          <div class="game-icon">1</div>
           <div class="game-name">다같이 스도쿠</div>
         </div>
         <div class="game-desc" id="desc-sudoku">난이도를 고르고, 실수 3번 안에 완성해보세요.</div>
       </button>
       <button class="game-card" id="card-bomb" onclick="cardClicked('bomb')">
         <div class="game-card-top">
-          <div class="game-icon">4</div>
+          <div class="game-icon">2</div>
           <div class="game-name">똥벼락 대탈출</div>
         </div>
         <div class="game-desc" id="desc-bomb">방향키(←/→)로 캐릭터를 움직여서 하늘에서 떨어지는 똥을 피하세요! 체력 3칸, 초록 아이템은 회복, 해골 아이템은 닿으면 바로 탈락! 시간이 갈수록 더 빠르고 많이 떨어져요.</div>
       </button>
       <button class="game-card" id="card-quiz" onclick="cardClicked('quiz')">
         <div class="game-card-top">
-          <div class="game-icon">5</div>
+          <div class="game-icon">3</div>
           <div class="game-name">상식 끝판왕</div>
         </div>
         <div class="game-desc" id="desc-quiz">한 라운드 20문제 상식 퀴즈! 시간제한, 보기 셔플 같은 방해 요소도 튀어나와요.</div>
       </button>
-      <button class="game-card" id="card-stroop" onclick="cardClicked('stroop')">
+      <button class="game-card" id="card-mafia" onclick="cardClicked('mafia')">
+        <div class="game-card-top">
+          <div class="game-icon">4</div>
+          <div class="game-name">마피아 게임</div>
+        </div>
+        <div class="game-desc" id="desc-mafia">4~9명 온라인 전용! 역할을 몰래 나눠 갖고, 밤 행동과 낮 투표를 반복해 마피아를 찾아내세요.</div>
+      </button>
+      <button class="game-card" id="card-werewolf" onclick="cardClicked('werewolf')">
+        <div class="game-card-top">
+          <div class="game-icon">5</div>
+          <div class="game-name">늑대인간 게임</div>
+        </div>
+        <div class="game-desc" id="desc-werewolf">4~9명 온라인 전용! 예언자는 정확한 역할까지 알아내고, 사냥꾼은 죽는 순간 한 명을 함께 데려가요. 밤과 낮을 반복해 늑대인간을 모두 찾아내세요.</div>
+      </button>
+      <button class="game-card" id="card-hues" onclick="cardClicked('hues')">
         <div class="game-card-top">
           <div class="game-icon">6</div>
-          <div class="game-name">색깔 함정 카드</div>
+          <div class="game-name">색감과 직감</div>
         </div>
-        <div class="game-desc" id="desc-stroop">글자 뜻 말고 실제 '색깔'을 30초 안에 빠르게 골라보세요!</div>
+        <div class="game-desc" id="desc-hues">3~10명 온라인 전용! 출제자가 색상판에서 몰래 고른 색을 색 이름 없이 1단어 힌트로 설명하면, 나머지는 차례로 그 색이라고 생각하는 칸에 말을 놓아요. 2단어 추가 힌트 후 한 번 더! 정답 칸 3점, 주변 3x3 칸 2점, 그 바깥 한 줄 1점. 출제자는 3x3 안에 들어온 말 1개당 1점. 모두 한 번씩 출제하면 끝!</div>
       </button>
-      <button class="game-card" id="card-tensec" onclick="cardClicked('tensec')">
+      <button class="game-card" id="card-tapple" onclick="cardClicked('tapple')">
         <div class="game-card-top">
           <div class="game-icon">7</div>
-          <div class="game-name">10초 감각 게임</div>
+          <div class="game-name">태플</div>
         </div>
-        <div class="game-desc" id="desc-tensec">타이머를 보지 않고 시간 감각만으로 목표 시간을 맞혀보세요! 5라운드, 목표 시간은 매번 달라져요.</div>
+        <div class="game-desc" id="desc-tapple">주제에 맞는 단어를 10초 안에 말하고 첫 글자 버튼을 누르는 스피드 게임!</div>
       </button>
-      <button class="game-card" id="card-maze" onclick="cardClicked('maze')">
+      <!-- 혼자하기 전용 -->
+      <button class="game-card" id="card-wordsearch" onclick="cardClicked('wordsearch')">
+        <div class="game-card-top">
+          <div class="game-icon">1</div>
+          <div class="game-name">영어 낱말 찾기</div>
+        </div>
+        <div class="game-desc" id="desc-wordsearch">알파벳이 빼곡한 판에서 숨은 영어 단어를 찾아 쭉 그어보세요! 1단계(8×8)부터 5단계(16×16, 8방향+거꾸로)까지, 단계가 오를수록 단어가 많아지고 숨는 방향도 늘어나요.</div>
+      </button>
+      <!-- 혼자하기 + 온라인 둘 다 -->
+      <button class="game-card" id="card-baby" onclick="cardClicked('baby')">
         <div class="game-card-top">
           <div class="game-icon">8</div>
-          <div class="game-name">미로 탈출 챌린지</div>
+          <div class="game-name">아기 키우기</div>
         </div>
-        <div class="game-desc" id="desc-maze">캐릭터를 고르고 방향키로 미로를 통과해보세요! 내 주변만 보이고 나머진 안개로 가려져 있어서 길을 잘 기억해야 해요. 미로는 할 때마다 달라지고, 3개를 모두 통과하면 성공이에요.</div>
+        <div class="game-desc" id="desc-baby">구름을 밟고 하늘 높이 올라가 엄마를 찾아요!</div>
       </button>
-      <button class="game-card" id="card-story" onclick="cardClicked('story')">
-        <div class="game-card-top">
-          <div class="game-icon">9</div>
-          <div class="game-name">반쪽 단어 챌린지</div>
-        </div>
-        <div class="game-desc" id="desc-story">'유튜'만 보고 나머지 '브'를 맞혀보세요! 차례대로 돌아가며 단어를 완성해요.</div>
-      </button>
-      <button class="game-card" id="card-reversemem" onclick="cardClicked('reversemem')">
-        <div class="game-card-top">
-          <div class="game-icon">10</div>
-          <div class="game-name">기억력 리버스</div>
-        </div>
-        <div class="game-desc" id="desc-reversemem">순서대로 나온 숫자를 잘 기억했다가 반대 순서로 입력해보세요!</div>
-      </button>
-      <button class="game-card" id="card-findx" onclick="cardClicked('findx')">
-        <div class="game-card-top">
-          <div class="game-icon">11</div>
-          <div class="game-name">숫자헌터 대결</div>
-        </div>
-        <div class="game-desc" id="desc-findx">2명이 하는 대결! 채우는 사람이 숫자를 정하면 찾는 사람이 그 숫자를 찾아요. 역할이 바뀌기 전에 먼저 다 채우면 승리!</div>
-      </button>
-      <button class="game-card" id="card-wordchain" onclick="cardClicked('wordchain')">
-        <div class="game-card-top">
-          <div class="game-icon">12</div>
-          <div class="game-name">끝말잇기 타이머</div>
-        </div>
-        <div class="game-desc" id="desc-wordchain">차례대로 끝말잇기! 제한시간 안에 못 이으면 목숨을 잃어요. 끝까지 살아남으면 승리.</div>
-      </button>
-      <button class="game-card" id="card-lie" onclick="cardClicked('lie')">
-        <div class="game-card-top">
-          <div class="game-icon">13</div>
-          <div class="game-name">거짓말 탐지</div>
-        </div>
-        <div class="game-desc" id="desc-lie">진짜 2개 + 거짓 1개를 제출하고, 서로 투표로 누구 거짓말인지 맞혀보세요! 맞히면 +1점, 잘 속이면 속인 사람 수만큼 점수! 투표는 15초 제한.</div>
-      </button>
-      <button class="game-card" id="card-land" onclick="cardClicked('land')">
-        <div class="game-card-top">
-          <div class="game-icon">14</div>
-          <div class="game-name">땅따먹기</div>
-        </div>
-        <div class="game-desc" id="desc-land">마우스(손가락)로 캐릭터를 조종해서 내 땅 밖으로 나가 선을 긋고, 다시 내 땅으로 돌아오면 그 사이 영역이 내 땅이 돼요! 누구든 선에 부딪히면 처음 자리로 '펑' 돌아가요. 90초 뒤 땅을 가장 많이 차지한 사람이 승리!</div>
-      </button>
-      <button class="game-card" id="card-apple" onclick="cardClicked('apple')">
-        <div class="game-card-top">
-          <div class="game-icon">15</div>
-          <div class="game-name">사과게임</div>
-        </div>
-        <div class="game-desc" id="desc-apple">드래그해서 사과 숫자 합이 10이 되면 지워져요! 개당 1점, 2분 안에 최대한 많이 모아보세요.</div>
-      </button>
+      <div class="card-hint">💡 카드를 <b>오른쪽 클릭</b>(휴대폰은 <b>길게 누르기</b>)하면 설명서가 나와요</div>
     </div>
 
     <div class="home-footer" id="home-footer" style="display:none"></div>
   </div>
 </div>
 
-<div id="pixel" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="px-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">픽셀 디텍터</h2>
-    <p class="game-sub"><span class="sync-dot" id="px-dot"></span>카테고리를 고르고, 점점 선명해지는 그림을 맞혀보세요.</p>
 
-    <div id="px-category-select">
-      <div class="cat-vote-hint" id="px-vote-hint" style="display:none;"></div>
-      <div class="cat-grid">
-        <button class="cat-btn" data-cat="animal" onclick="pxCategoryClick('animal')"><span class="cat-icon">🐾</span>동물</button>
-        <button class="cat-btn" data-cat="iconpack" onclick="pxCategoryClick('iconpack')"><span class="cat-icon">🧩</span>아이콘</button>
-        <button class="cat-btn" data-cat="icecream" onclick="pxCategoryClick('icecream')"><span class="cat-icon">🍦</span>아이스크림</button>
-        <button class="cat-btn" data-cat="snack" onclick="pxCategoryClick('snack')"><span class="cat-icon">🍪</span>과자</button>
-      </div>
-    </div>
 
-    <div id="px-game-area" style="display:none">
-      <div class="pixel-stage" id="px-play-stage">
-        <div class="round-progress" id="px-round-progress">문제 1 / 20</div>
-        <div class="pixel-box" id="px-box"><span class="pixel-emoji" id="px-emoji">❓</span></div>
-
-        <div class="solo-panel" id="px-solo-controls" style="display:none">
-          <div class="solo-score-row">지금 맞히면 <b id="px-solo-score">100점</b></div>
-          <button class="btn btn-ghost" id="px-reveal-btn" onclick="revealMorePixel()" style="width:100%;">더 선명하게 보기 (점수 낮아짐) <span style="opacity:0.7; font-size:0.85em;">[단축키: Tab]</span></button>
-          <div class="solo-total-row">이번 판 누적 <b id="px-total-score">0점</b></div>
-        </div>
-
-        <div class="pixel-guess-row">
-          <input id="px-input" type="text" placeholder="뭐게요? 정답 입력" onkeydown="pxInputKeydown(event)" oninput="groupHandleTyping()" />
-          <button class="btn btn-primary" onclick="submitPixelGuess()">제출</button>
-        </div>
-        <div class="pixel-err" id="px-err"></div>
-        <div class="pixel-msg" id="px-msg"></div>
-        <div class="btn-row">
-          <button class="btn btn-ghost" onclick="nextPixelRound()" id="px-next-btn">스킵</button>
-          <button class="btn btn-ghost" onclick="backToPixelCategories()">← 카테고리 다시 고르기</button>
-        </div>
-      </div>
-
-      <div class="round-summary" id="px-round-summary" style="display:none">
-        <div class="round-summary-title">라운드 완료! 🎉</div>
-        <div class="round-summary-score">총 점수 <b id="px-round-final-score">0점</b></div>
-        <div class="btn-row" style="justify-content:center;">
-          <button class="btn btn-primary" onclick="startPixelRound()">새 라운드 시작</button>
-          <button class="btn btn-ghost" onclick="backToPixelCategories()">← 카테고리 다시 고르기</button>
-        </div>
-      </div>
-
-      <div class="board-box" id="px-leaderboard-box">
-        <div class="board-box-title">누적 점수</div>
-        <div id="px-leaderboard"><div class="empty-lb">아직 아무도 맞히지 못했어요.</div></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="story" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="st-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">반쪽 단어 챌린지</h2>
-    <p class="game-sub"><span class="sync-dot" id="st-dot"></span>앞부분만 보고 나머지 절반을 맞혀서 단어를 완성해보세요!</p>
-
-    <div class="wh-word-box">
-      <span class="wh-half1" id="st-half1">유튜</span><span class="wh-blank" id="st-half2-len">＿</span>
-    </div>
-
-    <div class="story-turn" id="st-turn-indicator" style="font-weight:700;margin-bottom:8px;"></div>
-    <div class="story-input-row" style="margin-bottom:10px;">
-      <input id="st-input" type="text" placeholder="나머지 글자를 입력해보세요" maxlength="10" onkeydown="if(event.key==='Enter')submitStory()" />
-      <button class="btn btn-primary" id="st-submit-btn" onclick="submitStory()">제출</button>
-    </div>
-    <div class="pixel-err" id="st-err"></div>
-    <div class="btn-row">
-      <button class="btn btn-ghost" onclick="resetStory()">새 단어로 다시 시작</button>
-    </div>
-
-    <div class="board-box-title" style="margin-top:22px; text-align:left;">완성한 단어들</div>
-    <div class="story-list" id="story-list"></div>
-  </div>
-</div>
-
-<div id="person" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="ps-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">이목구비 탐정</h2>
-    <p class="game-sub">눈, 코, 입만 보고 어떤 인물인지 맞혀보세요.</p>
-
-    <div id="ps-category-select">
-      <div class="cat-vote-hint" id="ps-vote-hint" style="display:none;"></div>
-      <div class="cat-grid">
-        <button class="cat-btn" data-cat="idol" onclick="psCategoryClick('idol')"><span class="cat-icon">🎤</span>아이돌</button>
-        <button class="cat-btn" data-cat="actor" onclick="psCategoryClick('actor')"><span class="cat-icon">🎬</span>배우</button>
-        <button class="cat-btn" data-cat="influencer" onclick="psCategoryClick('influencer')" style="grid-column: span 2;"><span class="cat-icon">📱</span>인플루언서</button>
-      </div>
-    </div>
-
-    <div id="ps-soon" style="display:none">
-      <p class="game-sub">이 카테고리는 아직 준비 중이에요. 곧 만나요!</p>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-ghost" onclick="backToPersonCategory()">← 카테고리 다시 고르기</button>
-      </div>
-    </div>
-
-    <div id="ps-idol-game" style="display:none">
-      <div class="pixel-stage">
-        <div class="person-box" id="ps-box"><img id="ps-img" class="person-img" src="" alt="" draggable="false" oncontextmenu="return false" /></div>
-        <div class="person-box ps-answer-ratio" id="ps-answer-box" style="display:none; margin-top:10px;">
-          <img id="ps-answer-img" class="person-img" src="" alt="" draggable="false" oncontextmenu="return false" />
-        </div>
-        <div class="ps-answer-name" id="ps-answer-name" style="display:none;"></div>
-
-        <div class="solo-panel" id="ps-solo-controls">
-          <div class="solo-score-row">지금 맞히면 <b id="ps-solo-score">100점</b></div>
-          <button class="btn btn-ghost" id="ps-hint-btn" onclick="usePersonHint()" style="width:100%;">힌트 보기 (점수 낮아짐)</button>
-          <div class="ps-hint-text" id="ps-hint-text"></div>
-          <div class="solo-total-row">이번 판 누적 <b id="ps-total-score">0점</b></div>
-        </div>
-
-        <div class="pixel-guess-row" id="ps-guess-row">
-          <input id="ps-input" type="text" placeholder="누구게요? 정답 입력" onkeydown="personInputKeydown(event)" oninput="this.classList.remove('ps-shake'); groupHandleTyping()" />
-          <button class="btn btn-primary" onclick="submitPersonGuess()">제출</button>
-        </div>
-        <div class="pixel-err" id="ps-err"></div>
-        <div class="pixel-msg" id="ps-msg"></div>
-        <div class="btn-row">
-          <button class="btn btn-ghost" onclick="nextPersonRoundBtn()" id="ps-next-btn">다음 인물</button>
-        </div>
-        <div class="btn-row" style="justify-content:center; margin-top:6px;">
-          <button class="btn btn-ghost" onclick="backToPersonCategory()">← 카테고리 다시 고르기</button>
-        </div>
-
-        <div class="board-box" id="ps-leaderboard-box" style="display:none;">
-          <div class="board-box-title">누적 점수</div>
-          <div id="ps-leaderboard"><div class="empty-lb">아직 아무도 맞히지 못했어요.</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div id="sudoku" class="view">
   <div class="wrap">
@@ -344,10 +159,10 @@ window.addEventListener('load', function () {
 
     <div id="sd-difficulty-select">
       <div class="cat-vote-hint" id="sd-vote-hint" style="display:none;"></div>
-      <div class="cat-grid">
-        <button class="cat-btn" data-cat="easy" onclick="sdDifficultyClick('easy')"><span class="cat-icon">🙂</span>쉬움</button>
-        <button class="cat-btn" data-cat="medium" onclick="sdDifficultyClick('medium')"><span class="cat-icon">🤔</span>보통</button>
-        <button class="cat-btn" data-cat="hard" onclick="sdDifficultyClick('hard')" style="grid-column: span 2;"><span class="cat-icon">🔥</span>어려움</button>
+      <div class="diff-grid diff-3">
+        <button class="cat-btn diff-btn" data-cat="easy" data-lv="1" onclick="sdDifficultyClick('easy')"><span class="diff-lv">🙂</span><span class="diff-text"><span class="diff-name">쉬움</span><span class="diff-info">빈칸 적음 · 처음이라면</span></span><span class="diff-stars">★☆☆</span></button>
+        <button class="cat-btn diff-btn" data-cat="medium" data-lv="3" onclick="sdDifficultyClick('medium')"><span class="diff-lv">🤔</span><span class="diff-text"><span class="diff-name">보통</span><span class="diff-info">적당히 고민되는</span></span><span class="diff-stars">★★☆</span></button>
+        <button class="cat-btn diff-btn" data-cat="hard" data-lv="5" onclick="sdDifficultyClick('hard')"><span class="diff-lv">🔥</span><span class="diff-text"><span class="diff-name">어려움</span><span class="diff-info">빈칸 많음 · 고수용</span></span><span class="diff-stars">★★★</span></button>
       </div>
     </div>
 
@@ -503,439 +318,365 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
-<div id="reversemem" class="view">
+<div id="mafia" class="view">
   <div class="wrap">
     <div class="topbar">
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="rm-room-pill">방</span>
+      <span class="room-pill" id="mf-room-pill">방</span>
     </div>
-    <h2 class="game-heading">기억력 리버스</h2>
-    <p class="game-sub">순서대로 나타나는 숫자를 잘 기억했다가, 반대 순서로 입력해보세요!</p>
+    <h2 class="game-heading">마피아 게임</h2>
+    <p class="game-sub">4~9명 전용! 마피아/경찰/의사/시민 역할을 몰래 나눠 갖고, 밤에는 역할별 행동을, 낮에는 토론과 투표로 마피아를 찾아보세요.</p>
 
-    <div id="rm-intro">
+    <div id="mf-error-area" class="mf-phase" style="display:none">
+      <div class="sd-msg over" id="mf-error-msg"></div>
+    </div>
+
+    <div id="mf-role-area" class="mf-phase" style="display:none">
+      <div class="mf-role-badge" id="mf-my-role"></div>
+      <div class="mf-role-desc" id="mf-my-role-desc"></div>
+      <div class="mf-teammates" id="mf-mafia-teammates" style="display:none"></div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" id="mf-host-start-night-btn" style="display:none" onclick="mfHostStartNight()">🌙 밤 시작하기</button>
+      </div>
+      <div class="mf-wait-box" id="mf-reveal-wait-hint">방장이 밤을 시작하면 진행돼요. 다른 사람에게 내 역할을 보여주지 마세요!</div>
+    </div>
+
+    <div id="mf-night-area" class="mf-phase" style="display:none">
+      <div class="mf-timer" id="mf-night-timer"></div>
+      <div id="mf-night-action-box" style="display:none">
+        <div class="cat-vote-hint" id="mf-night-role-hint"></div>
+        <div class="mf-target-grid" id="mf-night-targets"></div>
+      </div>
+      <div class="mf-wait-box" id="mf-night-wait-box"></div>
+    </div>
+
+    <div id="mf-morning-area" class="mf-phase" style="display:none">
+      <div class="sd-msg" id="mf-morning-msg"></div>
+      <div class="board-box" id="mf-police-result" style="display:none"></div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" id="mf-host-start-day-btn" style="display:none" onclick="mfHostStartDay()">☀️ 낮(토론) 시작하기</button>
+      </div>
+      <div class="mf-wait-box" id="mf-morning-wait-hint">방장이 낮을 시작하면 토론과 투표가 시작돼요...</div>
+    </div>
+
+    <div id="mf-day-area" class="mf-phase" style="display:none">
+      <div class="mf-timer" id="mf-day-timer"></div>
+      <div class="cat-vote-hint" id="mf-day-hint"></div>
+      <div class="mf-target-grid" id="mf-day-targets"></div>
+      <button class="cat-btn" id="mf-day-skip-btn" style="margin:0 auto 18px; display:block;"></button>
+      <div class="board-box mf-deathlog-box">
+        <div class="board-box-title">지금까지 기록</div>
+        <div id="mf-day-deathlog"></div>
+      </div>
+    </div>
+
+    <div id="mf-end-area" class="mf-phase" style="display:none">
+      <div class="round-summary-title" id="mf-end-banner" style="text-align:center;"></div>
       <div class="board-box">
-        <div class="board-box-title">역대 최고 기록</div>
-        <div class="lb-row"><span>최고 도달 단계</span><b id="rm-best-intro">기록 없음</b></div>
-      </div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="rmBeginGame()">시작하기</button>
+        <div class="board-box-title">전체 역할 공개</div>
+        <div id="mf-end-roles"></div>
       </div>
     </div>
-
-    <div id="rm-showing" style="display:none">
-      <div class="sd-stat-row" style="justify-content:center; gap:40px;">
-        <div class="sd-stat" style="align-items:center;"><span class="sd-stat-label">단계</span><span class="sd-stat-value" id="rm-level-val">1</span></div>
-        <div class="sd-stat" style="align-items:center;"><span class="sd-stat-label">점수</span><span class="sd-stat-value" id="rm-score-val">0</span></div>
-      </div>
-      <div class="rm-show-display" id="rm-show-display"></div>
-      <p class="rm-hint">숫자가 순서대로 나타나요. 잘 기억해두세요!</p>
-    </div>
-
-    <div id="rm-input" style="display:none">
-      <div class="rm-progress" id="rm-progress">0 / 3</div>
-      <p class="rm-hint">반대 순서로 눌러보세요! (마지막에 본 숫자부터)</p>
-      <div class="rm-pad" id="rm-pad"></div>
-    </div>
-
-    <div id="rm-over-area" style="display:none">
-      <div class="sd-msg over" id="rm-over-msg"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="rmBeginGame()">다시 도전</button>
-      </div>
-    </div>
-
-    <div class="lobby-panel" id="rm-opponents" style="margin-top:14px;"></div>
   </div>
 </div>
 
-<div id="stroop" class="view">
+<div id="werewolf" class="view">
   <div class="wrap">
     <div class="topbar">
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="sw-room-pill">방</span>
+      <span class="room-pill" id="ww-room-pill">방</span>
     </div>
-    <h2 class="game-heading">색깔 함정 카드</h2>
-    <p class="game-sub">글자의 '뜻'이 아니라 실제로 보이는 '색깔'을 골라야 해요! 헷갈리지 않게 조심하세요.</p>
+    <h2 class="game-heading">늑대인간 게임</h2>
+    <p class="game-sub">4~9명 전용! 늑대인간/예언자/사냥꾼/주민 역할을 몰래 나눠 갖고, 밤에는 역할별 행동을, 낮에는 토론과 투표로 늑대인간을 찾아보세요. 사냥꾼은 죽는 순간 한 명을 함께 데려갈 수 있어요!</p>
 
-    <div id="sw-intro">
-      <div class="board-box">
-        <div class="board-box-title">역대 최고 점수</div>
-        <div class="lb-row"><span>최고 점수</span><b id="sw-best-intro">0점</b></div>
+    <div id="ww-error-area" class="ww-phase" style="display:none">
+      <div class="sd-msg over" id="ww-error-msg"></div>
+    </div>
+
+    <div id="ww-role-area" class="ww-phase" style="display:none">
+      <div class="mf-role-badge" id="ww-my-role"></div>
+      <div class="mf-role-desc" id="ww-my-role-desc"></div>
+      <div class="mf-teammates" id="ww-wolf-teammates" style="display:none"></div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" id="ww-host-start-night-btn" style="display:none" onclick="wwHostStartNight()">🌙 밤 시작하기</button>
       </div>
+      <div class="mf-wait-box" id="ww-reveal-wait-hint">방장이 밤을 시작하면 진행돼요. 다른 사람에게 내 역할을 보여주지 마세요!</div>
+    </div>
+
+    <div id="ww-night-area" class="ww-phase" style="display:none">
+      <div class="mf-timer" id="ww-night-timer"></div>
+      <div id="ww-night-action-box" style="display:none">
+        <div class="cat-vote-hint" id="ww-night-role-hint"></div>
+        <div class="mf-target-grid" id="ww-night-targets"></div>
+      </div>
+      <div class="mf-wait-box" id="ww-night-wait-box"></div>
+    </div>
+
+    <div id="ww-revenge-area" class="ww-phase" style="display:none">
+      <div class="mf-timer" id="ww-revenge-timer"></div>
+      <div class="sd-msg over" id="ww-revenge-msg"></div>
+      <div id="ww-revenge-action-box" style="display:none">
+        <div class="cat-vote-hint" id="ww-revenge-hint"></div>
+        <div class="mf-target-grid" id="ww-revenge-targets"></div>
+      </div>
+      <div class="mf-wait-box" id="ww-revenge-wait-box"></div>
+    </div>
+
+    <div id="ww-morning-area" class="ww-phase" style="display:none">
+      <div class="sd-msg" id="ww-morning-msg"></div>
+      <div class="sd-msg over" id="ww-morning-revenge" style="display:none"></div>
+      <div class="board-box" id="ww-seer-result" style="display:none"></div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" id="ww-host-start-day-btn" style="display:none" onclick="wwHostStartDay()">☀️ 낮(토론) 시작하기</button>
+      </div>
+      <div class="mf-wait-box" id="ww-morning-wait-hint">방장이 낮을 시작하면 토론과 투표가 시작돼요...</div>
+    </div>
+
+    <div id="ww-day-area" class="ww-phase" style="display:none">
+      <div class="mf-timer" id="ww-day-timer"></div>
+      <div class="cat-vote-hint" id="ww-day-hint"></div>
+      <div class="mf-target-grid" id="ww-day-targets"></div>
+      <button class="cat-btn" id="ww-day-skip-btn" style="margin:0 auto 18px; display:block;"></button>
+      <div class="board-box mf-deathlog-box">
+        <div class="board-box-title">지금까지 기록</div>
+        <div id="ww-day-deathlog"></div>
+      </div>
+    </div>
+
+    <div id="ww-end-area" class="ww-phase" style="display:none">
+      <div class="round-summary-title" id="ww-end-banner" style="text-align:center;"></div>
       <div class="board-box">
-        <div class="board-box-title">게임 방법</div>
-        <p class="sw-rule-text">화면에 나온 글자의 <b>뜻이 아니라 실제 색깔</b>을 아래 버튼 중에서 골라야 해요!</p>
-        <div class="sw-example">
-          <div class="sw-example-word" style="color:#3f78e6;">빨강</div>
-          <div class="sw-example-caption">👆 글자는 '빨강'이지만 색깔은 <b style="color:#3f78e6;">파랑</b>이죠?<br>이럴 땐 <b style="color:#3f78e6;">파란색 버튼</b>을 눌러야 정답이에요!</div>
+        <div class="board-box-title">전체 역할 공개</div>
+        <div id="ww-end-roles"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+<div id="wordsearch" class="view">
+  <div class="wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="ws-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">영어 낱말 찾기</h2>
+    <p class="game-sub">첫 글자부터 끝 글자까지 쭉 끌거나, 첫 글자와 끝 글자를 차례로 눌러서 단어를 찾아요.</p>
+
+    <div id="ws-difficulty-select">
+      <div class="diff-grid diff-5">
+        <button class="cat-btn diff-btn" data-lv="1" onclick="wsChooseLevel(1)"><span class="diff-lv">1</span><span class="diff-text"><span class="diff-name">왕초보</span><span class="diff-info">8×8 · 8단어<br>가로·세로</span></span><span class="diff-stars">★☆☆☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="2" onclick="wsChooseLevel(2)"><span class="diff-lv">2</span><span class="diff-text"><span class="diff-name">초보</span><span class="diff-info">10×10 · 12단어<br>+ 대각선</span></span><span class="diff-stars">★★☆☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="3" onclick="wsChooseLevel(3)"><span class="diff-lv">3</span><span class="diff-text"><span class="diff-name">중수</span><span class="diff-info">12×12 · 17단어<br>+ 거꾸로</span></span><span class="diff-stars">★★★☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="4" onclick="wsChooseLevel(4)"><span class="diff-lv">4</span><span class="diff-text"><span class="diff-name">고수</span><span class="diff-info">14×14 · 23단어<br>8방향</span></span><span class="diff-stars">★★★★☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="5" onclick="wsChooseLevel(5)"><span class="diff-lv">5</span><span class="diff-text"><span class="diff-name">끝판왕</span><span class="diff-info">16×16 · 30단어<br>8방향 · 빽빽</span></span><span class="diff-stars">★★★★★</span></button>
+      </div>
+    </div>
+
+    <div id="ws-game-area" style="display:none">
+      <div class="sd-stat-row ws-stat-row">
+        <div class="sd-stat"><span class="sd-stat-label">단계</span><span class="sd-stat-value" id="ws-level-pill">1단계</span></div>
+        <div class="sd-stat"><span class="sd-stat-label">찾은 단어</span><span class="sd-stat-value" id="ws-found-val">0/0</span></div>
+        <div class="sd-stat"><span class="sd-stat-label">힌트</span><span class="sd-stat-value" id="ws-hint-val">3</span></div>
+        <div class="sd-stat"><span class="sd-stat-label">시간</span><span class="sd-stat-value" id="ws-time-val">00:00</span></div>
+      </div>
+      <div class="ws-layout">
+        <div class="ws-board" id="ws-board">
+          <svg class="ws-svg" id="ws-svg" preserveAspectRatio="none"></svg>
+          <div class="ws-cells" id="ws-cells"></div>
+        </div>
+        <div class="ws-side">
+          <div class="ws-side-head">
+            <span>찾을 단어</span>
+            <label class="ws-toggle"><input type="checkbox" id="ws-meaning-mode" /> 뜻만 보고 찾기</label>
+          </div>
+          <div class="ws-words" id="ws-words"></div>
         </div>
       </div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="swBeginGame()">시작하기 (30초)</button>
+      <div class="sd-msg" id="ws-msg"></div>
+      <div class="btn-row" style="margin-bottom:20px; justify-content:center;">
+        <button class="btn btn-ghost" onclick="wsBackToDifficulty()">← 단계 다시 고르기</button>
+        <button class="btn btn-ghost" id="ws-hint-btn" onclick="wsUseHint()">💡 힌트</button>
+        <button class="btn btn-ghost" onclick="wsNewGameBtn()">새 판</button>
       </div>
     </div>
-
-    <div id="sw-game-area" style="display:none">
-      <div class="sd-stat-row">
-        <div class="sd-stat"><span class="sd-stat-label">남은 시간</span><span class="sd-stat-value" id="sw-time-val">30</span></div>
-        <div class="sd-stat"><span class="sd-stat-label">점수</span><span class="sd-stat-value" id="sw-score-val">0</span></div>
-        <div class="sd-stat"><span class="sd-stat-label">콤보</span><span class="sd-stat-value" id="sw-combo-val">0</span></div>
-      </div>
-
-      <div class="sw-word" id="sw-word">파랑</div>
-      <div class="sw-choices" id="sw-choices"></div>
-      <div class="sw-hint">아래에서 글자의 '색깔'과 같은 색을 눌러주세요</div>
-    </div>
-
-    <div id="sw-over-area" style="display:none">
-      <div class="sd-msg over" id="sw-over-msg"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="swBeginGame()">다시 도전</button>
-      </div>
-    </div>
-
-    <div class="lobby-panel" id="sw-opponents" style="margin-top:14px;"></div>
   </div>
 </div>
 
-<div id="findx" class="view">
-  <div class="wrap">
+<div id="hues" class="view">
+  <div class="wrap hu-wrap">
     <div class="topbar">
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="fx-room-pill">방</span>
+      <span class="room-pill" id="hu-room-pill">방</span>
     </div>
-    <h2 class="game-heading">숫자헌터 대결</h2>
-    <p class="game-sub">채우는 사람이 숫자를 하나 정하면, 찾는 사람이 그 숫자를 찾아야 해요. 찾으면 역할이 바뀌어요! 먼저 판을 다 채우면 승리.</p>
-
-    <div id="fx-need-two">
-      <p class="game-sub">이 게임은 딱 2명이 있어야 할 수 있어요. (현재 인원: <span id="fx-player-count">0</span>명, 친구를 같은 방으로 초대해보세요!)</p>
+    <h2 class="game-heading">색감과 직감</h2>
+    <div class="hu-status-row">
+      <span class="hu-round-pill" id="hu-round-pill"></span>
+      <span class="hu-timer" id="hu-timer"></span>
     </div>
 
-    <div id="fx-game-area" style="display:none">
-      <div class="fx-role-banner" id="fx-role-banner"></div>
+    <div id="hu-error-area" class="hu-phase" style="display:none">
+      <div class="sd-msg over" id="hu-error-msg"></div>
+    </div>
 
-      <div id="fx-pick-area" style="display:none">
-        <p class="game-sub">상대가 찾아야 할 숫자를 하나 골라주세요!</p>
-        <div class="fx-pick-grid" id="fx-pick-grid"></div>
+    <div id="hu-end-area" class="hu-phase" style="display:none">
+      <div class="round-summary-title" id="hu-end-banner"></div>
+      <div class="board-box"><div class="board-box-title">최종 순위</div><div id="hu-end-rank"></div></div>
+      <div class="board-box"><div class="board-box-title">라운드 기록</div><div id="hu-end-history"></div></div>
+      <button class="btn btn-primary" id="hu-restart-btn" onclick="huHostRestart()">한 판 더!</button>
+    </div>
+
+    <div class="hu-main">
+      <div class="hu-board-scroll" id="hu-board-area">
+        <div class="hu-board" id="hu-board"></div>
+      </div>
+      <div class="hu-side">
+      <div class="hu-clues" id="hu-clues" style="display:none"></div>
+
+      <div id="hu-pick-area" class="hu-phase" style="display:none">
+        <div class="hu-guide" id="hu-pick-title"></div>
+        <div class="hu-cards" id="hu-cards"></div>
       </div>
 
-      <div id="fx-wait-pick-area" style="display:none">
-        <p class="game-sub">⏳ 상대가 문제를 내는 중...</p>
-      </div>
-
-      <div id="fx-search-area" style="display:none">
-        <div class="fx-target">찾을 숫자: <b id="fx-target-val">?</b></div>
-        <div class="fx-search-grid" id="fx-search-grid"></div>
-      </div>
-
-      <div id="fx-fill-area" style="display:none">
-        <div class="fx-fill-hint">칸을 두 번씩 눌러야 X 표시가 완성돼요!</div>
-        <div class="fx-fill-grid" id="fx-fill-grid"></div>
-      </div>
-
-      <div class="fx-progress-row">
-        <div class="fx-progress">
-          <span class="fx-progress-name">나</span>
-          <div class="fx-bar"><div class="fx-bar-fill" id="fx-my-bar"></div></div>
-          <span class="fx-progress-count" id="fx-my-count">0/30</span>
+      <div id="hu-clue-area" class="hu-phase" style="display:none">
+        <div id="hu-clue-form">
+          <div class="hu-guide" id="hu-clue-title"></div>
+          <div class="hu-clue-row">
+            <input type="text" id="hu-clue-input" maxlength="30" autocomplete="off" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();huSubmitClue();}" oninput="groupHandleTyping()" />
+            <button class="btn btn-primary" onclick="huSubmitClue()">힌트 주기</button>
+            <button class="btn btn-ghost" id="hu-skip-clue2" onclick="huSkipClue2()">추가 힌트 없이 진행</button>
+          </div>
+          <div class="pixel-err" id="hu-clue-err"></div>
         </div>
-        <div class="fx-progress">
-          <span class="fx-progress-name" id="fx-opp-name">상대</span>
-          <div class="fx-bar"><div class="fx-bar-fill opp" id="fx-opp-bar"></div></div>
-          <span class="fx-progress-count" id="fx-opp-count">0/30</span>
+        <div class="hu-guide" id="hu-clue-wait"></div>
+      </div>
+
+      <div id="hu-guess-area" class="hu-phase" style="display:none">
+        <div class="hu-turn-list" id="hu-turn-list"></div>
+        <div class="hu-guide" id="hu-guess-guide"></div>
+        <div class="hu-place-row" id="hu-place-row" style="display:none">
+          <span class="hu-sel-swatch" id="hu-sel-swatch"></span>
+          <span class="hu-sel-coord" id="hu-sel-coord"></span>
+          <button class="btn btn-primary" id="hu-place-btn" onclick="huPlaceMarker()">여기 놓기</button>
+        </div>
+        <div class="pixel-err" id="hu-place-err"></div>
+        <button class="btn btn-ghost hu-small-btn" id="hu-host-skip" style="display:none" onclick="huHostSkipTurn()">이 사람 차례 건너뛰기 (방장)</button>
+      </div>
+
+      <div id="hu-reveal-area" class="hu-phase" style="display:none">
+        <div class="hu-guide hu-reveal-title" id="hu-reveal-title"></div>
+        <div class="board-box hu-round-box">
+          <div class="board-box-title">이번 라운드 점수</div>
+          <div id="hu-round-scores"></div>
+        </div>
+        <button class="btn btn-primary" id="hu-next-btn" onclick="huHostNextRound()">다음 라운드 →</button>
+        <div class="mf-wait-box" id="hu-reveal-wait" style="padding:10px;">방장이 다음 라운드를 시작하면 진행돼요.</div>
+      </div>
+        <div class="hu-scoreboard-box">
+          <div class="board-box-title">점수판</div>
+          <div id="hu-scoreboard"></div>
         </div>
       </div>
     </div>
+  </div>
+</div>
 
-    <div id="fx-over-area" style="display:none">
-      <div class="sd-msg over" id="fx-over-msg"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="fxBeginGame()">다시 도전</button>
+<div id="tapple" class="view">
+  <div class="wrap tp-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="tp-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">태플</h2>
+
+    <div id="tp-error-area" class="tp-phase" style="display:none">
+      <div class="sd-msg over" id="tp-error-msg"></div>
+    </div>
+
+    <div id="tp-main">
+      <div class="tp-topic-card">
+        <span class="tp-topic-label">주제</span>
+        <span class="tp-topic" id="tp-topic"></span>
+        <span class="tp-round" id="tp-round"></span>
       </div>
+      <div class="tp-layout">
+        <div class="tp-left">
+          <div class="tp-wheel">
+            <div class="tp-wheel-keys" id="tp-wheel-keys"></div>
+            <div class="tp-center" id="tp-center"></div>
+          </div>
+          <div class="tp-input-area" id="tp-input-area" style="display:none">
+            <div class="tp-input-row">
+              <input type="text" id="tp-word-input" maxlength="20" autocomplete="off" placeholder="주제에 맞는 단어!" />
+              <button class="btn btn-primary" onclick="tpSubmitWord()">탁! ✋</button>
+            </div>
+            <div class="tp-preview" id="tp-preview"></div>
+            <div class="pixel-err" id="tp-word-err"></div>
+          </div>
+          <div class="tp-wait" id="tp-wait"></div>
+          <div class="tp-last" id="tp-last" style="display:none">
+            <div class="tp-last-word" id="tp-last-word"></div>
+            <button class="btn tp-object-btn" id="tp-object-btn" onclick="tpObject()">🔔 땡! 주제랑 안 맞아요</button>
+            <span class="tp-object-count" id="tp-object-count"></span>
+          </div>
+        </div>
+        <div class="tp-right">
+          <div class="board-box">
+            <div class="board-box-title">플레이어 (● 모은 카드)</div>
+            <div id="tp-players"></div>
+          </div>
+          <div class="board-box">
+            <div class="board-box-title">기록</div>
+            <div class="tp-log" id="tp-log"></div>
+          </div>
+        </div>
+      </div>
+      <div id="tp-roundend-area" class="tp-phase tp-roundend" style="display:none">
+        <div class="tp-roundend-msg" id="tp-roundend-msg"></div>
+        <button class="btn btn-primary" id="tp-next-btn" onclick="tpHostNextRound()">다음 라운드 →</button>
+        <div class="tp-next-wait" id="tp-next-wait"></div>
+      </div>
+    </div>
+
+    <div id="tp-end-area" class="tp-phase" style="display:none">
+      <div class="round-summary-title" id="tp-end-banner"></div>
+      <div class="board-box"><div class="board-box-title">최종 순위</div><div id="tp-end-rank"></div></div>
+      <button class="btn btn-primary" id="tp-restart-btn" onclick="tpHostRestart()">한 판 더!</button>
     </div>
   </div>
 </div>
 
-<div id="tensec" class="view">
-  <div class="wrap">
+<div id="baby" class="view">
+  <div class="wrap bb-wrap">
     <div class="topbar">
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="ts-room-pill">방</span>
+      <span class="room-pill" id="bb-room-pill">방</span>
     </div>
-    <h2 class="game-heading">10초 감각 게임</h2>
-    <p class="game-sub">실제 타이머를 보지 않고, 자신의 시간 감각만으로 목표 시간을 정확히 맞혀보세요!</p>
-
-    <div id="ts-intro">
-      <div class="board-box">
-        <div class="board-box-title">역대 최고 점수</div>
-        <div class="lb-row"><span>최고 점수</span><b id="ts-best-intro">기록 없음</b></div>
+    <h2 class="game-heading">아기 키우기</h2>
+    <div class="bb-mode-tag" id="bb-mode-tag" style="display:none"></div>
+    <div class="bb-layout">
+      <div class="bb-stage">
+        <canvas id="bb-canvas"></canvas>
+        <div class="bb-hud-age"><span class="bb-age-label">AGE</span><span class="bb-age" id="bb-age">01</span></div>
+        <div class="bb-hud-score" id="bb-score">0000000</div>
+        <div class="bb-countdown" id="bb-countdown" style="display:none">3</div>
+        <div class="bb-over" id="bb-over" style="display:none"></div>
       </div>
-      <p class="game-sub">총 5라운드, 목표 시간은 매 라운드 5초/7초/10초/13초/20초 중 하나로 바뀌어요.</p>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="tsStartGame()">시작하기</button>
-      </div>
-    </div>
-
-    <div id="ts-round-area" style="display:none">
-      <div class="ts-round-indicator" id="ts-round-indicator">1 / 5 라운드</div>
-      <div class="ts-target-display" id="ts-target-display">목표 시간: <b>10</b>초</div>
-      <div class="ts-countdown" id="ts-countdown" style="display:none"></div>
-      <div id="ts-running-area" style="display:none">
-        <p class="ts-running-hint">시계를 보지 말고, 마음속으로 세어보세요...</p>
-        <button class="ts-click-btn" onclick="tsStop()">STOP</button>
+      <div class="bb-side" id="bb-side" style="display:none">
+        <div class="board-box">
+          <div class="board-box-title">친구들 현황 (첫 판 기록)</div>
+          <div id="bb-players"></div>
+        </div>
+        <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-
-    <div id="ts-round-result-area" style="display:none">
-      <div class="ts-result-grade" id="ts-result-grade">PERFECT</div>
-      <div class="ts-result-time" id="ts-result-time">0.00초</div>
-      <div class="ts-result-diff" id="ts-result-diff"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" id="ts-next-round-btn" onclick="tsNextRound()">다음 라운드</button>
-      </div>
-    </div>
-
-    <div id="ts-final-area" style="display:none">
-      <div class="board-box">
-        <div class="board-box-title">최종 결과</div>
-        <div class="lb-row"><span>최종 점수</span><b id="ts-final-score">0점</b></div>
-        <div class="lb-row"><span>평균 오차</span><b id="ts-final-avg">0.00초</b></div>
-        <div class="lb-row"><span>가장 정확했던 라운드</span><b id="ts-final-best">-</b></div>
-      </div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="tsStartGame()">다시 도전</button>
-      </div>
-    </div>
-
-    <div class="lobby-panel" id="ts-opponents" style="margin-top:14px;"></div>
-  </div>
-</div>
-
-<div id="maze" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="mz-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">미로 탈출 챌린지</h2>
-    <p class="game-sub">캐릭터를 고르고 방향키(↑↓←→)로 미로를 탈출하세요! 미로 3개를 모두 통과하면 성공이에요.</p>
-
-    <div id="mz-select-area">
-      <div class="board-box">
-        <div class="board-box-title">역대 최고 기록</div>
-        <div class="lb-row"><span>최고 기록</span><b id="mz-best-intro">기록 없음</b></div>
-      </div>
-      <div class="board-box-title" style="text-align:center;">캐릭터를 골라주세요</div>
-      <div class="mz-char-grid" id="mz-char-grid"></div>
-    </div>
-
-    <div id="mz-round-area" style="display:none">
-      <div class="mz-status-row">
-        <span class="mz-round-indicator" id="mz-round-indicator">1 / 3 미로</span>
-        <span class="mz-timer" id="mz-timer">0.0초</span>
-      </div>
-      <div class="mz-board-wrap">
-        <div class="mz-board" id="mz-board"></div>
-      </div>
-    </div>
-
-    <div id="mz-clear-area" style="display:none">
-      <div class="sd-msg win" id="mz-clear-msg"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" id="mz-next-btn" onclick="mzNextMaze()">다음 미로</button>
-      </div>
-    </div>
-
-    <div id="mz-final-area" style="display:none">
-      <div class="board-box">
-        <div class="board-box-title">최종 결과</div>
-        <div class="lb-row"><span>총 걸린 시간</span><b id="mz-final-total">0.0초</b></div>
-        <div class="lb-row"><span>역대 최고 기록</span><b id="mz-final-best">기록 없음</b></div>
-      </div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="mzRestart()">다시 도전</button>
-      </div>
-    </div>
-
-    <div class="lobby-panel" id="mz-opponents" style="margin-top:14px;"></div>
-  </div>
-</div>
-
-<div id="wordchain" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="wc-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">끝말잇기 타이머</h2>
-    <p class="game-sub">차례대로 끝말잇기! 제한 시간(15초) 안에 다음 단어를 못 이으면 목숨을 하나 잃어요.</p>
-
-    <div id="wc-need-two">
-      <p class="game-sub">이 게임은 2명 이상 있어야 할 수 있어요. (현재 인원: <span id="wc-player-count">0</span>명, 친구를 같은 방으로 초대해보세요!)</p>
-    </div>
-
-    <div id="wc-game-area" style="display:none">
-      <div class="wc-lives-panel" id="wc-lives-panel"></div>
-      <div class="wc-turn-row">
-        <span class="wc-turn-indicator" id="wc-turn-indicator"></span>
-        <span class="wc-timer" id="wc-timer">15</span>
-      </div>
-      <div class="story-input-row" style="margin-bottom:10px;">
-        <input id="wc-input" type="text" placeholder="다음 단어를 입력해보세요" maxlength="12" onkeydown="if(event.key==='Enter')wcSubmit()" oninput="groupHandleTyping()" />
-        <button class="btn btn-primary" id="wc-submit-btn" onclick="wcSubmit()">제출</button>
-      </div>
-      <div class="pixel-err" id="wc-err"></div>
-      <div class="board-box-title" style="margin-top:14px; text-align:left;">지금까지 이어진 단어들</div>
-      <div class="story-list" id="wc-chain-list"></div>
-    </div>
-
-    <div id="wc-over-area" style="display:none">
-      <div class="sd-msg over" id="wc-over-msg"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="wcRestart()">다시 도전</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="lie" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="lie-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">거짓말 탐지</h2>
-    <p class="game-sub">진짜 사실 2개 + 거짓말 1개를 제출하고, 서로 투표로 누구의 거짓말인지 맞혀보세요! 거짓말을 맞히면 +1점, 반대로 그럴싸한 거짓말로 남을 속이면 속인 사람 수만큼 점수를 받아요. 투표는 15초 안에!</p>
-
-    <div id="lie-need-two">
-      <p class="game-sub">이 게임은 2명 이상 있어야 할 수 있어요. (현재 인원: <span id="lie-player-count">0</span>명, 친구를 같은 방으로 초대해보세요!)</p>
-    </div>
-
-    <div id="lie-submit-area" style="display:none">
-      <p class="game-sub">진짜 2개, 거짓말 1개를 적고 어떤 게 거짓말인지 골라주세요.</p>
-      <div class="lie-input-row">
-        <span class="lie-input-num">①</span>
-        <input class="lie-stmt-input" id="lie-stmt-0" type="text" placeholder="문장을 입력하세요" maxlength="60" oninput="groupHandleTyping()" />
-        <label class="lie-radio"><input type="radio" name="lie-pick" value="0" /> 거짓말</label>
-      </div>
-      <div class="lie-input-row">
-        <span class="lie-input-num">②</span>
-        <input class="lie-stmt-input" id="lie-stmt-1" type="text" placeholder="문장을 입력하세요" maxlength="60" oninput="groupHandleTyping()" />
-        <label class="lie-radio"><input type="radio" name="lie-pick" value="1" /> 거짓말</label>
-      </div>
-      <div class="lie-input-row">
-        <span class="lie-input-num">③</span>
-        <input class="lie-stmt-input" id="lie-stmt-2" type="text" placeholder="문장을 입력하세요" maxlength="60" oninput="groupHandleTyping()" />
-        <label class="lie-radio"><input type="radio" name="lie-pick" value="2" /> 거짓말</label>
-      </div>
-      <div class="pixel-err" id="lie-submit-err"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="lieSubmitStatements()">제출하기</button>
-      </div>
-    </div>
-
-    <div id="lie-wait-submit-area" style="display:none">
-      <p class="sd-msg" id="lie-wait-submit-msg">제출 완료! 다른 사람들을 기다리는 중...</p>
-    </div>
-
-    <div id="lie-vote-area" style="display:none">
-      <div class="lie-subject-name" id="lie-subject-name"></div>
-      <div class="lie-vote-timer" id="lie-vote-timer"></div>
-      <p class="lie-vote-hint" id="lie-vote-hint"></p>
-      <div class="lie-statements" id="lie-statements"></div>
-    </div>
-
-    <div id="lie-reveal-area" style="display:none">
-      <div class="lie-subject-name" id="lie-reveal-subject"></div>
-      <div class="sd-msg win" id="lie-reveal-answer"></div>
-      <p class="lie-vote-hint" id="lie-reveal-note"></p>
-    </div>
-
-    <div id="lie-final-area" style="display:none">
-      <div class="board-box-title" style="text-align:center;">탐정왕은 누구? (거짓말을 잘 맞히거나, 그럴싸하게 잘 속인 사람이 높은 점수!)</div>
-      <div class="lobby-panel" id="lie-final-board"></div>
-      <div class="btn-row" style="justify-content:center; margin-top:14px;">
-        <button class="btn btn-primary" onclick="lieRestart()">새 게임 시작</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="land" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="ld-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">땅따먹기</h2>
-    <p class="game-sub">내 땅 밖으로 나가 선을 긋고 다시 내 땅으로 돌아오면 그 영역이 내 땅이 돼요! 어떤 선이든(내 것도, 남의 것도) 부딪히면 처음 자리로 돌아가요. 90초 뒤 가장 넓은 땅을 가진 사람이 승리!</p>
-
-    <div id="ld-need-two">
-      <p class="game-sub">이 게임은 2명 이상 있어야 할 수 있어요. (현재 인원: <span id="ld-player-count">0</span>명, 친구를 같은 방으로 초대해보세요!)</p>
-    </div>
-
-    <div id="ld-game-area" style="display:none">
-      <div class="ld-timer" id="ld-timer">1:30</div>
-      <div class="ld-canvas-wrap">
-        <canvas id="ld-canvas" width="468" height="324"></canvas>
-        <div class="ld-pop-flash" id="ld-pop-flash" style="display:none;">펑! 💥</div>
-      </div>
-      <div class="ld-progress-list" id="ld-progress-list"></div>
-    </div>
-
-    <div id="ld-over-area" style="display:none">
-      <div class="board-box-title" style="text-align:center;">땅따먹기왕은 누구? 👑</div>
-      <div class="lobby-panel" id="ld-final-board"></div>
-      <div class="btn-row" style="justify-content:center; margin-top:14px;">
-        <button class="btn btn-primary" onclick="ldRestart()">새 게임 시작</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="apple" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="ap-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">사과게임</h2>
-    <p class="game-sub">드래그해서 사과 숫자 합이 10이 되면 지워보세요!</p>
-
-    <div id="ap-intro">
-      <div class="board-box">
-        <div class="board-box-title">역대 최고 점수</div>
-        <div class="lb-row"><span>최고 점수</span><b id="ap-best-intro">기록 없음</b></div>
-      </div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="apBeginGame()">시작하기</button>
-      </div>
-    </div>
-
-    <div id="ap-game-area" style="display:none">
-      <div class="ap-hud">
-        <div class="ap-score">점수 <b id="ap-score-val">0</b></div>
-        <div class="ap-timer-text" id="ap-timer-text">2:00</div>
-      </div>
-      <div class="ap-play-row">
-        <div class="ap-board-wrap" id="ap-board-wrap"></div>
-        <div class="ap-gauge-wrap" id="ap-gauge-wrap"><div class="ap-gauge-fill" id="ap-gauge-fill"></div></div>
-      </div>
-    </div>
-
-    <div id="ap-final-area" style="display:none">
-      <div class="board-box">
-        <div class="board-box-title">결과</div>
-        <div class="lb-row"><span>이번 점수</span><b id="ap-final-score">0점</b></div>
-        <div class="lb-row" id="ap-final-fullclear-row" style="display:none"><span>올클리어 시간</span><b id="ap-final-fullclear-time">0.00초</b></div>
-        <div class="lb-row"><span>역대 최고 점수</span><b id="ap-final-best">기록 없음</b></div>
-      </div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="apRestart()">다시 도전</button>
-      </div>
-    </div>
-
-    <div class="lobby-panel" id="ap-opponents" style="margin-top:14px;"></div>
+    <p class="bb-help">마우스(손가락)로 이동 · 클릭(탭)으로 점프 · 키보드 ←/→ + 스페이스</p>
   </div>
 </div>
 
@@ -958,16 +699,24 @@ window.addEventListener('load', function () {
     </div>
 
     <div id="ch-inside-area" style="display:none">
-      <div class="ch-inside-header">
-        <button class="btn btn-ghost" onclick="backToChannelList()">← 채널 목록</button>
-        <div class="ch-inside-title" id="ch-inside-title"></div>
+      <div class="ch-room">
+        <div class="ch-room-head">
+          <button class="ch-room-back" onclick="backToChannelList()" title="채널 목록">←</button>
+          <div class="ch-room-titlebox">
+            <div class="ch-room-title"># <span id="ch-inside-title"></span></div>
+            <div class="ch-room-sub" id="ch-inside-members"></div>
+          </div>
+        </div>
+        <div class="ch-messages chat-scroll" id="ch-messages"></div>
+        <div class="chat-upload-err" id="ch-upload-err"></div>
+        <div class="chat-composer">
+          <button type="button" class="chat-attach-btn" id="ch-attach-btn" title="사진·파일 올리기">📎</button>
+          <input type="file" id="ch-file-input" multiple hidden />
+          <input type="text" id="ch-chat-input" placeholder="메시지 입력 (링크도 OK)" maxlength="500" autocomplete="off" oninput="groupHandleTyping()" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();chSendMessage();}" />
+          <button type="button" class="chat-send-btn" onclick="chSendMessage()">전송</button>
+        </div>
       </div>
-      <div class="ch-inside-members" id="ch-inside-members"></div>
-      <div class="ch-messages group-chat-messages" id="ch-messages"></div>
-      <div class="group-chat-input-row">
-        <input type="text" id="ch-chat-input" placeholder="메시지 입력..." maxlength="200" oninput="groupHandleTyping()" onkeydown="if(event.key==='Enter'){event.preventDefault();chSendMessage();}" />
-        <button class="btn btn-primary" onclick="chSendMessage()">전송</button>
-      </div>
+      <div class="ch-room-tip">사진·파일은 📎 버튼, 끌어다 놓기, Ctrl+V 붙여넣기로 올릴 수 있어요 (파일은 700KB까지)</div>
     </div>
   </div>
 </div>
@@ -975,8 +724,15 @@ window.addEventListener('load', function () {
 <!-- 온라인에서 방장이 게임을 고르면, 멤버들도 시작하기 전에 게임 방법을 볼 수 있게 보여주는 화면 -->
 <div id="rules-overlay" class="rules-overlay" style="display:none;">
   <div class="rules-box">
+    <button class="rules-close" id="rules-close-btn" onclick="closeGameManual()" aria-label="닫기">✕</button>
+    <div class="rules-tag" id="rules-tag"></div>
     <div class="rules-title" id="rules-title"></div>
     <div class="rules-text" id="rules-text"></div>
+    <div class="rules-nav">
+      <button class="rules-arrow" id="rules-prev" onclick="rulesGoPage(-1)" aria-label="이전 쪽">◀</button>
+      <div class="rules-dots" id="rules-dots"></div>
+      <button class="rules-arrow" id="rules-next" onclick="rulesGoPage(1)" aria-label="다음 쪽">▶</button>
+    </div>
     <button class="btn btn-primary" id="rules-ready-btn" onclick="dismissRulesOverlay()">준비 완료!</button>
     <div class="rules-wait-msg" id="rules-wait-msg"></div>
     <button class="btn btn-ghost" id="rules-force-btn" style="display:none;" onclick="rulesForceStart()">다 준비 안 됐어도 바로 시작하기 (방장)</button>
@@ -993,16 +749,20 @@ window.addEventListener('load', function () {
     💬<span class="group-unread-badge" id="group-unread-badge" style="display:none;">0</span>
   </button>
   <div class="group-panel" id="group-panel" style="display:none;">
+    <div class="group-drag-handle" id="group-drag-handle" title="끌어서 옮기기 · 두 번 누르면 원래 자리"><span class="group-grip"></span></div>
     <div class="group-tabs">
       <button class="group-tab active" id="group-tab-chat" onclick="switchGroupTab('chat')">채팅</button>
       <button class="group-tab" id="group-tab-members" onclick="switchGroupTab('members')">멤버 <span id="group-member-count"></span></button>
       <button class="group-panel-close" onclick="toggleGroupPanel()">✕</button>
     </div>
     <div id="group-chat-tab">
-      <div class="group-chat-messages" id="group-chat-messages"></div>
-      <div class="group-chat-input-row">
-        <input type="text" id="group-chat-input" placeholder="메시지 입력..." maxlength="200" />
-        <button class="btn btn-primary" onclick="groupSendChat()">전송</button>
+      <div class="group-chat-messages chat-scroll compact" id="group-chat-messages"></div>
+      <div class="chat-upload-err" id="group-upload-err"></div>
+      <div class="chat-composer compact">
+        <button type="button" class="chat-attach-btn" id="group-attach-btn" title="사진·파일 올리기">📎</button>
+        <input type="file" id="group-file-input" multiple hidden />
+        <input type="text" id="group-chat-input" placeholder="메시지 입력..." maxlength="500" autocomplete="off" />
+        <button type="button" class="chat-send-btn" onclick="groupSendChat()">전송</button>
       </div>
     </div>
     <div id="group-members-tab" style="display:none;">
@@ -1012,32 +772,23 @@ window.addEventListener('load', function () {
 </div>
 
 <!-- 데이터 파일: 각 게임에 필요한 데이터(문제/사진 등)를 먼저 불러옵니다 -->
-<script src="data/pixel-data.js"></script>
-<script src="data/story-data.js"></script>
-<script src="data/wordchain-data.js"></script>
-<script src="data/person-idol-data.js"></script>
-<script src="data/person-actor-data.js"></script>
 <script src="data/bomb-data.js"></script>
 <script src="data/quiz-data.js"></script>
-<script src="data/apple-data.js"></script>
+<script src="data/wordsearch-data.js"></script>
 
 <!-- 게임 로직 파일: 공용 코드(core.js)를 먼저 불러온 뒤 각 게임 코드를 불러옵니다 -->
 <script src="js/core.js"></script>
-<script src="js/pixel.js"></script>
-<script src="js/story.js"></script>
-<script src="js/person.js"></script>
+<script src="js/chat.js"></script>
 <script src="js/sudoku.js"></script>
 <script src="js/bomb.js"></script>
 <script src="js/quiz.js"></script>
-<script src="js/stroop.js"></script>
-<script src="js/reversemem.js"></script>
-<script src="js/findx.js"></script>
-<script src="js/tensec.js"></script>
-<script src="js/maze.js"></script>
-<script src="js/wordchain.js"></script>
-<script src="js/lie.js"></script>
-<script src="js/land.js"></script>
+<script src="js/mafia.js"></script>
+<script src="js/wolf.js"></script>
+<script src="js/wordsearch.js"></script>
+<script src="js/hues.js"></script>
+<script src="js/tapple.js"></script>
+<script src="js/baby.js"></script>
+<script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
-<script src="js/apple.js"></script>
 </body>
 </html>

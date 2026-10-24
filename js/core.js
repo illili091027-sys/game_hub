@@ -168,10 +168,20 @@ function applyRoomState(state) {
   roomPlayersList = state.players;
   var amHost = (myPlayerId === roomHostId);
   renderLobbyPlayers(state.players);
-  document.getElementById('card-grid').style.display = amHost ? '' : 'none';
+  /* 예전엔 방장이 아니면 카드 목록(#card-grid) 전체를 통째로 숨겼는데, 그 안에는 방장만
+     고를 수 있는 게임 카드들뿐 아니라 0번 채널 라운지 카드도 같이 들어있어서, 결과적으로
+     방장이 아닌 사람은 채널 라운지조차 못 여는 버그가 있었습니다(채널 라운지는 애초에
+     방장이 골라야 들어가는 게임이 아니라 다같이 자유롭게 여닫는 화면이라 이러면 안 됨).
+     이제는 카드 목록 자체는 항상 보여주고, 방장만 고를 수 있는 "진짜 게임" 카드들만 흐리게
+     표시해서(클릭해도 hostSelectGame에서 막힘) 채널 라운지는 누구나 항상 쓸 수 있습니다. */
+  document.getElementById('card-grid').style.display = '';
+  document.querySelectorAll('#card-grid .game-card').forEach(function (card) {
+    if (card.id === 'card-channels') { card.classList.remove('disabled'); return; }
+    card.classList.toggle('disabled', !amHost);
+  });
   document.getElementById('lobby-hint').textContent = amHost
-    ? '아래에서 같이 할 게임을 골라주세요.'
-    : '방장이 게임을 고르는 중이에요...';
+    ? '아래에서 같이 할 게임을 골라주세요. (0번 채널 라운지는 누구나 자유롭게 열 수 있어요)'
+    : '채널 라운지(0번)는 자유롭게 쓸 수 있어요. 다른 게임은 방장이 고르면 같이 시작돼요.';
   var activeView = document.querySelector('.view.active');
   var activeIsHome = activeView && activeView.id === 'home';
   if (roomCurrentGame) {
@@ -312,9 +322,10 @@ if (document.getElementById('in-server').value) {
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-findx', 'card-wordchain', 'card-lie', 'card-land', 'card-channels'];
-/* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다. */
-var SOLO_ONLY_CARD_IDS = ['card-story', 'card-reversemem'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple'];
+/* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
+   (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
+var SOLO_ONLY_CARD_IDS = ['card-wordsearch'];
 
 function chooseMode(mode) {
   playMode = mode;
@@ -391,8 +402,8 @@ function backToModeSelect() {
   playMode = null;
 }
 
-var ONLINE_ONLY_GAME_IDS = ['findx', 'wordchain', 'lie', 'land'];
-var SOLO_ONLY_GAME_IDS = ['story', 'reversemem'];
+var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'mafia', 'werewolf', 'hues', 'tapple'];
+var SOLO_ONLY_GAME_IDS = ['wordsearch'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -409,26 +420,142 @@ var RULES_READY_POLL_TIMER = null;
 
 function rulesReadyKey() { return roomKey('gamestart_ready'); }
 
-function showGameRulesOverlay(gameId, onStart) {
+/* 설명서(페이지 넘김) - manuals.js의 GAME_MANUALS를 한 장씩 보여줍니다.
+   RULES_MODE: 'online'(다같이 준비 완료) | 'solo'(바로 시작하기) | 'manual'(홈에서 우클릭으로 보기만) */
+var RULES_MODE = 'online';
+var RULES_PAGE = 0;
+var RULES_MANUAL_ID = null;
+
+function rulesRenderPage() {
+  var man = (typeof GAME_MANUALS !== 'undefined') ? GAME_MANUALS[RULES_MANUAL_ID] : null;
+  var pages = man ? man.pages : [];
+  var textEl = document.getElementById('rules-text');
+  if (!pages.length) {
+    var descEl = document.getElementById('desc-' + RULES_MANUAL_ID);
+    textEl.innerHTML = '<div class="rules-page-body"><p>' + esc(descEl ? descEl.textContent : '') + '</p></div>';
+    document.getElementById('rules-dots').innerHTML = '';
+    document.getElementById('rules-prev').style.visibility = 'hidden';
+    document.getElementById('rules-next').style.visibility = 'hidden';
+    return;
+  }
+  RULES_PAGE = Math.max(0, Math.min(pages.length - 1, RULES_PAGE));
+  var pg = pages[RULES_PAGE];
+  textEl.innerHTML = '<div class="rules-page-head"><span class="rules-page-icon">' + pg.icon + '</span><span class="rules-page-title">' + pg.title + '</span><span class="rules-page-num">' + (RULES_PAGE + 1) + ' / ' + pages.length + '</span></div>' +
+    '<ul class="rules-page-body">' + pg.lines.map(function (l) { return '<li>' + l + '</li>'; }).join('') + '</ul>';
+  document.getElementById('rules-dots').innerHTML = pages.map(function (_, i) {
+    return '<button class="rules-dot' + (i === RULES_PAGE ? ' on' : '') + '" onclick="rulesGoPage(' + (i - RULES_PAGE) + ')" aria-label="' + (i + 1) + '쪽"></button>';
+  }).join('');
+  document.getElementById('rules-prev').style.visibility = RULES_PAGE > 0 ? 'visible' : 'hidden';
+  document.getElementById('rules-next').style.visibility = RULES_PAGE < pages.length - 1 ? 'visible' : 'hidden';
+}
+
+function rulesGoPage(delta) {
+  RULES_PAGE += delta;
+  rulesRenderPage();
+}
+
+function rulesOpenBox(gameId) {
+  var man = (typeof GAME_MANUALS !== 'undefined') ? GAME_MANUALS[gameId] : null;
   var nameEl = document.querySelector('#card-' + gameId + ' .game-name');
-  var descEl = document.getElementById('desc-' + gameId);
-  document.getElementById('rules-title').textContent = nameEl ? nameEl.textContent : '';
-  document.getElementById('rules-text').textContent = descEl ? descEl.textContent : '';
+  RULES_MANUAL_ID = gameId;
+  RULES_PAGE = 0;
+  document.getElementById('rules-title').textContent = man ? man.name : (nameEl ? nameEl.textContent : '');
+  document.getElementById('rules-tag').textContent = man ? man.tag : '';
+  rulesRenderPage();
   document.getElementById('rules-overlay').style.display = 'flex';
+}
+
+function showGameRulesOverlay(gameId, onStart) {
+  RULES_MODE = playMode === 'online' ? 'online' : 'solo';
+  rulesOpenBox(gameId);
   var btn = document.getElementById('rules-ready-btn');
+  btn.style.display = '';
   btn.disabled = false;
-  btn.textContent = '준비 완료!';
+  btn.textContent = RULES_MODE === 'solo' ? '시작하기!' : '준비 완료!';
+  document.getElementById('rules-close-btn').style.display = 'none';
   document.getElementById('rules-wait-msg').textContent = '';
-  document.getElementById('rules-force-btn').style.display = (myPlayerId === roomHostId) ? '' : 'none';
+  document.getElementById('rules-wait-msg').style.display = RULES_MODE === 'online' ? '' : 'none';
+  document.getElementById('rules-force-btn').style.display = (RULES_MODE === 'online' && myPlayerId === roomHostId) ? '' : 'none';
   RULES_PENDING_START = onStart;
   RULES_PENDING_GAME = gameId;
   RULES_STARTED = false;
   clearInterval(RULES_READY_POLL_TIMER);
-  RULES_READY_POLL_TIMER = setInterval(function () { rulesCheckReady(gameId); }, 500);
-  rulesCheckReady(gameId);
+  if (RULES_MODE === 'online') {
+    RULES_READY_POLL_TIMER = setInterval(function () { rulesCheckReady(gameId); }, 500);
+    rulesCheckReady(gameId);
+  }
 }
 
+/* 홈에서 카드 우클릭(휴대폰은 길게 누르기) → 설명서만 보기 */
+function showGameManual(gameId) {
+  if (document.getElementById('rules-overlay').style.display === 'flex' && RULES_MODE !== 'manual') return;
+  RULES_MODE = 'manual';
+  rulesOpenBox(gameId);
+  document.getElementById('rules-ready-btn').style.display = 'none';
+  document.getElementById('rules-force-btn').style.display = 'none';
+  document.getElementById('rules-wait-msg').style.display = 'none';
+  document.getElementById('rules-close-btn').style.display = '';
+}
+
+function closeGameManual() {
+  if (RULES_MODE !== 'manual') return;
+  document.getElementById('rules-overlay').style.display = 'none';
+}
+
+(function rulesSetupInteractions() {
+  var overlay = document.getElementById('rules-overlay');
+  var grid = document.getElementById('card-grid');
+  document.addEventListener('keydown', function (e) {
+    if (overlay.style.display !== 'flex') return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); rulesGoPage(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); rulesGoPage(1); }
+    else if (e.key === 'Escape') closeGameManual();
+  });
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeGameManual(); });
+  // 휴대폰에서 좌우로 밀어서 넘기기
+  var page = document.getElementById('rules-text');
+  var sx = null;
+  page.addEventListener('pointerdown', function (e) { sx = e.clientX; });
+  page.addEventListener('pointerup', function (e) {
+    if (sx === null) return;
+    var dx = e.clientX - sx;
+    sx = null;
+    if (Math.abs(dx) > 45) rulesGoPage(dx < 0 ? 1 : -1);
+  });
+  if (!grid) return;
+  function cardIdOf(target) {
+    var card = target.closest && target.closest('.game-card');
+    return card ? card.id.replace(/^card-/, '') : null;
+  }
+  grid.addEventListener('contextmenu', function (e) {
+    var id = cardIdOf(e.target);
+    if (!id) return;
+    e.preventDefault();
+    showGameManual(id);
+  });
+  // 길게 누르기(터치) - iOS는 contextmenu가 안 떠서 직접 처리
+  var pressTimer = null, pressFired = false, startPt = null;
+  grid.addEventListener('touchstart', function (e) {
+    var id = cardIdOf(e.target);
+    if (!id) return;
+    pressFired = false;
+    startPt = e.touches[0] ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(function () { pressFired = true; showGameManual(id); }, 550);
+  }, { passive: true });
+  grid.addEventListener('touchmove', function (e) {
+    if (!startPt || !e.touches[0]) return;
+    if (Math.abs(e.touches[0].clientX - startPt.x) + Math.abs(e.touches[0].clientY - startPt.y) > 12) clearTimeout(pressTimer);
+  }, { passive: true });
+  grid.addEventListener('touchend', function () { clearTimeout(pressTimer); }, { passive: true });
+  grid.addEventListener('click', function (e) {
+    if (pressFired) { pressFired = false; e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); }
+  }, true);
+})();
+
 function dismissRulesOverlay() {
+  if (RULES_MODE === 'solo') { rulesStartNow(); return; }
+  if (RULES_MODE === 'manual') { closeGameManual(); return; }
   var btn = document.getElementById('rules-ready-btn');
   btn.disabled = true;
   btn.textContent = '준비 완료! 다른 사람을 기다리는 중...';
@@ -488,27 +615,23 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { pixel: 'px-room-pill', person: 'ps-room-pill', sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', stroop: 'sw-room-pill', reversemem: 'rm-room-pill', findx: 'fx-room-pill', tensec: 'ts-room-pill', maze: 'mz-room-pill', wordchain: 'wc-room-pill', lie: 'lie-room-pill', land: 'ld-room-pill', apple: 'ap-room-pill' };
-  var pillId = PILL_IDS[gameId] || 'st-room-pill';
-  document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill' };
+  var pillId = PILL_IDS[gameId];
+  if (pillId && document.getElementById(pillId)) {
+    document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
+  }
   clearInterval(pollTimer);
   clearInterval(pixelTickTimer);
   var startFn = function () {
-    if (gameId === 'pixel') resetPixelToCategorySelect();
-    else if (gameId === 'person') resetPersonToCategorySelect();
-    else if (gameId === 'sudoku') startSudokuGame();
+    if (gameId === 'sudoku') startSudokuGame();
     else if (gameId === 'bomb') startBombGame();
     else if (gameId === 'quiz') startQuiz();
-    else if (gameId === 'stroop') startStroop();
-    else if (gameId === 'reversemem') startReverseMem();
-    else if (gameId === 'findx') startFindX();
-    else if (gameId === 'tensec') startTenSec();
-    else if (gameId === 'maze') startMaze();
-    else if (gameId === 'wordchain') startWordChain();
-    else if (gameId === 'lie') startLieGame();
-    else if (gameId === 'land') startLandGame();
-    else if (gameId === 'apple') startAppleGame();
-    else startStory();
+    else if (gameId === 'mafia') startMafiaGame();
+    else if (gameId === 'werewolf') startWerewolfGame();
+    else if (gameId === 'hues') startHuesGame();
+    else if (gameId === 'tapple') startTappleGame();
+    else if (gameId === 'baby') startBabyGame();
+    else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
   if (playMode === 'online') {
@@ -516,7 +639,7 @@ function enterGame(gameId) {
     showGameRulesOverlay(gameId, startFn);
   } else {
     stopGameMembersBar();
-    startFn();
+    showGameRulesOverlay(gameId, startFn);
   }
 }
 
@@ -528,24 +651,16 @@ function enterGame(gameId) {
 var GAME_ROOM_STATE_KEYS = {
   sudoku: ['sudoku'],
   quiz: ['quiz'],
-  pixel: ['pixel'],
-  person: ['person'],
-  findx: ['findx'],
-  wordchain: ['wordchain'],
-  lie: ['lie'],
-  land: ['land_grid'],
-  story: ['wordhalf']
+  mafia: ['mafia'],
+  werewolf: ['werewolf'],
+  hues: ['hues'],
+  tapple: ['tapple']
 };
 var GAME_PER_PLAYER_STATE_KEYS = {
   bomb: 'bomb_p_',
-  stroop: 'stroop_p_',
-  tensec: 'tensec_r_',
-  maze: 'maze_r_',
-  reversemem: 'reversemem_p_',
-  land: 'land_p_',
-  apple: 'apple_p_'
+  baby: 'baby_p_'
 };
-var GAME_VOTE_KEYS = ['pixel', 'person', 'sudoku'];
+var GAME_VOTE_KEYS = ['sudoku'];
 
 function resetGameRoomState(gameId) {
   if (playMode !== 'online' || !me.room) return;
@@ -565,19 +680,14 @@ function goHome() {
   clearInterval(pixelTickTimer);
   stopSudokuTimer();
   stopBombGame();
-  stopStroop();
-  stopReverseMem();
-  stopFindX();
-  stopTenSec();
-  stopMaze();
-  stopWordChain();
-  stopLieGame();
-  stopLandGame();
-  stopAppleGame();
   clearInterval(QZ_TIMER_INTERVAL);
   clearTimeout(QZ_ADVANCE_TIMER);
-  if (typeof PX_VOTE_STOP === 'function') { PX_VOTE_STOP(); PX_VOTE_STOP = null; }
-  if (typeof PS_VOTE_STOP === 'function') { PS_VOTE_STOP(); PS_VOTE_STOP = null; }
+  stopMafiaGame();
+  stopWerewolfGame();
+  stopHuesGame();
+  stopTappleGame();
+  stopBabyGame();
+  stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';
   RULES_PENDING_START = null;
@@ -719,7 +829,7 @@ function ctRenderVoteButtons(containerId, hintElId, state) {
   }
 }
 
-/* game: 'pixel'/'person'/'sudoku' 같은 게임 키, containerId: 카테고리 버튼들을 담은 컨테이너,
+/* game: 'sudoku' 같은 게임 키, containerId: 카테고리/난이도 버튼들을 담은 컨테이너,
    hintElId: 투표 현황을 보여줄 안내 문구 요소, onResolved(cat): 다수결로 정해졌을 때 호출.
    반환값은 폴링을 멈추는 함수입니다. */
 function ctStartVoteUI(game, containerId, hintElId, onResolved) {
@@ -781,6 +891,7 @@ function startGroupWidget() {
   GROUP_PANEL_OPEN = false;
   document.getElementById('group-panel').style.display = 'none';
   document.getElementById('group-unread-badge').style.display = 'none';
+  if (typeof gwApplyBtnPos === 'function') gwApplyBtnPos();
   clearInterval(GROUP_POLL_TIMER);
   groupPoll();
   GROUP_POLL_TIMER = setInterval(groupPoll, 1500);
@@ -798,6 +909,9 @@ function toggleGroupPanel() {
   document.getElementById('group-panel').style.display = GROUP_PANEL_OPEN ? '' : 'none';
   if (GROUP_PANEL_OPEN) {
     document.getElementById('group-unread-badge').style.display = 'none';
+    if (typeof gwPlacePanel === 'function') gwPlacePanel();
+    var msgEl = document.getElementById('group-chat-messages');
+    if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
     groupPoll();
   }
 }
@@ -817,10 +931,15 @@ function groupPoll() {
     var messages = (state && state.messages) || [];
     groupRenderChat(messages);
     var viewingChat = GROUP_PANEL_OPEN && GROUP_ACTIVE_TAB === 'chat';
+    var seenIdx = -1;
+    if (GROUP_LAST_SEEN_COUNT) {
+      for (var si = messages.length - 1; si >= 0; si--) { if (messages[si].id === GROUP_LAST_SEEN_COUNT) { seenIdx = si; break; } }
+    }
+    var unseen = GROUP_LAST_SEEN_COUNT ? (messages.length - 1 - seenIdx) : messages.length;
     if (viewingChat) {
-      GROUP_LAST_SEEN_COUNT = messages.length;
-    } else if (messages.length > GROUP_LAST_SEEN_COUNT) {
-      var newCount = messages.length - GROUP_LAST_SEEN_COUNT;
+      GROUP_LAST_SEEN_COUNT = messages.length ? messages[messages.length - 1].id : 0;
+    } else if (unseen > 0) {
+      var newCount = unseen;
       var badge = document.getElementById('group-unread-badge');
       badge.textContent = newCount > 9 ? '9+' : String(newCount);
       badge.style.display = '';
@@ -832,15 +951,9 @@ function groupPoll() {
 }
 
 function groupRenderChat(messages) {
-  if (messages.length === GROUP_LAST_RENDERED_COUNT) return;
-  GROUP_LAST_RENDERED_COUNT = messages.length;
-  var el = document.getElementById('group-chat-messages');
-  if (!el) return;
-  el.innerHTML = messages.length ? messages.map(function (m) {
-    var mine = m.pid === myPlayerId;
-    return '<div class="group-chat-msg' + (mine ? ' mine' : '') + '"><span class="group-chat-name">' + esc(m.name) + '</span><span class="group-chat-text">' + esc(m.text) + '</span></div>';
-  }).join('') : '<div class="lobby-hint">아직 채팅이 없어요. 첫 메시지를 남겨보세요!</div>';
-  el.scrollTop = el.scrollHeight;
+  if (typeof GROUP_CHAT_TRACKER === 'undefined') return;
+  if (GROUP_LAST_RENDERED_COUNT === -1) { GROUP_CHAT_TRACKER.lastSig = null; GROUP_LAST_RENDERED_COUNT = 0; }
+  chatRenderInto(document.getElementById('group-chat-messages'), messages, GROUP_CHAT_TRACKER, '아직 채팅이 없어요. 첫 메시지를 남겨보세요!');
 }
 
 function groupSendChat() {
@@ -848,13 +961,7 @@ function groupSendChat() {
   var text = input.value.trim();
   if (!text || !roomJoined) return;
   input.value = '';
-  DBget(groupChatKey()).then(function (state) {
-    state = state || { messages: [] };
-    state.messages = state.messages || [];
-    state.messages.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2, 6), pid: myPlayerId, name: me.name, text: text.slice(0, 200), ts: Date.now() });
-    if (state.messages.length > 50) state.messages = state.messages.slice(-50);
-    DBset(groupChatKey(), state).then(function () { groupPoll(); });
-  });
+  chatSendText(groupChatKey(), text).then(function () { groupPoll(); });
   groupClearTyping();
 }
 
@@ -949,7 +1056,7 @@ function gmbRender(typing) {
   if (!input) return;
   input.addEventListener('input', groupHandleTyping);
   input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); groupSendChat(); }
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); groupSendChat(); }
   });
 })();
 

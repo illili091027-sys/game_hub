@@ -18,7 +18,7 @@ var CH_CHANNELS_CACHE = [];
 var CH_LIST_POLL_TIMER = null;
 var CH_CHAT_POLL_TIMER = null;
 var CH_MEMBER_HEARTBEAT_TIMER = null;
-var CH_LAST_RENDERED_COUNT = -1;
+var CH_CHAT_TRACKER = { lastSig: null, pending: [] };
 
 function channelsKey() { return roomKey('lchannels'); }
 function chMembersKey(chId) { return roomKey('lchan_m_' + chId); }
@@ -117,7 +117,10 @@ function chDeleteChannels(ids) {
   });
   ids.forEach(function (id) {
     DBset(chMembersKey(id), null);
-    DBset(chChatKey(id), null);
+    DBget(chChatKey(id)).then(function (chat) {
+      if (chat && chat.messages) chatDeleteFilesOf(chat.messages);
+      DBset(chChatKey(id), null);
+    });
   });
 }
 
@@ -132,7 +135,8 @@ function enterChannel(chId) {
   document.getElementById('ch-inside-area').style.display = '';
   document.getElementById('ch-inside-title').textContent = ch.name;
   document.getElementById('ch-messages').innerHTML = '';
-  CH_LAST_RENDERED_COUNT = -1;
+  document.getElementById('ch-upload-err').textContent = '';
+  CH_CHAT_TRACKER = { lastSig: null, pending: [] };
   chHeartbeat(chId).then(function () { if (chId === CH_CURRENT_ID) chPollInside(); });
   clearInterval(CH_MEMBER_HEARTBEAT_TIMER);
   CH_MEMBER_HEARTBEAT_TIMER = setInterval(function () { chHeartbeat(CH_CURRENT_ID); }, 2000);
@@ -190,15 +194,7 @@ function chPollInside() {
 }
 
 function chRenderMessages(messages) {
-  if (messages.length === CH_LAST_RENDERED_COUNT) return;
-  CH_LAST_RENDERED_COUNT = messages.length;
-  var el = document.getElementById('ch-messages');
-  if (!el) return;
-  el.innerHTML = messages.length ? messages.map(function (m) {
-    var mine = m.pid === myPlayerId;
-    return '<div class="group-chat-msg' + (mine ? ' mine' : '') + '"><span class="group-chat-name">' + esc(m.name) + '</span><span class="group-chat-text">' + esc(m.text) + '</span></div>';
-  }).join('') : '<div class="lobby-hint">아직 대화가 없어요. 첫 메시지를 남겨보세요!</div>';
-  el.scrollTop = el.scrollHeight;
+  chatRenderInto(document.getElementById('ch-messages'), messages, CH_CHAT_TRACKER, '아직 대화가 없어요. 첫 메시지를 남겨보세요!');
 }
 
 function chRenderInsideMembers(m) {
@@ -207,7 +203,7 @@ function chRenderInsideMembers(m) {
   var now = Date.now();
   var names = Object.keys(m).filter(function (pid) { return m[pid] && now - m[pid].ts < 8000; })
     .map(function (pid) { return m[pid].name + (pid === myPlayerId ? '(나)' : ''); });
-  el.textContent = names.length ? ('👥 ' + names.join(', ')) : '👥 아직 아무도 없어요';
+  el.textContent = names.length ? (names.length + '명 · ' + names.join(', ')) : '아직 아무도 없어요';
 }
 
 function chSendMessage() {
@@ -216,12 +212,28 @@ function chSendMessage() {
   if (!text || !CH_CURRENT_ID) return;
   var chId = CH_CURRENT_ID;
   input.value = '';
-  DBget(chChatKey(chId)).then(function (state) {
-    state = state || { messages: [] };
-    state.messages = state.messages || [];
-    state.messages.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2, 6), pid: myPlayerId, name: me.name, text: text.slice(0, 200), ts: Date.now() });
-    if (state.messages.length > 50) state.messages = state.messages.slice(-50);
-    DBset(chChatKey(chId), state).then(function () { if (chId === CH_CURRENT_ID) chPollInside(); });
-  });
+  input.focus();
+  chatSendText(chChatKey(chId), text).then(function () { if (chId === CH_CURRENT_ID) chPollInside(); });
   groupClearTyping();
 }
+
+/* 채널 안에서 파일/사진 올리기(📎 버튼, 끌어다 놓기, Ctrl+V 붙여넣기) */
+function chSendFiles(files) {
+  if (!CH_CURRENT_ID) return;
+  var chId = CH_CURRENT_ID;
+  var tracker = CH_CHAT_TRACKER;
+  chatSendFiles(chChatKey(chId), files, tracker, function () {
+    if (chId !== CH_CURRENT_ID) return;
+    DBget(chChatKey(chId)).then(function (state) {
+      if (chId === CH_CURRENT_ID) chRenderMessages((state && state.messages) || []);
+    });
+  }, function (msg) {
+    var el = document.getElementById('ch-upload-err');
+    if (el) el.textContent = msg;
+  });
+}
+
+(function chSetupRichChat() {
+  chatBindMessageArea(document.getElementById('ch-messages'), chSendFiles);
+  chatBindComposer({ inputId: 'ch-chat-input', attachBtnId: 'ch-attach-btn', fileInputId: 'ch-file-input', onFiles: chSendFiles });
+})();
