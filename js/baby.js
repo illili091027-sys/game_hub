@@ -3,7 +3,7 @@
    - 조작: 마우스(손가락)를 움직이면 아기가 그쪽으로 이동. 키보드 ←/→ 도 가능.
    - 점프는 자동! 구름에 닿을 때마다 저절로 튀어올라요(좌우만 조절).
    - 구름 종류: 하얀 구름(보통) / 먹구름(가짜 - 밟을 수 없음) / 무지개 구름(엄청 높이 튀어오름) /
-     구멍난 구름(한 번 밟으면 곧 부서짐) / 나중엔 좌우로 움직이는 구름도 나와요.
+     구멍난 구름(한 번 밟으면 곧 부서짐). 풍선은 좌우로 떠다니고, 잡으면 잠깐 매달려 하늘로 날아올라요.
    - 올라갈수록 AGE(나이)가 1살씩 늘고, 화면이 저절로 조금씩 올라가요. 화면 아래로 떨어지면 끝.
    - 풍선을 잡으면 보너스 점수!
    온라인: 똥벼락처럼 모두 동시에 시작해서 각자 플레이하고, 다른 사람의 나이/점수가 실시간으로
@@ -95,7 +95,8 @@ function bbNewRun(withCountdown) {
     camY: 0, maxH: 0, bonus: 0, started: false,
     clouds: [ground], balloons: [], sparkles: [], pops: [],
     lastPathY: 40, lastPathX: BB_W / 2, nextBalloonY: 600,
-    practice: playMode === 'online' && BB_OFFICIAL !== null
+    practice: playMode === 'online' && BB_OFFICIAL !== null,
+    ride: null, lastRainbowY: 0
   };
   bbGenerate();
   document.getElementById('bb-over').style.display = 'none';
@@ -153,12 +154,10 @@ function bbGenerate() {
     var r = Math.random();
     var type = 'normal';
     var pHoled = Math.min(0.05 + age * 0.025, 0.32);
-    if (r < 0.06 && age >= 2) type = 'rainbow';
-    else if (r < 0.06 + pHoled) type = 'holed';
+    /* 무지개 구름은 드물게: 3% 확률 + 앞 무지개와 최소 1600 높이 이상 떨어져야 나와요 */
+    if (r < 0.03 && age >= 3 && y - (BB.lastRainbowY || 0) > 1600) { type = 'rainbow'; BB.lastRainbowY = y; }
+    else if (r < 0.03 + pHoled) type = 'holed';
     var cloud = { x: x, y: y, w: w, type: type };
-    if (age >= 4 && type !== 'rainbow' && Math.random() < Math.min(0.05 * age, 0.35)) {
-      cloud.baseX = x; cloud.amp = 40 + Math.random() * 50; cloud.speed = 0.8 + Math.random() * 0.8 + age * 0.03; cloud.phase = Math.random() * 6.28;
-    }
     BB.clouds.push(cloud);
     // 가짜 먹구름(장식이자 함정)
     if (age >= 2 && Math.random() < Math.min(0.12 + age * 0.03, 0.45)) {
@@ -167,7 +166,8 @@ function bbGenerate() {
       BB.clouds.push({ x: fx, y: y - gap * (0.3 + Math.random() * 0.4), w: w * (0.9 + Math.random() * 0.3), type: 'dark' });
     }
     if (y > BB.nextBalloonY) {
-      BB.balloons.push({ x: 40 + Math.random() * (BB_W - 80), y: y + 40 + Math.random() * 40, color: ['#F2836B', '#6FC364', '#6FC3DF', '#B79CE8', '#F2C744'][Math.floor(Math.random() * 5)], bob: Math.random() * 6 });
+      var bx = 70 + Math.random() * (BB_W - 140);
+      BB.balloons.push({ x: bx, baseX: bx, amp: 50 + Math.random() * 60, spd: 0.6 + Math.random() * 0.6, phase: Math.random() * 6.28, y: y + 40 + Math.random() * 40, color: ['#F2836B', '#6FC364', '#6FC3DF', '#B79CE8', '#F2C744'][Math.floor(Math.random() * 5)], bob: Math.random() * 6 });
       BB.nextBalloonY = y + 700 + Math.random() * 600;
     }
     BB.lastPathY = y;
@@ -226,7 +226,18 @@ function bbTick(ts) {
     if (c.crumbleAt && BB.t > c.crumbleAt) { c.gone = true; }
   });
 
-  if (b.on) {
+  if (BB.ride) {
+    /* 풍선 타기: 잠깐 풍선에 매달려 둥실 하늘로 올라가요(구름 무시), 좌우는 조금만 조절 가능 */
+    b.on = null;
+    b.vy = 0;
+    b.y += 360 * dt;
+    b.x += b.vx * 0.55 * dt;
+    if (BB.t >= BB.ride.until) {
+      b.vy = 260;
+      BB.pops.push({ x: b.x, y: b.y + 60, text: '뿅!', life: 0.8 });
+      BB.ride = null;
+    }
+  } else if (b.on) {
     var c0 = b.on;
     if (c0.dx) b.x += c0.dx;
     b.x += b.vx * dt;
@@ -264,10 +275,13 @@ function bbTick(ts) {
   // 풍선
   BB.balloons.forEach(function (bl) {
     if (bl.taken) return;
-    if (Math.abs(bl.x - b.x) < 26 && Math.abs((bl.y + Math.sin(BB.t * 2 + bl.bob) * 6) - (b.y + 24)) < 34) {
+    bl.x = Math.max(30, Math.min(BB_W - 30, bl.baseX + Math.sin(BB.t * bl.spd + bl.phase) * bl.amp));
+    if (BB.ride) return;
+    if (Math.abs(bl.x - b.x) < 30 && Math.abs((bl.y + Math.sin(BB.t * 2 + bl.bob) * 6) - (b.y + 30)) < 40) {
       bl.taken = true;
-      BB.bonus += 100;
-      BB.pops.push({ x: bl.x, y: bl.y, text: '+100', life: 1 });
+      BB.bonus += 50;
+      BB.ride = { until: BB.t + 1.9, color: bl.color };
+      BB.pops.push({ x: bl.x, y: bl.y, text: '🎈 둥실~ +50', life: 1.1 });
     }
   });
 
@@ -550,6 +564,17 @@ function bbDraw() {
     ctx.lineTo(s.x, y + 5); ctx.lineTo(s.x - 1.5, y + 1.5); ctx.lineTo(s.x - 5, y); ctx.lineTo(s.x - 1.5, y - 1.5);
     ctx.fill();
   });
+  if (BB.ride) {
+    var rb = BB.baby, top = bbSY(rb.y) - 66;
+    var by = top - 46 + Math.sin(BB.t * 6) * 2;
+    ctx.strokeStyle = 'rgba(120,80,60,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(rb.x, top + 6); ctx.quadraticCurveTo(rb.x + 6, top - 10, rb.x, by + 20); ctx.stroke();
+    ctx.fillStyle = BB.ride.color;
+    ctx.beginPath(); ctx.ellipse(rb.x, by, 20, 25, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath(); ctx.ellipse(rb.x - 7, by - 9, 4, 7, -0.4, 0, Math.PI * 2); ctx.fill();
+  }
   bbDrawBaby(ctx);
   // 떠오르는 글자
   BB.pops.forEach(function (p) {
