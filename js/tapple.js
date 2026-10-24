@@ -304,11 +304,19 @@ function tpRender(s) {
     lastBox.style.display = '';
     var judges = s.alive.filter(function (pid) { return pid !== lw.pid; }).length;
     var need = Math.max(1, Math.ceil(judges / 2));
-    var canObject = amAlive && lw.pid !== myPlayerId && lw.objections.indexOf(myPlayerId) === -1;
-    document.getElementById('tp-last-word').innerHTML = '<small>' + esc(tpName(s, lw.pid)) + '</small> “' + esc(lw.word) + '” <span class="tp-last-key">' + lw.key + '</span>';
+    var isMine = lw.pid === myPlayerId;
+    var already = lw.objections.indexOf(myPlayerId) !== -1;
+    document.getElementById('tp-last-word').innerHTML = '<span class="tp-last-who">' + esc(tpName(s, lw.pid)) + (isMine ? ' (나)' : '') + '</span><span class="tp-last-text">“' + esc(lw.word) + '”</span><span class="tp-last-key">' + lw.key + '</span>';
     var btn = document.getElementById('tp-object-btn');
-    btn.style.display = canObject ? '' : 'none';
-    document.getElementById('tp-object-count').textContent = '땡 ' + lw.objections.length + '/' + need;
+    btn.style.display = isMine ? 'none' : '';
+    btn.disabled = !amAlive || already;
+    btn.classList.toggle('pressed', already);
+    btn.querySelector('.tp-object-main').textContent = already ? '✔ 땡 눌렀어요' : '🔔 땡!';
+    btn.querySelector('.tp-object-sub').textContent = already ? '다른 친구들도 누르면 탈락!' : (amAlive ? '주제랑 안 맞으면 눌러요' : '탈락해서 누를 수 없어요');
+    document.getElementById('tp-object-fill').style.width = Math.min(100, (lw.objections.length / need) * 100) + '%';
+    document.getElementById('tp-object-count').textContent = isMine
+      ? ('내 단어에 땡 ' + lw.objections.length + '/' + need + ' (' + need + '명이 누르면 탈락)')
+      : ('땡 ' + lw.objections.length + '/' + need + ' · ' + need + '명이 누르면 ' + tpName(s, lw.pid) + ' 탈락!');
   } else {
     lastBox.style.display = 'none';
   }

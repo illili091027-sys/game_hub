@@ -54,7 +54,7 @@ function DBget(key) {
   var p = keyParts(key);
   return fetch(cloudServerUrl + '/api/state?room=' + encodeURIComponent(p.room) + '&game=' + encodeURIComponent(p.game), { cache: 'no-store' })
     .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){ return (j && j.data) ? j.data : null; })
+    .then(function(j){ return (j && j.data && !j.data.__cleared) ? j.data : null; })
     .catch(function(){ return memoryStore[key] || null; });
 }
 function DBset(key, obj) {
@@ -63,10 +63,14 @@ function DBset(key, obj) {
     return Promise.resolve(obj);
   }
   var p = keyParts(key);
+  /* 서버는 null(빈 값) 저장을 거절해서, 예전엔 "초기화"(DBset(key, null))가 조용히 실패하고
+     진행상황이 그대로 남는 문제가 있었습니다. 지울 때는 {__cleared:true} 표시를 대신 저장하고,
+     읽을 때(DBget) 이 표시가 있으면 빈 값(null)으로 취급합니다. */
+  var body = (obj === null || obj === undefined) ? { __cleared: true, t: Date.now() } : obj;
   return fetch(cloudServerUrl + '/api/state?room=' + encodeURIComponent(p.room) + '&game=' + encodeURIComponent(p.game), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(obj)
+    body: JSON.stringify(body)
   }).then(function(){ return obj; }).catch(function(){ return obj; });
 }
 
@@ -325,7 +329,7 @@ if (document.getElementById('in-server').value) {
 var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
-var SOLO_ONLY_CARD_IDS = ['card-wordsearch'];
+var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork'];
 
 function chooseMode(mode) {
   playMode = mode;
@@ -403,7 +407,7 @@ function backToModeSelect() {
 }
 
 var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'mafia', 'werewolf', 'hues', 'tapple'];
-var SOLO_ONLY_GAME_IDS = ['wordsearch'];
+var SOLO_ONLY_GAME_IDS = ['wordsearch', 'stork'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -615,7 +619,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
@@ -631,11 +635,18 @@ function enterGame(gameId) {
     else if (gameId === 'hues') startHuesGame();
     else if (gameId === 'tapple') startTappleGame();
     else if (gameId === 'baby') startBabyGame();
+    else if (gameId === 'stork') startStorkGame();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
   if (playMode === 'online') {
     startGameMembersBar();
+    /* 방장이 게임을 새로 시작할 때마다 그 게임의 예전 진행상황을 먼저 싹 지웁니다.
+       (모두가 설명서를 보고 준비하는 동안 지워지므로, 실제 시작은 항상 처음부터) */
+    if (myPlayerId === roomHostId) {
+      resetGameRoomState(gameId);
+      DBset(rulesReadyKey(), { game: gameId, readyIds: [], startedAt: Date.now() });
+    }
     showGameRulesOverlay(gameId, startFn);
   } else {
     stopGameMembersBar();
@@ -687,6 +698,7 @@ function goHome() {
   stopHuesGame();
   stopTappleGame();
   stopBabyGame();
+  stopStorkGame();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';
@@ -697,7 +709,9 @@ function goHome() {
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById('home').classList.add('active');
   stopGameMembersBar();
-  if (leavingGameId) resetGameRoomState(leavingGameId);
+  /* 방장이 나가면 그 게임 진행상황 초기화(모두 홈으로 돌아감). 일반 참가자가 나가는 건
+     다른 사람들 게임을 망치지 않도록 초기화하지 않아요. */
+  if (leavingGameId && leavingGameId !== 'channels' && myPlayerId === roomHostId) resetGameRoomState(leavingGameId);
   if (playMode === 'online' && me.room) DBset(rulesReadyKey(), null);
   if (playMode === 'online' && roomJoined && myPlayerId === roomHostId && roomCurrentGame) {
     hostSelectGame(null);

@@ -28,6 +28,17 @@ var BM_ALL_DONE_HANDLED = false;
 
 function bmOpponentKey(pid) { return roomKey('bomb_p_' + pid); }
 
+var BM_CHAR = null;
+function bmCharSrc(id) {
+  var c = id ? charById(id) : null;
+  if (c) return c.src;
+  return (typeof BOMB_CHAR_IMG !== 'undefined') ? BOMB_CHAR_IMG : '';
+}
+function bmApplyChar() {
+  var img = document.getElementById('bm-player-img');
+  if (img) img.src = bmCharSrc(BM_CHAR);
+}
+
 function bmPostState(force) {
   if (playMode !== 'online' || !roomJoined || !myPlayerId || !bmStageEl) return;
   var now = performance.now();
@@ -45,6 +56,7 @@ function bmPostState(force) {
     bombs: bombsData,
     score: bmScore,
     hp: BM_HP,
+    char: BM_CHAR,
     ts: Date.now()
   });
 }
@@ -73,7 +85,7 @@ function bmRenderOpponents() {
       } else {
         allOthersDead = false;
         html += '<div class="bm-mini-score">' + (d.score || 0) + '점</div>';
-        html += '<img class="bm-mini-player" src="' + miniChar + '" alt="" style="left:' + ((d.xFrac || 0.5) * 100) + '%;" />';
+        html += '<img class="bm-mini-player" src="' + (d.char ? bmCharSrc(d.char) : miniChar) + '" alt="" style="left:' + ((d.xFrac || 0.5) * 100) + '%;" />';
         (d.bombs || []).forEach(function (b) {
           html += '<div class="bm-mini-bomb" style="left:' + (b[0] * 100) + '%; top:' + (b[1] * 100) + '%;"></div>';
         });
@@ -132,7 +144,14 @@ function startBombGame() {
   bmRunning = false;
   bmStageEl = document.getElementById('bm-stage');
   bmPlayerEl = document.getElementById('bm-player');
-  document.getElementById('bm-player-img').src = (typeof BOMB_CHAR_IMG !== 'undefined') ? BOMB_CHAR_IMG : '';
+  /* 캐릭터 고르기(먼작귀 9명) - 시작 화면에서 고르고, 고른 캐릭터가 내 캐릭터로 나와요 */
+  BM_CHAR = (charLoadChoice() || {}).id || null;
+  bmApplyChar();
+  charRenderPicker('bm-char-pick', BM_CHAR, function (id) {
+    BM_CHAR = id;
+    bmApplyChar();
+    bmPostState(true);
+  });
   bmStageEl.style.backgroundImage = (typeof BOMB_BG_IMG !== 'undefined') ? 'url(' + BOMB_BG_IMG + ')' : 'none';
   var best = bmLoadBest();
   document.getElementById('bm-best-intro').textContent = bmBestText(best);

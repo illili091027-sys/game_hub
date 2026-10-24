@@ -130,13 +130,20 @@ window.addEventListener('load', function () {
         </div>
         <div class="game-desc" id="desc-wordsearch">알파벳이 빼곡한 판에서 숨은 영어 단어를 찾아 쭉 그어보세요! 1단계(8×8)부터 5단계(16×16, 8방향+거꾸로)까지, 단계가 오를수록 단어가 많아지고 숨는 방향도 늘어나요.</div>
       </button>
+      <button class="game-card" id="card-stork" onclick="cardClicked('stork')">
+        <div class="game-card-top">
+          <div class="game-icon">2</div>
+          <div class="game-name">비틀비틀 황새</div>
+        </div>
+        <div class="game-desc" id="desc-stork">←/→ 로 균형을 잡으며 황새를 최대한 멀리 걷게 해요!</div>
+      </button>
       <!-- 혼자하기 + 온라인 둘 다 -->
       <button class="game-card" id="card-baby" onclick="cardClicked('baby')">
         <div class="game-card-top">
           <div class="game-icon">8</div>
-          <div class="game-name">아기 키우기</div>
+          <div class="game-name">먼작귀 키우기</div>
         </div>
-        <div class="game-desc" id="desc-baby">구름을 밟고 하늘 높이 올라가 엄마를 찾아요!</div>
+        <div class="game-desc" id="desc-baby">고른 캐릭터가 구름을 밟고 통통 튀어 하늘 높이 올라가요!</div>
       </button>
       <div class="card-hint">💡 카드를 <b>오른쪽 클릭</b>(휴대폰은 <b>길게 누르기</b>)하면 설명서가 나와요</div>
     </div>
@@ -233,8 +240,10 @@ window.addEventListener('load', function () {
         <div class="board-box-title">역대 최고 기록</div>
         <div class="lb-row"><span>최고 생존 점수</span><b id="bm-best-intro">기록 없음</b></div>
       </div>
+      <div class="char-pick-title">내 캐릭터 고르기</div>
+      <div class="char-pick" id="bm-char-pick"></div>
       <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="bmBeginGame()">시작하기</button>
+        <button class="btn btn-primary" onclick="bmBeginGame()">이 캐릭터로 시작하기</button>
       </div>
     </div>
 
@@ -605,6 +614,16 @@ window.addEventListener('load', function () {
         <span class="tp-topic" id="tp-topic"></span>
         <span class="tp-round" id="tp-round"></span>
       </div>
+      <div class="tp-last" id="tp-last" style="display:none">
+        <div class="tp-last-label">방금 나온 단어</div>
+        <div class="tp-last-word" id="tp-last-word"></div>
+        <button class="tp-object-btn" id="tp-object-btn" onclick="tpObject()">
+          <span class="tp-object-main">🔔 땡!</span>
+          <span class="tp-object-sub">주제랑 안 맞으면 눌러요</span>
+        </button>
+        <div class="tp-object-bar"><div class="tp-object-fill" id="tp-object-fill"></div></div>
+        <div class="tp-object-count" id="tp-object-count"></div>
+      </div>
       <div class="tp-layout">
         <div class="tp-left">
           <div class="tp-wheel">
@@ -620,11 +639,6 @@ window.addEventListener('load', function () {
             <div class="pixel-err" id="tp-word-err"></div>
           </div>
           <div class="tp-wait" id="tp-wait"></div>
-          <div class="tp-last" id="tp-last" style="display:none">
-            <div class="tp-last-word" id="tp-last-word"></div>
-            <button class="btn tp-object-btn" id="tp-object-btn" onclick="tpObject()">🔔 땡! 주제랑 안 맞아요</button>
-            <span class="tp-object-count" id="tp-object-count"></span>
-          </div>
         </div>
         <div class="tp-right">
           <div class="board-box">
@@ -658,7 +672,7 @@ window.addEventListener('load', function () {
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
       <span class="room-pill" id="bb-room-pill">방</span>
     </div>
-    <h2 class="game-heading">아기 키우기</h2>
+    <h2 class="game-heading">먼작귀 키우기</h2>
     <div class="bb-mode-tag" id="bb-mode-tag" style="display:none"></div>
     <div class="bb-layout">
       <div class="bb-stage">
@@ -667,6 +681,11 @@ window.addEventListener('load', function () {
         <div class="bb-hud-score" id="bb-score">0000000</div>
         <div class="bb-countdown" id="bb-countdown" style="display:none">3</div>
         <div class="bb-over" id="bb-over" style="display:none"></div>
+        <div class="bb-pick" id="bb-pick" style="display:none">
+          <div class="bb-pick-title">캐릭터를 골라요!</div>
+          <div class="char-pick bb-pick-grid" id="bb-pick-grid"></div>
+          <button class="btn btn-primary" id="bb-pick-go">이 친구로 출발!</button>
+        </div>
       </div>
       <div class="bb-side" id="bb-side" style="display:none">
         <div class="board-box">
@@ -676,7 +695,30 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">마우스(손가락)로 이동 · 클릭(탭)으로 점프 · 키보드 ←/→ + 스페이스</p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요</p>
+  </div>
+</div>
+
+<div id="stork" class="view">
+  <div class="wrap sk-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="sk-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">비틀비틀 황새</h2>
+    <div class="sk-hud">
+      <span>거리 <b id="sk-dist">0</b>m</span>
+      <span>최고 <b id="sk-best">0</b>m</span>
+    </div>
+    <div class="sk-stage">
+      <canvas id="sk-canvas"></canvas>
+      <div class="sk-overlay" id="sk-overlay" style="display:none"></div>
+    </div>
+    <div class="sk-btn-row">
+      <button class="sk-btn" id="sk-btn-left">◀ 왼쪽</button>
+      <button class="sk-btn" id="sk-btn-right">오른쪽 ▶</button>
+    </div>
+    <p class="bb-help">키보드 ←/→ 를 톡톡! · 휴대폰은 아래 버튼이나 화면 왼쪽/오른쪽을 눌러요</p>
   </div>
 </div>
 
@@ -775,10 +817,12 @@ window.addEventListener('load', function () {
 <script src="data/bomb-data.js"></script>
 <script src="data/quiz-data.js"></script>
 <script src="data/wordsearch-data.js"></script>
+<script src="data/baby-chars.js"></script>
 
 <!-- 게임 로직 파일: 공용 코드(core.js)를 먼저 불러온 뒤 각 게임 코드를 불러옵니다 -->
 <script src="js/core.js"></script>
 <script src="js/chat.js"></script>
+<script src="js/charpick.js"></script>
 <script src="js/sudoku.js"></script>
 <script src="js/bomb.js"></script>
 <script src="js/quiz.js"></script>
@@ -788,6 +832,7 @@ window.addEventListener('load', function () {
 <script src="js/hues.js"></script>
 <script src="js/tapple.js"></script>
 <script src="js/baby.js"></script>
+<script src="js/stork.js"></script>
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 </body>

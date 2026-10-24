@@ -1,7 +1,7 @@
 /* ---------------- 아기 키우기 (구름 점프) - 혼자하기 + 온라인 ----------------
-   엄마를 잃은 아기가 구름을 타고 하늘 높이 올라가 엄마를 찾는 게임.
-   - 조작: 마우스(손가락)를 움직이면 아기가 그쪽으로 이동, 클릭(탭)하면 점프. 키보드 ←/→ + 스페이스/↑ 도 가능.
-   - 점프는 구름을 밟고 서 있을 때만 할 수 있어요.
+   먼작귀 키우기: 고른 캐릭터가 구름을 밟고 자동으로 통통 튀어 하늘 높이 올라가는 게임.
+   - 조작: 마우스(손가락)를 움직이면 아기가 그쪽으로 이동. 키보드 ←/→ 도 가능.
+   - 점프는 자동! 구름에 닿을 때마다 저절로 튀어올라요(좌우만 조절).
    - 구름 종류: 하얀 구름(보통) / 먹구름(가짜 - 밟을 수 없음) / 무지개 구름(엄청 높이 튀어오름) /
      구멍난 구름(한 번 밟으면 곧 부서짐) / 나중엔 좌우로 움직이는 구름도 나와요.
    - 올라갈수록 AGE(나이)가 1살씩 늘고, 화면이 저절로 조금씩 올라가요. 화면 아래로 떨어지면 끝.
@@ -22,6 +22,7 @@ var BB_BEST_SOLO = 0;
 var BB_LAST_POST = 0;
 var BB_FINAL_SHOWN = false;
 var BB_BG_PUFFS = [];
+var BB_CHAR = null; // 고른 캐릭터 id (charpick.js)
 
 function bbKey(pid) { return roomKey('baby_p_' + pid); }
 
@@ -37,6 +38,7 @@ function stopBabyGame() {
 
 function startBabyGame() {
   stopBabyGame();
+  BB_CHAR = (charLoadChoice() || {}).id || null;
   BB_OFFICIAL = null;
   BB_FINAL_SHOWN = false;
   BB_CANVAS = document.getElementById('bb-canvas');
@@ -50,12 +52,35 @@ function startBabyGame() {
     for (var i = 0; i < 9; i++) BB_BG_PUFFS.push({ x: Math.random() * BB_W, y: Math.random() * 900, s: 0.6 + Math.random() * 0.9 });
   }
   if (online) {
-    DBset(bbKey(myPlayerId), { name: me.name, status: 'playing', age: 1, score: 0, done: false, ts: Date.now() });
+    DBset(bbKey(myPlayerId), { name: me.name, status: 'playing', age: 1, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
     clearInterval(BB_OPP_TIMER);
     BB_OPP_TIMER = setInterval(bbRenderOpponents, 1000);
     bbRenderOpponents();
   }
-  bbNewRun(true);
+  bbNewRun('hold');
+  bbShowPicker(bbBeginCountdown);
+}
+
+/* 시작 전 캐릭터 고르기 (판 위에 겹쳐서 보여줌) */
+function bbShowPicker(then) {
+  var box = document.getElementById('bb-pick');
+  box.style.display = '';
+  charRenderPicker('bb-pick-grid', BB_CHAR, function (id) {
+    BB_CHAR = id;
+    if (BB) bbDraw();
+  });
+  document.getElementById('bb-pick-go').onclick = function () {
+    box.style.display = 'none';
+    if (playMode === 'online' && roomJoined) {
+      DBget(bbKey(myPlayerId)).then(function (d) { d = d || { name: me.name }; d.char = BB_CHAR; DBset(bbKey(myPlayerId), d); });
+    }
+    then();
+  };
+}
+
+function bbChangeChar() {
+  bbRetry('hold');
+  bbShowPicker(bbBeginCountdown);
 }
 
 /* 새 판 준비 + 3,2,1 카운트다운 */
@@ -79,7 +104,14 @@ function bbNewRun(withCountdown) {
   bbUpdateHud();
   bbDraw();
   var cd = document.getElementById('bb-countdown');
+  if (withCountdown === 'hold') { cd.style.display = 'none'; return; }
   if (!withCountdown) { cd.style.display = 'none'; bbGo(); return; }
+  bbBeginCountdown();
+}
+
+function bbBeginCountdown() {
+  var cd = document.getElementById('bb-countdown');
+  clearInterval(BB_COUNTDOWN_TIMER);
   var n = 3;
   cd.style.display = '';
   cd.textContent = n;
@@ -97,9 +129,14 @@ function bbGo() {
   BB.running = true;
   BB.lastTs = 0;
   BB_RAF = requestAnimationFrame(bbTick);
+  bbJump(); // 출발하자마자 첫 점프 - 이후로는 구름에 닿을 때마다 자동으로 점프
 }
 
-function bbAge() { return Math.floor(BB.maxH / 650) + 1; }
+/* 나이(AGE)는 천천히: 2400 높이마다 1살 (예전 650의 약 4배 느림).
+   난이도(구름 간격·스크롤 속도·하늘색)는 bbLvl()로 따로 계산해서 예전처럼 올라가요. */
+var BB_AGE_UNIT = 2400;
+function bbAge() { return Math.floor(BB.maxH / BB_AGE_UNIT) + 1; }
+function bbLvl() { return Math.floor(BB.maxH / 650) + 1; }
 function bbScore() { return Math.floor(BB.maxH / 4) + BB.bonus; }
 
 /* ---- 구름 만들기 ---- */
@@ -163,7 +200,7 @@ function bbTick(ts) {
   BB.lastTs = ts;
   BB.t += dt;
   var b = BB.baby;
-  var age = bbAge();
+  var age = bbLvl();
 
   // 좌우 이동
   if (BB_KEYS.left || BB_KEYS.right) {
@@ -205,16 +242,17 @@ function bbTick(ts) {
         var c = BB.clouds[i];
         if (c.type === 'dark' || c.gone) continue;
         if (prevY >= c.y - 1 && b.y <= c.y && Math.abs(b.x - c.x) <= c.w / 2 + 6) {
+          /* 자동 점프: 구름에 닿는 순간 저절로 다시 튀어오릅니다(누를 필요 없음). */
           b.y = c.y;
-          b.vy = 0;
-          b.on = c;
+          b.on = null;
+          b.vy = BB_JUMP_V;
+          for (var sp = 0; sp < 4; sp++) BB.sparkles.push({ x: b.x + (Math.random() * 16 - 8), y: b.y - 4, life: 0.5, vy: -40 - Math.random() * 50 });
           if (c.type === 'rainbow') {
-            b.on = null;
             b.vy = BB_RAINBOW_V;
             BB.pops.push({ x: c.x, y: c.y + 20, text: '🌈 슈퍼 점프!', life: 1 });
             for (var k = 0; k < 10; k++) BB.sparkles.push({ x: b.x + (Math.random() * 30 - 15), y: b.y, life: 0.9, vy: -60 - Math.random() * 80 });
           } else if (c.type === 'holed' && !c.crumbleAt) {
-            c.crumbleAt = BB.t + 0.75;
+            c.crumbleAt = BB.t + 0.35;
           }
           break;
         }
@@ -272,7 +310,7 @@ function bbPostState(force) {
   var now = Date.now();
   if (!force && now - BB_LAST_POST < 450) return;
   BB_LAST_POST = now;
-  DBset(bbKey(myPlayerId), { name: me.name, status: BB.over ? 'dead' : 'playing', age: bbAge(), score: bbScore(), done: BB.over, ts: now });
+  DBset(bbKey(myPlayerId), { name: me.name, status: BB.over ? 'dead' : 'playing', age: bbAge(), score: bbScore(), done: BB.over, char: BB_CHAR, ts: now });
 }
 
 function bbDie() {
@@ -285,7 +323,7 @@ function bbDie() {
   if (playMode === 'online') {
     if (BB_OFFICIAL === null) {
       BB_OFFICIAL = { age: age, score: score };
-      DBset(bbKey(myPlayerId), { name: me.name, status: 'dead', age: age, score: score, done: true, practicing: false, ts: Date.now() });
+      DBset(bbKey(myPlayerId), { name: me.name, status: 'dead', age: age, score: score, done: true, practicing: false, char: BB_CHAR, ts: Date.now() });
       html = '<div class="bb-over-title">😢 으앙! 떨어졌어요</div>' +
         '<div class="bb-over-rec">공식 기록 <b>AGE ' + age + '</b> · <b>' + score + '점</b></div>' +
         '<div class="bb-over-sub">기록은 이 첫 판으로 확정! 이제부터는 연습 모드로 계속 놀 수 있어요.</div>';
@@ -302,12 +340,13 @@ function bbDie() {
       '<div class="bb-over-rec">AGE <b>' + age + '</b> · <b>' + score + '점</b></div>' +
       '<div class="bb-over-sub">' + (isBest ? '🎉 최고 기록!' : '최고 기록 ' + BB_BEST_SOLO + '점') + '</div>';
   }
-  html += '<button class="btn btn-primary" onclick="bbRetry()">' + (playMode === 'online' ? '연습 계속하기' : '다시 하기') + '</button>';
+  html += '<div class="bb-over-btns"><button class="btn btn-primary" onclick="bbRetry()">' + (playMode === 'online' ? '연습 계속하기' : '다시 하기') + '</button>' +
+    '<button class="btn btn-ghost" onclick="bbChangeChar()">캐릭터 바꾸기</button></div>';
   over.innerHTML = html;
   over.style.display = '';
 }
 
-function bbRetry() {
+function bbRetry(mode) {
   if (playMode === 'online' && roomJoined) {
     DBget(bbKey(myPlayerId)).then(function (d) {
       d = d || { name: me.name, status: 'dead', age: 0, score: 0, done: true };
@@ -316,7 +355,7 @@ function bbRetry() {
       DBset(bbKey(myPlayerId), d);
     });
   }
-  bbNewRun(false);
+  bbNewRun(mode === 'hold' ? 'hold' : false);
 }
 
 /* ---- 온라인: 다른 사람 현황 + 최종 순위 ---- */
@@ -334,7 +373,7 @@ function bbRenderOpponents() {
       var isMe = r.p.id === myPlayerId;
       var status = !r.d ? '준비 중' : !d.done ? '🍼 올라가는 중' : (d.practicing ? '🎈 연습 중' : '💤 기록 확정');
       return '<div class="bb-player' + (isMe ? ' me' : '') + (d.done ? ' done' : '') + '">' +
-        '<div class="bb-player-top"><span class="bb-player-name">' + esc(r.p.name) + (isMe ? ' (나)' : '') + '</span><span class="bb-player-age">AGE ' + (d.age || 1) + '</span></div>' +
+        '<div class="bb-player-top"><span class="bb-player-name">' + (d.char && charById(d.char) ? '<img class="bb-player-char" src="' + charById(d.char).src + '" alt="" />' : '') + esc(r.p.name) + (isMe ? ' (나)' : '') + '</span><span class="bb-player-age">AGE ' + (d.age || 1) + '</span></div>' +
         '<div class="bb-player-bottom"><span>' + status + '</span><b>' + (d.score || 0) + '점</b></div></div>';
     }).join('');
     var finalEl = document.getElementById('bb-final');
@@ -437,47 +476,26 @@ function bbDrawCloud(ctx, c) {
 /* 아기 그리기 - 둥근 얼굴, 앞머리 한 줌, 기저귀. 점프 중엔 팔을 번쩍 들어요. */
 function bbDrawBaby(ctx) {
   var b = BB.baby;
-  var x = b.x, feet = bbSY(b.y);
-  var air = !b.on;
-  var skin = '#ffd8b5', line = '#7a4a2a';
+  var img = charImage(BB_CHAR);
+  var x = b.x, feet = bbSY(b.y) + 4;
   ctx.save();
   ctx.translate(x, feet);
-  ctx.scale(b.face, 1);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = line;
-  // 다리
-  ctx.fillStyle = skin;
-  var legSpread = air ? 9 : 6;
-  ctx.beginPath(); ctx.ellipse(-legSpread, -5, 5, 6, air ? -0.5 : 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(legSpread, -5, 5, 6, air ? 0.5 : 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // 기저귀
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.ellipse(0, -14, 12, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // 몸통
-  ctx.fillStyle = skin;
-  ctx.beginPath(); ctx.ellipse(0, -25, 10, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // 팔
-  var armY = air ? -46 : -24;
-  ctx.beginPath(); ctx.ellipse(-14, armY + (air ? 6 : 0), 4.5, air ? 9 : 6, air ? 0.4 : -0.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(14, armY + (air ? 6 : 0), 4.5, air ? 9 : 6, air ? -0.4 : 0.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // 머리
-  ctx.beginPath(); ctx.arc(0, -45, 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // 앞머리 한 줌
-  ctx.fillStyle = '#9a6a3c';
-  ctx.beginPath();
-  ctx.moveTo(-6, -58); ctx.quadraticCurveTo(-2, -70, 4, -63); ctx.quadraticCurveTo(7, -69, 9, -58); ctx.quadraticCurveTo(2, -55, -6, -58);
-  ctx.fill();
-  // 얼굴
-  ctx.fillStyle = '#3a2a20';
-  ctx.beginPath(); ctx.arc(-5, -45, 2, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(6, -45, 2, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,120,120,0.5)';
-  ctx.beginPath(); ctx.arc(-9, -40, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(10, -40, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#a0402a';
-  ctx.beginPath();
-  if (BB.over) { ctx.arc(1, -36, 3, Math.PI, 0); } else { ctx.arc(1, -39, 3, 0.1, Math.PI - 0.1); }
-  ctx.stroke();
+  ctx.rotate(Math.max(-0.22, Math.min(0.22, b.vx / 1400)));
+  var stretch = b.vy > 300 ? 1.07 : (b.vy < -500 ? 0.96 : 1);
+  ctx.scale(b.face < 0 ? -1 : 1, 1);
+  if (img && img.complete && img.naturalWidth) {
+    var h = 66 * stretch;
+    var w = h * (img.naturalWidth / img.naturalHeight) / stretch;
+    if (w > 78) { h = h * 78 / w; w = 78; }
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 2;
+    if (BB.over) ctx.globalAlpha = 0.85;
+    ctx.drawImage(img, -w / 2, -h, w, h);
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(0, -28, 26, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -486,7 +504,7 @@ function bbDraw() {
   var ctx = BB_CTX;
   ctx.setTransform(BB_SCALE, 0, 0, BB_SCALE, 0, 0);
   // 하늘: 올라갈수록 조금씩 노을빛 → 밤하늘
-  var age = bbAge();
+  var age = bbLvl();
   var tNight = Math.min(1, Math.max(0, (age - 6) / 14));
   var g = ctx.createLinearGradient(0, 0, 0, BB_H);
   g.addColorStop(0, tNight > 0.5 ? '#2b3a78' : (tNight > 0 ? '#7da7e8' : '#79b9f2'));
@@ -561,14 +579,12 @@ function bbDraw() {
     e.preventDefault();
     BB.targetX = bbPointerToWorldX(e);
     BB.pointerActive = true;
-    bbJump();
   });
   document.addEventListener('keydown', function (e) {
     if (!document.getElementById('baby').classList.contains('active')) return;
     if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
     if (e.key === 'ArrowLeft') { BB_KEYS.left = true; e.preventDefault(); }
     else if (e.key === 'ArrowRight') { BB_KEYS.right = true; e.preventDefault(); }
-    else if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); bbJump(); }
   });
   document.addEventListener('keyup', function (e) {
     if (e.key === 'ArrowLeft') BB_KEYS.left = false;
