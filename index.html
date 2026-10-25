@@ -122,6 +122,36 @@ window.addEventListener('load', function () {
         </div>
         <div class="game-desc" id="desc-tapple">주제에 맞는 단어를 10초 안에 말하고 첫 글자 버튼을 누르는 스피드 게임!</div>
       </button>
+      <button class="game-card" id="card-relay" onclick="cardClicked('relay')">
+        <div class="game-card-top">
+          <div class="game-icon">9</div>
+          <div class="game-name">엉뚱 그림 릴레이</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-bingo" onclick="cardClicked('bingo')">
+        <div class="game-card-top">
+          <div class="game-icon">10</div>
+          <div class="game-name">빙고 대작전</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-tickbomb" onclick="cardClicked('tickbomb')">
+        <div class="game-card-top">
+          <div class="game-icon">11</div>
+          <div class="game-name">째깍째깍 폭탄 돌리기</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-land" onclick="cardClicked('land')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">먼작귀 땅따먹기</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-blocks" onclick="cardClicked('blocks')">
+        <div class="game-card-top">
+          <div class="game-icon">13</div>
+          <div class="game-name">블록 배틀</div>
+        </div>
+      </button>
       <!-- 혼자하기 전용 -->
       <button class="game-card" id="card-wordsearch" onclick="cardClicked('wordsearch')">
         <div class="game-card-top">
@@ -136,6 +166,13 @@ window.addEventListener('load', function () {
           <div class="game-name">비틀비틀 황새</div>
         </div>
         <div class="game-desc" id="desc-stork">←/→ 로 균형을 잡으며 황새를 최대한 멀리 걷게 해요!</div>
+      </button>
+      <button class="game-card" id="card-arrows" onclick="cardClicked('arrows')">
+        <div class="game-card-top">
+          <div class="game-icon">3</div>
+          <div class="game-name">화살표 탈출</div>
+        </div>
+        <div class="game-desc" id="desc-arrows">얽힌 화살표를 순서대로 눌러 판 밖으로 모두 빼내요!</div>
       </button>
       <!-- 혼자하기 + 온라인 둘 다 -->
       <button class="game-card" id="card-baby" onclick="cardClicked('baby')">
@@ -249,6 +286,7 @@ window.addEventListener('load', function () {
 
     <div id="bm-game-area" style="display:none">
       <div class="bm-split" id="bm-split">
+        <div class="bm-main">
         <div class="bm-stage" id="bm-stage">
           <div class="bm-hud">
             <span>점수 <b id="bm-score-val">0</b></span>
@@ -261,13 +299,15 @@ window.addEventListener('load', function () {
             <div style="font-family:'Gaegu',cursive; font-size:22px;">방향키(←/→)를 눌러서<br/>똥을 피해보세요!</div>
           </div>
         </div>
-        <div class="bm-opponents" id="bm-opponents" style="display:none;"></div>
-      </div>
-      <div class="bm-my-status" id="bm-my-status" style="display:none;"></div>
-      <div class="bm-touch-row">
+          <div class="bm-touch-row">
         <button class="bm-touch-btn" id="bm-btn-left">◀ 왼쪽</button>
         <button class="bm-touch-btn" id="bm-btn-right">오른쪽 ▶</button>
       </div>
+        </div>
+        <div class="bm-opponents" id="bm-opponents" style="display:none;"></div>
+      </div>
+      <div class="bm-my-status" id="bm-my-status" style="display:none;"></div>
+
     </div>
 
     <div id="bm-over-area" style="display:none">
@@ -722,6 +762,233 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="arrows" class="view">
+  <div class="wrap ar-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="ar-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">화살표 탈출</h2>
+    <div id="ar-difficulty-select">
+      <p class="game-sub">화살표를 누르면 머리 방향으로 쭉 빠져나가요. 막히면 하트가 줄어요!</p>
+      <div class="diff-grid diff-5">
+        <button class="cat-btn diff-btn" data-lv="1" onclick="arChooseLevel(1)"><span class="diff-lv">1</span><span class="diff-text"><span class="diff-name">쉬움</span><span class="diff-info">6×7 · 짧은 화살표</span></span><span class="diff-stars">★☆☆☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="2" onclick="arChooseLevel(2)"><span class="diff-lv">2</span><span class="diff-text"><span class="diff-name">보통</span><span class="diff-info">8×10</span></span><span class="diff-stars">★★☆☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="3" onclick="arChooseLevel(3)"><span class="diff-lv">3</span><span class="diff-text"><span class="diff-name">어려움</span><span class="diff-info">10×13</span></span><span class="diff-stars">★★★☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="4" onclick="arChooseLevel(4)"><span class="diff-lv">4</span><span class="diff-text"><span class="diff-name">아주 어려움</span><span class="diff-info">12×16 · 긴 화살표</span></span><span class="diff-stars">★★★★☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="5" onclick="arChooseLevel(5)"><span class="diff-lv">5</span><span class="diff-text"><span class="diff-name">끝판왕</span><span class="diff-info">14×19 · 빽빽!</span></span><span class="diff-stars">★★★★★</span></button>
+      </div>
+    </div>
+    <div id="ar-game-area" style="display:none">
+      <div class="ar-top">
+        <button class="ar-icon-btn" onclick="startArrowsGame()" title="단계 고르기">◀</button>
+        <button class="ar-icon-btn" onclick="arRestart()" title="이 판 처음부터">↻</button>
+        <div class="ar-top-mid">
+          <div class="ar-level" id="ar-level-label"></div>
+          <div class="ar-hearts" id="ar-hearts"></div>
+        </div>
+        <button class="ar-hint-btn" id="ar-hint-btn" onclick="arUseHint()">💡 힌트 3</button>
+      </div>
+      <div class="ar-progress"><div class="ar-progress-fill" id="ar-progress-fill"></div></div>
+      <div class="ar-count" id="ar-count"></div>
+      <div class="ar-board" id="ar-board">
+        <svg id="ar-svg" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="sd-msg" id="ar-msg"></div>
+    </div>
+  </div>
+</div>
+
+<div id="relay" class="view">
+  <div class="wrap rl-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="rl-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">엉뚱 그림 릴레이</h2>
+    <div class="sd-msg over rl-phase" id="rl-error" style="display:none"></div>
+    <div class="rl-head" id="rl-head" style="display:none">
+      <span class="rl-step" id="rl-step"></span>
+      <span class="rl-timer" id="rl-timer"></span>
+      <span class="rl-progress" id="rl-progress"></span>
+    </div>
+    <div class="rl-phase" id="rl-text-area" style="display:none">
+      <div class="rl-title" id="rl-text-title"></div>
+      <div id="rl-received"></div>
+      <div class="rl-input-row">
+        <input type="text" id="rl-text-input" maxlength="80" autocomplete="off" oninput="groupHandleTyping()" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();rlSubmitText();}" />
+        <button class="btn btn-primary" onclick="rlSubmitText()">제출!</button>
+      </div>
+      <div class="pixel-err" id="rl-err"></div>
+    </div>
+    <div class="rl-phase" id="rl-draw-area" style="display:none">
+      <div class="rl-draw-prompt" id="rl-draw-prompt"></div>
+      <canvas id="rl-canvas" width="480" height="360"></canvas>
+      <div class="rl-tools">
+        <div class="rl-colors" id="rl-colors"></div>
+        <div class="rl-sizes" id="rl-sizes">
+          <button type="button" class="rl-size" data-s="3"><i style="width:4px;height:4px"></i></button>
+          <button type="button" class="rl-size on" data-s="6"><i style="width:8px;height:8px"></i></button>
+          <button type="button" class="rl-size" data-s="14"><i style="width:14px;height:14px"></i></button>
+        </div>
+        <button type="button" class="btn btn-ghost rl-tool-btn" onclick="rlUndo()">↩️ 되돌리기</button>
+        <button type="button" class="btn btn-ghost rl-tool-btn" onclick="rlClearCanvas()">🗑️ 다 지우기</button>
+      </div>
+      <button class="btn btn-primary rl-submit-draw" onclick="rlSubmitDrawing()">그림 제출!</button>
+    </div>
+    <div class="rl-phase rl-wait" id="rl-wait" style="display:none">
+      <div class="rl-wait-big">✅ 제출 완료!</div>
+      <div>다른 친구들이 끝날 때까지 기다려요…</div>
+      <button class="btn btn-ghost" onclick="rlEditAgain()">다시 고치기</button>
+    </div>
+    <div class="rl-phase" id="rl-reveal" style="display:none">
+      <div class="rl-album" id="rl-album"></div>
+      <button class="btn btn-primary" id="rl-next-btn" onclick="rlHostNext()">다음 장 보기 ▶</button>
+      <button class="btn btn-primary" id="rl-restart-btn" onclick="rlHostRestart()">한 판 더!</button>
+      <div class="rl-reveal-wait" id="rl-reveal-wait"></div>
+    </div>
+  </div>
+</div>
+
+<div id="bingo" class="view">
+  <div class="wrap bg-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="bg-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">빙고 대작전</h2>
+    <div class="sd-msg over bg-phase" id="bg-error" style="display:none"></div>
+    <div class="bg-topic-card"><small>주제</small><span id="bg-topic"></span></div>
+    <div class="bg-phase" id="bg-fill" style="display:none">
+      <div class="bg-fill-head"><span id="bg-fill-msg"></span> <b id="bg-fill-timer"></b> <span id="bg-ready-count" class="bg-ready-count"></span></div>
+      <div class="bg-fill-grid" id="bg-fill-grid"></div>
+      <div class="pixel-err" id="bg-fill-err"></div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-ghost" id="bg-random-btn" onclick="bgRandomFill()">🎲 숫자 랜덤 채우기</button>
+        <button class="btn btn-ghost" id="bg-topic-btn" onclick="bgHostChangeTopic()">🔄 주제 바꾸기 (방장)</button>
+        <button class="btn btn-primary" id="bg-submit-btn" onclick="bgSubmitBoard()">다 채웠어요!</button>
+        <button class="btn btn-ghost" id="bg-unready-btn" onclick="bgUnready()">다시 고치기</button>
+      </div>
+    </div>
+    <div class="bg-phase" id="bg-play" style="display:none">
+      <div class="bg-turn" id="bg-turn"></div>
+      <div class="bg-last-call" id="bg-last-call"></div>
+      <div class="bg-lines" id="bg-lines"></div>
+      <div class="bg-board-wrap">
+        <div class="bg-board" id="bg-board"></div>
+        <div class="bg-pop" id="bg-pop"></div>
+      </div>
+      <div class="bg-calls" id="bg-calls"></div>
+    </div>
+    <div class="bg-phase" id="bg-end" style="display:none">
+      <div class="round-summary-title" id="bg-end-banner"></div>
+      <button class="btn btn-primary" id="bg-restart-btn" onclick="bgHostRestart()">한 판 더!</button>
+    </div>
+  </div>
+</div>
+
+<div id="tickbomb" class="view">
+  <div class="wrap tb-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="tb-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">째깍째깍 폭탄 돌리기</h2>
+    <div class="sd-msg over tb-phase" id="tb-error" style="display:none"></div>
+    <div class="tb-topic-card"><small id="tb-round"></small><span id="tb-topic"></span></div>
+    <div class="tb-arena">
+      <div class="tb-ring" id="tb-ring"></div>
+      <div class="tb-bomb" id="tb-bomb">💣</div>
+    </div>
+    <div class="tb-phase" id="tb-play" style="display:none">
+      <div class="tb-holder-msg" id="tb-holder-msg"></div>
+      <div class="tb-input-row" id="tb-input-row">
+        <input type="text" id="tb-input" maxlength="20" autocomplete="off" placeholder="주제에 맞는 단어!" />
+        <button class="btn btn-primary" onclick="tbSubmit()">넘기기 💣➡️</button>
+      </div>
+      <div class="pixel-err" id="tb-err"></div>
+      <div class="tb-rejected" id="tb-rejected"></div>
+      <div class="tb-object-box" id="tb-object-box" style="display:none">
+        <span class="tb-last-word" id="tb-last-word"></span>
+        <button class="btn tb-object-btn" id="tb-object-btn" onclick="tbObject()">❌ 인정 못 해!</button>
+      </div>
+      <div class="tb-words" id="tb-words"></div>
+    </div>
+    <div class="tb-phase tb-boom" id="tb-boom" style="display:none"><div id="tb-boom-msg"></div></div>
+    <div class="tb-phase" id="tb-end" style="display:none">
+      <div class="round-summary-title" id="tb-end-banner"></div>
+      <div class="board-box"><div class="board-box-title">최종 순위 (벌점 적은 순)</div><div id="tb-end-rank"></div></div>
+      <button class="btn btn-primary" id="tb-restart-btn" onclick="tbHostRestart()">한 판 더!</button>
+    </div>
+  </div>
+</div>
+
+<div id="land" class="view">
+  <div class="wrap ld-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="ld-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">먼작귀 땅따먹기</h2>
+    <div class="sd-msg over" id="ld-msg"></div>
+    <div class="ld-layout">
+      <div class="ld-stage">
+        <canvas id="ld-canvas"></canvas>
+        <canvas id="ld-minimap" class="ld-minimap" width="110" height="110"></canvas>
+        <div class="ld-time" id="ld-time"></div>
+        <div class="ld-toast" id="ld-toast"></div>
+        <div class="ld-pick-box" id="ld-pick-box" style="display:none">
+          <div class="ld-pick-title">캐릭터를 골라요! <b id="ld-count"></b>초 뒤 시작</div>
+          <div class="char-pick ld-pick-grid" id="ld-char-pick"></div>
+        </div>
+        <div class="ld-result" id="ld-result" style="display:none">
+          <div class="round-summary-title" id="ld-result-banner"></div>
+          <div class="board-box"><div id="ld-result-rank"></div></div>
+          <button class="btn btn-primary" id="ld-restart-btn" onclick="ldHostRestart()">한 판 더!</button>
+        </div>
+      </div>
+      <div class="ld-side">
+        <div class="board-box"><div class="board-box-title">땅 순위</div><div id="ld-board"></div></div>
+        <div class="ld-pad" id="ld-pad">
+          <span></span><button data-d="0,-1">▲</button><span></span>
+          <button data-d="-1,0">◀</button><span></span><button data-d="1,0">▶</button>
+          <span></span><button data-d="0,1">▼</button><span></span>
+        </div>
+      </div>
+    </div>
+    <p class="bb-help">방향키·WASD로 이동 · 휴대폰은 화면을 밀거나 아래 버튼</p>
+  </div>
+</div>
+
+<div id="blocks" class="view">
+  <div class="wrap bk-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="bk-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">블록 배틀</h2>
+    <div class="sd-msg over" id="bk-msg"></div>
+    <div class="bk-layout">
+      <div class="bk-stage">
+        <canvas id="bk-canvas"></canvas>
+        <div class="bk-countdown" id="bk-countdown" style="display:none"></div>
+        <div class="bk-flash" id="bk-flash"></div>
+        <div class="bk-result" id="bk-result" style="display:none">
+          <div class="round-summary-title" id="bk-result-banner"></div>
+          <div class="board-box"><div id="bk-result-rank"></div></div>
+          <button class="btn btn-primary" id="bk-restart-btn" onclick="bkHostRestart()">한 판 더!</button>
+        </div>
+      </div>
+      <div class="bk-others" id="bk-others"></div>
+    </div>
+    <div class="bk-pad" id="bk-pad">
+      <button data-a="H">홀드</button><button data-a="CCW">⟲</button><button data-a="CW">⟳</button><button data-a="HD">⤓</button>
+      <button data-a="L">◀</button><button data-a="D">▼</button><button data-a="R">▶</button>
+    </div>
+    <p class="bb-help">←/→ 이동 · ↓ 내리기 · 스페이스 바로 내리기 · ↑/X 회전 · Z 반대 회전 · C 홀드</p>
+  </div>
+</div>
+
 <div id="channels" class="view">
   <div class="wrap">
     <div class="topbar">
@@ -778,6 +1045,7 @@ window.addEventListener('load', function () {
     <button class="btn btn-primary" id="rules-ready-btn" onclick="dismissRulesOverlay()">준비 완료!</button>
     <div class="rules-wait-msg" id="rules-wait-msg"></div>
     <button class="btn btn-ghost" id="rules-force-btn" style="display:none;" onclick="rulesForceStart()">다 준비 안 됐어도 바로 시작하기 (방장)</button>
+    <button class="rules-exit" id="rules-exit-btn" onclick="rulesExit()">← 나가기 (홈으로)</button>
   </div>
 </div>
 
@@ -833,6 +1101,12 @@ window.addEventListener('load', function () {
 <script src="js/tapple.js"></script>
 <script src="js/baby.js"></script>
 <script src="js/stork.js"></script>
+<script src="js/arrows.js"></script>
+<script src="js/relay.js"></script>
+<script src="js/bingo.js"></script>
+<script src="js/tickbomb.js"></script>
+<script src="js/land.js"></script>
+<script src="js/blocks.js"></script>
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 </body>

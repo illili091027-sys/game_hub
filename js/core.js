@@ -74,6 +74,34 @@ function DBset(key, obj) {
   }).then(function(){ return obj; }).catch(function(){ return obj; });
 }
 
+/* 여러 사람 상태를 한 번에 읽기: roomKey(prefix + 플레이어id) 들을 { 플레이어id: data } 로 돌려줍니다.
+   서버에 일괄조회(/api/states)가 있으면 요청 1번으로, 없으면(예전 서버) 한 명씩 읽어서 똑같이 동작해요. */
+var BATCH_SUPPORTED = null; // null: 아직 모름, true/false
+function DBgetPrefix(prefix, pids) {
+  pids = pids || (roomPlayersList || []).map(function (p) { return p.id; });
+  function oneByOne() {
+    return Promise.all(pids.map(function (pid) { return DBget(roomKey(prefix + pid)); })).then(function (arr) {
+      var out = {};
+      pids.forEach(function (pid, i) { if (arr[i]) out[pid] = arr[i]; });
+      return out;
+    });
+  }
+  if (playMode === 'solo' || cloudStatus !== 'connected' || !cloudServerUrl || BATCH_SUPPORTED === false) return oneByOne();
+  return fetch(cloudServerUrl + '/api/states?room=' + encodeURIComponent(me.room) + '&prefix=' + encodeURIComponent(prefix), { cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error('nobatch'); return r.json(); })
+    .then(function (j) {
+      BATCH_SUPPORTED = true;
+      var out = {};
+      var data = (j && j.data) || {};
+      pids.forEach(function (pid) {
+        var d = data[prefix + pid];
+        if (d && !d.__cleared) out[pid] = d;
+      });
+      return out;
+    })
+    .catch(function () { BATCH_SUPPORTED = false; return oneByOne(); });
+}
+
 function updateIdStatus() {
   var el = document.getElementById('id-status');
   if (playMode !== 'online') return;
@@ -326,13 +354,14 @@ if (document.getElementById('in-server').value) {
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land', 'card-blocks'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
-var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork'];
+var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork', 'card-arrows'];
 
 function chooseMode(mode) {
   playMode = mode;
+  document.body.classList.toggle('is-online', mode === 'online');
   document.getElementById('mode-select').style.display = 'none';
   document.getElementById('mode-back').style.display = '';
   document.getElementById('home-footer').style.display = '';
@@ -406,8 +435,8 @@ function backToModeSelect() {
   playMode = null;
 }
 
-var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'mafia', 'werewolf', 'hues', 'tapple'];
-var SOLO_ONLY_GAME_IDS = ['wordsearch', 'stork'];
+var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'mafia', 'werewolf', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'land', 'blocks'];
+var SOLO_ONLY_GAME_IDS = ['wordsearch', 'stork', 'arrows'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -483,9 +512,13 @@ function showGameRulesOverlay(gameId, onStart) {
   RULES_PENDING_START = onStart;
   RULES_PENDING_GAME = gameId;
   RULES_STARTED = false;
+  RULES_SESSION = null;
+  RULES_I_AM_READY = false;
+  RULES_MY_MARK_OK = false;
+  document.getElementById('rules-exit-btn').style.display = '';
   clearInterval(RULES_READY_POLL_TIMER);
   if (RULES_MODE === 'online') {
-    RULES_READY_POLL_TIMER = setInterval(function () { rulesCheckReady(gameId); }, 500);
+    RULES_READY_POLL_TIMER = setInterval(function () { rulesCheckReady(gameId); }, 800);
     rulesCheckReady(gameId);
   }
 }
@@ -499,6 +532,7 @@ function showGameManual(gameId) {
   document.getElementById('rules-force-btn').style.display = 'none';
   document.getElementById('rules-wait-msg').style.display = 'none';
   document.getElementById('rules-close-btn').style.display = '';
+  document.getElementById('rules-exit-btn').style.display = 'none';
 }
 
 function closeGameManual() {
@@ -557,39 +591,62 @@ function closeGameManual() {
   }, true);
 })();
 
+/* 준비 완료 체크 (2026-10-26 수정)
+   예전엔 roomKey('gamestart_ready') 하나에 준비한 사람 목록을 "읽고 → 내 이름 추가 → 다시 저장"
+   했는데, 두 사람이 거의 동시에 누르면 한 사람 기록이 덮어써져 사라져서 "다 준비했는데 시작 안 됨"
+   버그가 생겼습니다. 이제는 각자 자기 칸(roomKey('gsr_'+내id))에만 준비 표시를 써서 서로 지울 일이
+   없고, 방장이 게임을 고를 때 만든 세션 번호(session)가 같은 표시만 "이번 판 준비"로 셉니다. */
+var RULES_SESSION = null;
+var RULES_I_AM_READY = false;
+var RULES_MY_MARK_OK = false;
+function rulesPlayerKey(pid) { return roomKey('gsr_' + pid); }
+
 function dismissRulesOverlay() {
   if (RULES_MODE === 'solo') { rulesStartNow(); return; }
   if (RULES_MODE === 'manual') { closeGameManual(); return; }
   var btn = document.getElementById('rules-ready-btn');
   btn.disabled = true;
   btn.textContent = '준비 완료! 다른 사람을 기다리는 중...';
-  var gameId = RULES_PENDING_GAME;
-  DBget(rulesReadyKey()).then(function (state) {
-    if (!state || state.game !== gameId) state = { game: gameId, readyIds: [] };
-    state.readyIds = state.readyIds || [];
-    if (state.readyIds.indexOf(myPlayerId) === -1) state.readyIds.push(myPlayerId);
-    DBset(rulesReadyKey(), state).then(function () { rulesCheckReady(gameId); });
-  });
+  RULES_I_AM_READY = true;
+  RULES_MY_MARK_OK = false;
+  rulesWriteMyMark();
+  rulesCheckReady(RULES_PENDING_GAME);
+}
+
+function rulesWriteMyMark() {
+  if (!RULES_I_AM_READY || !RULES_SESSION || !RULES_PENDING_GAME) return;
+  DBset(rulesPlayerKey(myPlayerId), { game: RULES_PENDING_GAME, session: RULES_SESSION, ts: Date.now() });
 }
 
 function rulesCheckReady(gameId) {
   if (RULES_STARTED || gameId !== RULES_PENDING_GAME) return;
   DBget(rulesReadyKey()).then(function (state) {
     if (RULES_STARTED || gameId !== RULES_PENDING_GAME) return;
-    var ids = (roomPlayersList || []).map(function (p) { return p.id; });
-    var sameGame = state && state.game === gameId;
-    var readyIds = (sameGame && state.readyIds) || [];
-    var readyCount = ids.filter(function (id) { return readyIds.indexOf(id) !== -1; }).length;
-    var waitMsg = document.getElementById('rules-wait-msg');
-    if (waitMsg) waitMsg.textContent = ids.length ? ('(' + readyCount + '/' + ids.length + '명 준비 완료)') : '';
-    var allReady = (sameGame && state.forceStarted) || (ids.length > 0 && ids.every(function (id) { return readyIds.indexOf(id) !== -1; }));
-    if (allReady) rulesStartNow();
+    if (!state || state.game !== gameId || !state.session) return; // 방장이 아직 세션을 안 만듦
+    if (RULES_SESSION !== state.session) { RULES_SESSION = state.session; RULES_MY_MARK_OK = false; }
+    if (state.forceStarted) { rulesStartNow(); return; }
+    var players = roomPlayersList || [];
+    Promise.all(players.map(function (p) { return DBget(rulesPlayerKey(p.id)); })).then(function (marks) {
+      if (RULES_STARTED || gameId !== RULES_PENDING_GAME) return;
+      var readyCount = 0;
+      marks.forEach(function (m, i) {
+        var ok = m && m.game === gameId && m.session === RULES_SESSION;
+        if (ok) readyCount++;
+        if (players[i].id === myPlayerId) RULES_MY_MARK_OK = !!ok;
+      });
+      // 내 표시가 아직 안 보이면(세션을 늦게 받았거나 저장이 실패했을 때) 다시 써둡니다
+      if (RULES_I_AM_READY && !RULES_MY_MARK_OK) rulesWriteMyMark();
+      var waitMsg = document.getElementById('rules-wait-msg');
+      if (waitMsg) waitMsg.textContent = players.length ? ('(' + readyCount + '/' + players.length + '명 준비 완료)') : '';
+      if (players.length > 0 && readyCount >= players.length) rulesStartNow();
+    });
   });
 }
 
 function rulesStartNow() {
   if (RULES_STARTED) return;
   RULES_STARTED = true;
+  RULES_I_AM_READY = false;
   clearInterval(RULES_READY_POLL_TIMER);
   document.getElementById('rules-overlay').style.display = 'none';
   var fn = RULES_PENDING_START;
@@ -603,11 +660,18 @@ function rulesForceStart() {
   if (myPlayerId !== roomHostId || !RULES_PENDING_GAME) return;
   var gameId = RULES_PENDING_GAME;
   DBget(rulesReadyKey()).then(function (state) {
-    state = (state && state.game === gameId) ? state : { game: gameId, readyIds: [] };
+    state = (state && state.game === gameId) ? state : { game: gameId, session: RULES_SESSION || String(Date.now()) };
     state.forceStarted = true;
     DBset(rulesReadyKey(), state);
   });
   rulesStartNow();
+}
+
+/* 준비 화면에서 나가기 */
+function rulesExit() {
+  document.getElementById('rules-overlay').style.display = 'none';
+  RULES_I_AM_READY = false;
+  goHome();
 }
 
 function enterGame(gameId) {
@@ -619,7 +683,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', land: 'ld-room-pill', blocks: 'bk-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
@@ -636,6 +700,12 @@ function enterGame(gameId) {
     else if (gameId === 'tapple') startTappleGame();
     else if (gameId === 'baby') startBabyGame();
     else if (gameId === 'stork') startStorkGame();
+    else if (gameId === 'arrows') startArrowsGame();
+    else if (gameId === 'relay') startRelayGame();
+    else if (gameId === 'bingo') startBingoGame();
+    else if (gameId === 'tickbomb') startTickBombGame();
+    else if (gameId === 'land') startLandGame();
+    else if (gameId === 'blocks') startBlocksGame();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
@@ -645,7 +715,7 @@ function enterGame(gameId) {
        (모두가 설명서를 보고 준비하는 동안 지워지므로, 실제 시작은 항상 처음부터) */
     if (myPlayerId === roomHostId) {
       resetGameRoomState(gameId);
-      DBset(rulesReadyKey(), { game: gameId, readyIds: [], startedAt: Date.now() });
+      DBset(rulesReadyKey(), { game: gameId, session: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), forceStarted: false });
     }
     showGameRulesOverlay(gameId, startFn);
   } else {
@@ -665,11 +735,22 @@ var GAME_ROOM_STATE_KEYS = {
   mafia: ['mafia'],
   werewolf: ['werewolf'],
   hues: ['hues'],
-  tapple: ['tapple']
+  tapple: ['tapple'],
+  relay: ['relay'],
+  bingo: ['bingo'],
+  tickbomb: ['tickbomb'],
+  land: ['land'],
+  blocks: ['blocks']
 };
 var GAME_PER_PLAYER_STATE_KEYS = {
   bomb: 'bomb_p_',
-  baby: 'baby_p_'
+  baby: 'baby_p_',
+  quiz: 'quiz_w_',
+  relay: 'rl_',
+  bingo: 'bg_',
+  tickbomb: 'tb_o_',
+  land: 'ld_',
+  blocks: 'bk_'
 };
 var GAME_VOTE_KEYS = ['sudoku'];
 
@@ -699,6 +780,12 @@ function goHome() {
   stopTappleGame();
   stopBabyGame();
   stopStorkGame();
+  stopArrowsGame();
+  stopRelayGame();
+  stopBingoGame();
+  stopTickBombGame();
+  stopLandGame();
+  stopBlocksGame();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';

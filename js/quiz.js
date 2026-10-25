@@ -75,7 +75,7 @@ function qzBeginGameOnline() {
       applyQuizState(prev);
     } else {
       var questions = shuffleArray(QUIZ_BANK).slice(0, QUIZ_ROUND_SIZE);
-      var newState = { roundId: Date.now(), questions: questions, index: 0, answered: false, winner: '', leaderboard: (prev && prev.leaderboard) || {} };
+      var newState = { roundId: Date.now(), questions: questions, index: 0, answered: false, winner: '', qStart: Date.now(), leaderboard: (prev && prev.leaderboard) || {} };
       DBset(roomKey('quiz'), newState).then(function () { applyQuizState(newState); });
     }
   });
@@ -90,6 +90,27 @@ function pollQuiz() {
     } else {
       renderQuizLeaderboard(state.leaderboard || {});
     }
+    if (!state.answered && state.index < state.questions.length) qzCheckAllWrong(state);
+  });
+}
+
+/* 모두가 틀렸거나(각자 roomKey('quiz_w_'+id)에 "이 문제 틀림" 표시) 30초가 지나면, 아무도 못 맞힌
+   상태로 정답을 공개하고 다음 문제로 넘어갑니다. (예전엔 다 틀리면 그 문제에서 영원히 멈춰있었음) */
+var QZ_QUESTION_LIMIT_MS = 30000;
+function qzWrongKey(pid) { return roomKey('quiz_w_' + pid); }
+function qzCheckAllWrong(state) {
+  var list = roomPlayersList || [];
+  var timedOut = state.qStart && Date.now() - state.qStart > QZ_QUESTION_LIMIT_MS;
+  Promise.all(list.map(function (p) { return DBget(qzWrongKey(p.id)); })).then(function (marks) {
+    var allWrong = list.length > 0 && marks.every(function (m) { return m && m.roundId === state.roundId && m.index === state.index; });
+    if (!allWrong && !timedOut) return;
+    DBget(roomKey('quiz')).then(function (cur) {
+      if (!cur || cur.roundId !== state.roundId || cur.index !== state.index || cur.answered) return;
+      cur.answered = true;
+      cur.winner = '';
+      cur.nobody = allWrong ? 'allwrong' : 'timeout';
+      DBset(roomKey('quiz'), cur).then(function () { applyQuizState(cur); });
+    });
   });
 }
 
@@ -111,8 +132,13 @@ function applyQuizState(state) {
   document.getElementById('qz-qidx-val').textContent = (QZ_INDEX + 1) + '/' + QZ_ROUND.length;
   document.getElementById('qz-question').textContent = q.q;
   if (state.answered) {
-    document.getElementById('qz-msg').textContent = (state.winner === me.name ? '내가 먼저' : (state.winner + '님이 먼저')) + ' 맞혔어요! 정답: ' + q.a;
-    document.getElementById('qz-msg').className = 'sd-msg win';
+    if (state.winner) {
+      document.getElementById('qz-msg').textContent = (state.winner === me.name ? '내가 먼저' : (state.winner + '님이 먼저')) + ' 맞혔어요! 정답: ' + q.a;
+      document.getElementById('qz-msg').className = 'sd-msg win';
+    } else {
+      document.getElementById('qz-msg').textContent = (state.nobody === 'timeout' ? '⏰ 시간 초과! ' : '😵 아무도 못 맞혔어요! ') + '정답: ' + q.a + ' · 다음 문제로 넘어가요';
+      document.getElementById('qz-msg').className = 'sd-msg over';
+    }
     document.querySelectorAll('#qz-choices .cat-btn').forEach(function (btn) {
       btn.onclick = null;
       if (btn.textContent === q.a) btn.classList.add('qz-correct');
@@ -156,6 +182,7 @@ function qzAnswerOnline(choiceText) {
     var q = state.questions[state.index];
     if (choiceText !== q.a) {
       QZ_LOCKED_INDEX = QZ_INDEX;
+      DBset(qzWrongKey(myPlayerId), { roundId: state.roundId, index: state.index, ts: Date.now() });
       document.getElementById('qz-msg').textContent = '땡! 아쉬워요. 이 문제는 더 이상 시도할 수 없어요.';
       document.getElementById('qz-msg').className = 'sd-msg over';
       document.querySelectorAll('#qz-choices .cat-btn').forEach(function (btn) {
@@ -178,7 +205,7 @@ function qzScheduleAdvance(fromIndex) {
     if (!document.getElementById('quiz').classList.contains('active') || playMode !== 'online') return;
     DBget(roomKey('quiz')).then(function (state) {
       if (!state || !state.questions || state.index !== fromIndex) { if (state) applyQuizState(state); return; }
-      var newState = { roundId: state.roundId, questions: state.questions, index: fromIndex + 1, answered: false, winner: '', leaderboard: state.leaderboard || {} };
+      var newState = { roundId: state.roundId, questions: state.questions, index: fromIndex + 1, answered: false, winner: '', qStart: Date.now(), leaderboard: state.leaderboard || {} };
       DBset(roomKey('quiz'), newState).then(function () { applyQuizState(newState); });
     });
   }, 2000);

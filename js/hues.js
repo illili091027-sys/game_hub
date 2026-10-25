@@ -276,7 +276,7 @@ function huBuildBoard() {
   board.innerHTML = html;
   board.addEventListener('click', function (e) {
     var cell = e.target.closest && e.target.closest('.hu-cell');
-    if (!cell || !board.classList.contains('can-place')) return;
+    if (!cell || !(board.classList.contains('can-place') || board.classList.contains('can-pick'))) return;
     HU_SELECTED = { r: +cell.getAttribute('data-r'), c: +cell.getAttribute('data-c') };
     document.getElementById('hu-place-err').textContent = '';
     huPoll();
@@ -293,6 +293,7 @@ function huPaintBoard(state, opts) {
     el.innerHTML = '';
   });
   board.classList.toggle('can-place', !!opts.canPlace);
+  board.classList.toggle('can-pick', !opts.canPlace && !!opts.canPick);
   if (opts.showTarget && state.target) {
     for (var dr = -2; dr <= 2; dr++) for (var dc = -2; dc <= 2; dc++) {
       var el = huCell(state.target.r + dr, state.target.c + dc);
@@ -311,9 +312,9 @@ function huPaintBoard(state, opts) {
     var nm = huName(state, m.pid);
     el2.innerHTML = '<span class="hu-marker' + (m.pid === myPlayerId ? ' mine' : '') + '" style="--mc:' + chatAvatarColor(m.pid) + '" title="' + esc(nm) + '">' + esc(nm.charAt(0)) + '</span>';
   });
-  if (opts.canPlace && HU_SELECTED) {
+  if ((opts.canPlace || opts.canPick) && HU_SELECTED) {
     var sel = huCell(HU_SELECTED.r, HU_SELECTED.c);
-    if (sel) sel.classList.add('hu-selected');
+    if (sel) sel.classList.add(opts.canPlace ? 'hu-selected' : 'hu-preselected');
   }
 }
 
@@ -324,12 +325,19 @@ function huRender(state) {
   var isGiver = state.giverId === myPlayerId;
   var isHost = myPlayerId === roomHostId;
   var giverName = huName(state, state.giverId);
-  var phaseSig = state.gameId + ':' + state.round + ':' + state.phase + ':' + state.turnIdx;
+  /* 미리 고르기: 내 차례가 아니어도 칸을 눌러 "미리 골라둘" 수 있고, 그 선택은 같은 라운드 안에서는
+     차례가 넘어가도 유지돼요(라운드가 바뀌거나 정답 공개 때만 초기화). */
+  var phaseSig = state.gameId + ':' + state.round + ':' + (state.phase === 'reveal' || state.phase === 'pick' || state.phase === 'end' ? state.phase : 'play');
   if (phaseSig !== HU_LAST_PHASE_SIG) {
     HU_LAST_PHASE_SIG = phaseSig;
     HU_SELECTED = null;
     document.getElementById('hu-place-err').textContent = '';
   }
+  if (HU_SELECTED && (state.markers || []).some(function (m) { return m.r === HU_SELECTED.r && m.c === HU_SELECTED.c; })) {
+    HU_SELECTED = null;
+    document.getElementById('hu-place-err').textContent = '미리 골라둔 칸에 다른 사람이 말을 놓았어요. 다시 골라주세요!';
+  }
+  var canPick = !isGiver && ['clue1', 'guess1', 'clue2', 'guess2'].indexOf(state.phase) !== -1;
   var remain = state.deadline ? Math.max(0, Math.ceil((state.deadline - Date.now()) / 1000)) : null;
 
   document.getElementById('hu-round-pill').textContent = state.phase === 'end' ? '게임 끝' : ('라운드 ' + (state.round + 1) + '/' + state.order.length + ' · 출제자 ' + giverName);
@@ -369,7 +377,7 @@ function huRender(state) {
     } else {
       document.getElementById('hu-clue-form').style.display = 'none';
       document.getElementById('hu-clue-wait').style.display = '';
-      document.getElementById('hu-clue-wait').textContent = '💭 ' + giverName + '님이 ' + (first ? '첫 번째' : '두 번째') + ' 힌트를 생각하는 중...';
+      document.getElementById('hu-clue-wait').innerHTML = '💭 ' + esc(giverName) + '님이 ' + (first ? '첫 번째' : '두 번째') + ' 힌트를 생각하는 중...' + (first ? '' : '<br><small>기다리는 동안 칸을 눌러 미리 골라둘 수 있어요</small>');
     }
   } else if (state.phase === 'guess1' || state.phase === 'guess2') {
     document.getElementById('hu-guess-area').style.display = '';
@@ -395,10 +403,18 @@ function huRender(state) {
         document.getElementById('hu-sel-coord').textContent = '칸을 골라주세요';
         document.getElementById('hu-place-btn').disabled = true;
       }
+    } else if (canPick) {
+      guide.innerHTML = '⏳ ' + esc(huName(state, turnPid)) + '님이 말을 놓는 중... <b>기다리는 동안 칸을 눌러 미리 골라둘 수 있어요!</b>';
+      placeRow.style.display = '';
+      var sw2 = document.getElementById('hu-sel-swatch');
+      sw2.style.background = HU_SELECTED ? huColor(HU_SELECTED.r, HU_SELECTED.c) : 'transparent';
+      document.getElementById('hu-sel-coord').textContent = HU_SELECTED ? ('미리 고름: ' + huCoord(HU_SELECTED.r, HU_SELECTED.c)) : '미리 고른 칸 없음';
+      document.getElementById('hu-place-btn').disabled = true;
     } else {
       placeRow.style.display = 'none';
       guide.textContent = isGiver ? '🎨 다들 내 힌트를 보고 말을 놓는 중이에요. (정답 칸은 나에게만 ★로 보여요)' : ('⏳ ' + huName(state, turnPid) + '님이 말을 놓는 중...');
     }
+    document.getElementById('hu-place-btn').textContent = canPlace ? '여기 놓기' : '내 차례에 놓기';
     document.getElementById('hu-host-skip').style.display = (isHost && !canPlace) ? '' : 'none';
   } else if (state.phase === 'reveal') {
     document.getElementById('hu-reveal-area').style.display = '';
@@ -435,6 +451,7 @@ function huRender(state) {
   if (showBoard) {
     huPaintBoard(state, {
       canPlace: canPlace,
+      canPick: canPick,
       showTarget: state.phase === 'reveal',
       giverPeek: isGiver && state.target && state.phase !== 'reveal'
     });

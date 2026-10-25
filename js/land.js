@@ -1,487 +1,479 @@
-/* ---------------- 땅따먹기 (2명 이상 온라인 전용, Paper.io 스타일 실시간 영역 뺏기) ---------------- */
-/* 규칙(단순화 버전 - 설계 메모):
-   - 90초 동안 진행되는 한 판. 각자 코너에 작은 시작 땅(3x3)을 갖고 시작합니다.
-   - 캐릭터는 마우스(또는 손가락)가 가리키는 위치를 향해 계속 움직입니다. 커서를 움직이는 한
-     계속 이동하며, 커서가 멈춰 있으면 그 자리에 도착해서 멈춰 있습니다.
-   - 내 땅 밖으로 나가면 지나온 칸에 "선"(트레일)이 그어집니다. 다시 내 땅으로 돌아오면 그
-     선과, 선으로 둘러싸인 빈 땅이 한꺼번에 내 땅이 됩니다(칸 단위 flood-fill로 계산).
-   - 어떤 선이든(내 선이든 남의 선이든) 부딪히면 "펑!" 하고 원래 시작 자리로 돌아갑니다. 단,
-     이미 차지한 땅은 그대로 유지되므로 완전히 탈락하지는 않습니다(계속 다시 도전 가능).
-     * 원래의 페이퍼닷아이오는 "상대 선을 끊으면 상대가 죽는" 방식이지만, 온라인 대전을
-       초 단위로 동기화해야 하는 이 앱 구조상 "누구 선이든 닿으면 내가 펑"으로 단순화했습니다.
-       구현이 훨씬 안전하고(서로 다른 사람 상태를 원격으로 건드릴 필요가 없음), 그래도
-       "선을 피해 다니는" 긴장감은 그대로 남아 있습니다.
-   - 90초가 지나면 그 순간 땅을 가장 많이 차지한 사람이 승리.
-   - 다른 실시간 온라인 게임(bomb.js)과 같은 패턴: 내 위치/트레일은 나만의 키(roomKey로
-     구분된 roomKey('land_p_'+내ID))에 짧은 주기로 올리고, 상대는 그 키를 폴링해서 봅니다.
-     땅 소유권 격자는 방 전체가 공유하는 하나의 키(roomKey('land_grid'))에 저장되며, 이건
-     "내가 선을 완성해서 땅을 차지하는" 흔치 않은 순간에만 읽고-고치고-쓰기 때문에 다른
-     게임들(거짓말 탐지의 투표 진행 등)과 같은 수준의 아주 작은 동시쓰기 경합만 있습니다. */
-var LD_COLS = 26;
-var LD_ROWS = 18;
-var LD_CELL = 18; // px (캔버스 내부 해상도 기준, CSS로 화면 크기에 맞게 확대/축소됨)
-var LD_ROUND_MS = 90000;
-var LD_SPEED = 130; // 캔버스 내부 좌표 기준 px/초
-var LD_POP_INVULN_MS = 600;
-var LD_TRAIL_MAX = 400;
-var LD_COLORS = ['#F2836B', '#6FC3DF', '#F2C744', '#B79CE8', '#6FC364', '#E88FA0'];
+/* ---------------- 먼작귀 땅따먹기 (온라인, 2~10명, 실시간) ----------------
+   내 땅(색칠된 칸)에서 밖으로 나가면 꼬리(선)가 생기고, 다시 내 땅으로 돌아오면 꼬리로 둘러싼
+   공간이 전부 내 땅이 돼요. 내가 밖에 나가 있을 때 다른 사람이 내 꼬리를 밟거나, 내가 내 꼬리를
+   밟으면 탈락(3초 뒤 작은 땅에서 다시 시작). 2분 동안 땅을 가장 넓게 차지한 사람이 승리!
+   - 내 움직임/땅 계산은 내 화면이 직접 하고, roomKey('ld_'+내id)에 0.2초마다 올려요.
+   - 다른 사람 상태는 서버 일괄조회(DBgetPrefix)로 한 번에 읽어요.
+   - 다른 사람이 내 땅을 뺏으면(그 사람이 나보다 나중에 땅을 차지했으면) 겹친 칸은 그 사람 것. */
+var LD_G = 44;                 // 판 크기 (44×44칸)
+var LD_SPEED = 6.2;            // 칸/초
+var LD_ROUND_MS = 120000;      // 2분
+var LD_RESPAWN_MS = 3000;
+var LD_COLORS = ['#ef5350', '#42a5f5', '#43a047', '#ffa726', '#ab47bc', '#26c6da', '#c0ca33', '#ec407a', '#ffca28', '#26a69a'];
+var LD_MIN = 2, LD_MAX = 10;
 
-var LD_CANVAS = null;
-var LD_CTX = null;
-var LD_RAF = null;
-var LD_LAST_FRAME_TS = 0;
-var LD_GRID_POLL_TIMER = null;
-var LD_OPP_POLL_TIMER = null;
-var LD_ACTIVE = false;
-var LD_ROUND_OVER_HANDLED = false;
+var LD = null;           // 내 게임 상태
+var LD_MAIN = null;      // 방 공용 상태 roomKey('land')
+var LD_OTHERS = {};      // 다른 사람들 최신 상태 {pid: data}
+var LD_RAF = null, LD_POLL = null, LD_NET = null;
+var LD_CANVAS = null, LD_CTX = null, LD_DPR = 1;
+var LD_PICK = null;
+var LD_KILL_AT = {};
 
-var LD_MY_IDX = -1;
-var LD_MY_X = 0, LD_MY_Y = 0;
-var LD_TARGET_X = 0, LD_TARGET_Y = 0;
-var LD_MY_TRAIL = [];
-var LD_MY_LAST_CELL = null;
-var LD_MY_SPAWN = null;
-var LD_MY_INVULN_UNTIL = 0;
-var LD_LAST_POST = 0;
-var LD_GRID_STATE = null;
-var LD_OPP_STATES = {};
-var LD_HUD_LAST_UPDATE = 0;
+function ldKey() { return roomKey('land'); }
+function ldMyKey() { return roomKey('ld_' + myPlayerId); }
+function ldIdx(x, y) { return y * LD_G + x; }
 
-function landGridKey() { return roomKey('land_grid'); }
-function landOwnKey(pid) { return roomKey('land_p_' + pid); }
-function ldCellIdx(c, r) { return r * LD_COLS + c; }
-
-function ldSpawnAnchors() {
-  var midC = Math.floor(LD_COLS / 2), midR = Math.floor(LD_ROWS / 2);
-  var pad = 2;
-  return [
-    { c: pad, r: pad },
-    { c: LD_COLS - 1 - pad, r: LD_ROWS - 1 - pad },
-    { c: LD_COLS - 1 - pad, r: pad },
-    { c: pad, r: LD_ROWS - 1 - pad },
-    { c: midC, r: pad },
-    { c: midC, r: LD_ROWS - 1 - pad }
-  ];
+function stopLandGame() {
+  cancelAnimationFrame(LD_RAF); LD_RAF = null;
+  clearInterval(LD_POLL); LD_POLL = null;
+  clearInterval(LD_NET); LD_NET = null;
 }
 
 function startLandGame() {
-  clearInterval(LD_GRID_POLL_TIMER);
-  clearInterval(LD_OPP_POLL_TIMER);
-  cancelAnimationFrame(LD_RAF);
-  LD_ACTIVE = false;
-  LD_ROUND_OVER_HANDLED = false;
-  LD_OPP_STATES = {};
-  LD_MY_TRAIL = [];
-  LD_MY_LAST_CELL = null;
-  document.getElementById('ld-need-two').style.display = 'none';
-  document.getElementById('ld-game-area').style.display = 'none';
-  document.getElementById('ld-over-area').style.display = 'none';
-  if (!roomPlayersList || roomPlayersList.length < 2) {
-    document.getElementById('ld-need-two').style.display = '';
-    document.getElementById('ld-player-count').textContent = (roomPlayersList || []).length;
-    LD_GRID_POLL_TIMER = setInterval(function () {
-      if (roomPlayersList && roomPlayersList.length >= 2) { startLandGame(); return; }
-      document.getElementById('ld-player-count').textContent = (roomPlayersList || []).length;
-    }, 1000);
-    return;
-  }
+  stopLandGame();
+  LD = null; LD_MAIN = null; LD_OTHERS = {};
   LD_CANVAS = document.getElementById('ld-canvas');
   LD_CTX = LD_CANVAS.getContext('2d');
-  ldSetupPointerHandlers();
-  DBget(landGridKey()).then(function (state) {
-    if (!state || state.over) { ldCreateNewRound(); }
-    else { LD_GRID_STATE = state; ldEnterRound(state); }
-  });
-}
-
-function ldCreateNewRound() {
-  if (!roomPlayersList || roomPlayersList.length < 2) return;
-  var players = roomPlayersList.map(function (p, i) { return { id: p.id, name: p.name, colorIdx: i % LD_COLORS.length }; });
-  var grid = new Array(LD_COLS * LD_ROWS).fill(0);
-  var anchors = ldSpawnAnchors();
-  players.forEach(function (pl, i) {
-    var a = anchors[i % anchors.length];
-    for (var dr = -1; dr <= 1; dr++) {
-      for (var dc = -1; dc <= 1; dc++) {
-        var c = a.c + dc, r = a.r + dr;
-        if (c >= 0 && c < LD_COLS && r >= 0 && r < LD_ROWS) grid[ldCellIdx(c, r)] = i + 1;
-      }
-    }
-  });
-  var state = { players: players, grid: grid, startTs: Date.now(), durationMs: LD_ROUND_MS, over: false, seq: Date.now() };
-  DBset(landGridKey(), state).then(function () { LD_GRID_STATE = state; ldEnterRound(state); });
-}
-
-function ldRestart() { ldCreateNewRound(); }
-
-function ldEnterRound(state) {
-  document.getElementById('ld-need-two').style.display = 'none';
-  document.getElementById('ld-over-area').style.display = 'none';
-  document.getElementById('ld-game-area').style.display = '';
-  LD_ROUND_OVER_HANDLED = false;
-
-  var myIdx = state.players.findIndex(function (p) { return p.id === myPlayerId; });
-  LD_MY_IDX = myIdx;
-  if (myIdx !== -1) {
-    var anchors = ldSpawnAnchors();
-    var a = anchors[myIdx % anchors.length];
-    LD_MY_X = (a.c + 0.5) * LD_CELL;
-    LD_MY_Y = (a.r + 0.5) * LD_CELL;
-    LD_TARGET_X = LD_MY_X;
-    LD_TARGET_Y = LD_MY_Y;
-    LD_MY_SPAWN = { x: LD_MY_X, y: LD_MY_Y };
-    LD_MY_TRAIL = [];
-    LD_MY_LAST_CELL = { c: a.c, r: a.r };
-  }
-
-  LD_LAST_POST = 0;
-  ldPostMyState(true);
-
-  LD_ACTIVE = true;
-  clearInterval(LD_GRID_POLL_TIMER);
-  clearInterval(LD_OPP_POLL_TIMER);
-  LD_GRID_POLL_TIMER = setInterval(ldPollGrid, 900);
-  LD_OPP_POLL_TIMER = setInterval(ldPollOpponents, 350);
-  cancelAnimationFrame(LD_RAF);
-  LD_LAST_FRAME_TS = 0;
-  LD_RAF = requestAnimationFrame(ldFrame);
-}
-
-/* ---- 입력(마우스/터치 공용 Pointer Events) ---- */
-function ldSetupPointerHandlers() {
-  if (!LD_CANVAS || LD_CANVAS._ldBound) return;
-  LD_CANVAS._ldBound = true;
-  var handler = function (e) {
-    if (LD_MY_IDX === -1 || !LD_ACTIVE) return;
-    e.preventDefault();
-    var rect = LD_CANVAS.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    var scaleX = LD_CANVAS.width / rect.width;
-    var scaleY = LD_CANVAS.height / rect.height;
-    var x = (e.clientX - rect.left) * scaleX;
-    var y = (e.clientY - rect.top) * scaleY;
-    LD_TARGET_X = Math.max(0, Math.min(LD_CANVAS.width - 0.01, x));
-    LD_TARGET_Y = Math.max(0, Math.min(LD_CANVAS.height - 0.01, y));
-  };
-  LD_CANVAS.addEventListener('pointerdown', handler, { passive: false });
-  LD_CANVAS.addEventListener('pointermove', handler, { passive: false });
-}
-
-/* ---- 폴링: 땅 격자(공용) / 상대방 위치+트레일(개인별) ---- */
-function ldPollGrid() {
-  if (!LD_ACTIVE) return;
-  DBget(landGridKey()).then(function (state) {
-    if (!state) return;
-    LD_GRID_STATE = state;
-    if (!state.over) {
-      var elapsed = Date.now() - state.startTs;
-      if (elapsed >= state.durationMs) ldTryFinishRound(state);
-    } else if (!LD_ROUND_OVER_HANDLED) {
-      ldShowFinal(state);
-    }
-  });
-}
-
-function ldTryFinishRound(state) {
-  /* 여러 사람 화면이 동시에 "시간 다 됐다"를 감지해도, seq가 여전히 같고 아직 over가 아닐
-     때만 실제로 종료 처리해서 중복 처리를 막습니다(거짓말 탐지의 라운드 진행 방식과 동일). */
-  DBget(landGridKey()).then(function (fresh) {
-    if (!fresh) return;
-    if (fresh.over || fresh.seq !== state.seq) { LD_GRID_STATE = fresh; if (fresh.over) ldShowFinal(fresh); return; }
-    fresh.over = true;
-    DBset(landGridKey(), fresh).then(function () { LD_GRID_STATE = fresh; ldShowFinal(fresh); });
-  });
-}
-
-function ldShowFinal(state) {
-  if (LD_ROUND_OVER_HANDLED) return;
-  LD_ROUND_OVER_HANDLED = true;
-  LD_ACTIVE = false;
-  cancelAnimationFrame(LD_RAF);
-  clearInterval(LD_GRID_POLL_TIMER);
-  clearInterval(LD_OPP_POLL_TIMER);
-  document.getElementById('ld-game-area').style.display = 'none';
-  document.getElementById('ld-over-area').style.display = '';
-  var totalCells = LD_COLS * LD_ROWS;
-  var counts = {};
-  state.grid.forEach(function (v) { if (v > 0) counts[v] = (counts[v] || 0) + 1; });
-  var entries = state.players.map(function (p, i) {
-    var cnt = counts[i + 1] || 0;
-    var pct = Math.round((cnt / totalCells) * 100);
-    return { name: p.name, isMe: p.id === myPlayerId, label: pct + '%', sortKey: -cnt };
-  });
-  entries.sort(function (a, b) { return a.sortKey - b.sortKey; });
-  renderRankBoard('ld-final-board', entries);
-}
-
-function ldPollOpponents() {
-  if (!LD_ACTIVE || !roomPlayersList) return;
-  var others = roomPlayersList.filter(function (p) { return p.id !== myPlayerId; });
-  Promise.all(others.map(function (p) {
-    return DBget(landOwnKey(p.id)).then(function (data) { return { id: p.id, data: data }; });
-  })).then(function (results) {
-    var fresh = {};
-    results.forEach(function (r) { if (r.data) fresh[r.id] = r.data; });
-    LD_OPP_STATES = fresh;
-  });
-}
-
-function ldPostMyState(force) {
-  if (playMode !== 'online' || !roomJoined || !myPlayerId || LD_MY_IDX === -1) return;
-  var now = performance.now();
-  if (!force && now - LD_LAST_POST < 150) return;
-  LD_LAST_POST = now;
-  DBset(landOwnKey(myPlayerId), {
-    name: me.name,
-    x: Math.round(LD_MY_X * 10) / 10,
-    y: Math.round(LD_MY_Y * 10) / 10,
-    trail: LD_MY_TRAIL.slice(0, LD_TRAIL_MAX),
-    ts: Date.now()
-  });
-}
-
-/* ---- 매 프레임: 이동 -> 칸 진입 판정(선 긋기/땅 차지/펑) -> 그리기 -> HUD 갱신 ---- */
-function ldFrame(ts) {
-  if (!LD_ACTIVE) return;
-  if (!LD_LAST_FRAME_TS) LD_LAST_FRAME_TS = ts;
-  var dt = Math.min(0.1, (ts - LD_LAST_FRAME_TS) / 1000);
-  LD_LAST_FRAME_TS = ts;
-
-  if (LD_MY_IDX !== -1) ldUpdateMovement(dt);
-  ldDraw();
-  ldUpdateHud(ts);
-
-  LD_RAF = requestAnimationFrame(ldFrame);
-}
-
-function ldUpdateMovement(dt) {
-  var dx = LD_TARGET_X - LD_MY_X, dy = LD_TARGET_Y - LD_MY_Y;
-  var dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist > 0.5) {
-    var step = Math.min(dist, LD_SPEED * dt);
-    LD_MY_X += (dx / dist) * step;
-    LD_MY_Y += (dy / dist) * step;
-  }
-  LD_MY_X = Math.max(0, Math.min(LD_CANVAS.width - 0.01, LD_MY_X));
-  LD_MY_Y = Math.max(0, Math.min(LD_CANVAS.height - 0.01, LD_MY_Y));
-
-  var c = Math.floor(LD_MY_X / LD_CELL), r = Math.floor(LD_MY_Y / LD_CELL);
-  if (!LD_MY_LAST_CELL || c !== LD_MY_LAST_CELL.c || r !== LD_MY_LAST_CELL.r) {
-    LD_MY_LAST_CELL = { c: c, r: r };
-    ldHandleCellEnter(c, r);
-  }
-  ldPostMyState(false);
-}
-
-function ldOwnerAt(c, r) {
-  if (!LD_GRID_STATE || !LD_GRID_STATE.grid) return 0;
-  if (c < 0 || c >= LD_COLS || r < 0 || r >= LD_ROWS) return 0;
-  return LD_GRID_STATE.grid[ldCellIdx(c, r)] || 0;
-}
-
-function ldCellInTrail(trail, c, r) {
-  if (!trail) return false;
-  for (var i = 0; i < trail.length; i++) { if (trail[i].c === c && trail[i].r === r) return true; }
-  return false;
-}
-
-function ldHandleCellEnter(c, r) {
-  if (LD_MY_IDX === -1 || performance.now() < LD_MY_INVULN_UNTIL) return;
-  var myVal = LD_MY_IDX + 1;
-  var owner = ldOwnerAt(c, r);
-
-  if (owner === myVal) {
-    if (LD_MY_TRAIL.length > 0) {
-      ldCaptureTerritory(LD_MY_TRAIL.slice());
-      LD_MY_TRAIL = [];
-      ldPostMyState(true);
-    }
+  document.getElementById('ld-result').style.display = 'none';
+  var n = (roomPlayersList || []).length;
+  if (n < LD_MIN || n > LD_MAX) {
+    document.getElementById('ld-msg').textContent = '땅따먹기는 ' + LD_MIN + '~' + LD_MAX + '명이 필요해요. 지금 ' + n + '명이에요.';
     return;
   }
-
-  if (ldCellInTrail(LD_MY_TRAIL, c, r)) { ldPop(); return; }
-  for (var pid in LD_OPP_STATES) {
-    if (LD_OPP_STATES.hasOwnProperty(pid) && ldCellInTrail(LD_OPP_STATES[pid].trail, c, r)) { ldPop(); return; }
-  }
-
-  LD_MY_TRAIL.push({ c: c, r: r });
-  if (LD_MY_TRAIL.length > LD_TRAIL_MAX) LD_MY_TRAIL.shift();
-}
-
-function ldPop() {
-  LD_MY_TRAIL = [];
-  LD_MY_X = LD_MY_SPAWN.x;
-  LD_MY_Y = LD_MY_SPAWN.y;
-  LD_TARGET_X = LD_MY_X;
-  LD_TARGET_Y = LD_MY_Y;
-  LD_MY_LAST_CELL = { c: Math.floor(LD_MY_X / LD_CELL), r: Math.floor(LD_MY_Y / LD_CELL) };
-  LD_MY_INVULN_UNTIL = performance.now() + LD_POP_INVULN_MS;
-  ldPostMyState(true);
-  var flash = document.getElementById('ld-pop-flash');
-  if (flash) {
-    flash.style.display = '';
-    flash.style.animation = 'none';
-    void flash.offsetWidth;
-    flash.style.animation = '';
-    setTimeout(function () { flash.style.display = 'none'; }, 700);
-  }
-}
-
-/* 트레일(선) + 그 선으로 둘러싸인 빈 칸을 내 땅으로 확정합니다.
-   테두리에서부터 flood-fill로 "바깥과 이어진 빈 칸"을 찾고, 거기 못 들어간 빈 칸은
-   전부 내 선으로 둘러싸인 것이므로 내 땅이 됩니다. 다른 사람이 이미 차지한 땅은
-   둘러싸여도 뺏지 않습니다(단순하고 안전한 규칙). */
-function ldCaptureTerritory(trailCells) {
-  DBget(landGridKey()).then(function (state) {
-    if (!state || state.over) return;
-    if (LD_GRID_STATE && state.seq !== LD_GRID_STATE.seq) { LD_GRID_STATE = state; return; }
-    var myVal = LD_MY_IDX + 1;
-    var grid = state.grid.slice();
-    trailCells.forEach(function (cell) { grid[ldCellIdx(cell.c, cell.r)] = myVal; });
-
-    var visited = new Array(LD_COLS * LD_ROWS).fill(false);
-    var queue = [];
-    function tryEnqueue(c, r) {
-      if (c < 0 || c >= LD_COLS || r < 0 || r >= LD_ROWS) return;
-      var idx = ldCellIdx(c, r);
-      if (visited[idx] || grid[idx] === myVal) return;
-      visited[idx] = true;
-      queue.push({ c: c, r: r });
-    }
-    var c, r;
-    for (c = 0; c < LD_COLS; c++) { tryEnqueue(c, 0); tryEnqueue(c, LD_ROWS - 1); }
-    for (r = 0; r < LD_ROWS; r++) { tryEnqueue(0, r); tryEnqueue(LD_COLS - 1, r); }
-    while (queue.length) {
-      var cell = queue.shift();
-      tryEnqueue(cell.c + 1, cell.r);
-      tryEnqueue(cell.c - 1, cell.r);
-      tryEnqueue(cell.c, cell.r + 1);
-      tryEnqueue(cell.c, cell.r - 1);
-    }
-    for (var i = 0; i < grid.length; i++) {
-      if (grid[i] === 0 && !visited[i]) grid[i] = myVal;
-    }
-    state.grid = grid;
-    DBset(landGridKey(), state).then(function () { LD_GRID_STATE = state; });
+  var myChar = (charLoadChoice() || {}).id || null;
+  LD_PICK = myChar;
+  charRenderPicker('ld-char-pick', myChar, function (id) { LD_PICK = id; if (LD) LD.char = id; });
+  document.getElementById('ld-pick-box').style.display = '';
+  var starter = myPlayerId === roomHostId ? ldHostInit() : Promise.resolve();
+  starter.then(function () {
+    ldPollMain();
+    LD_POLL = setInterval(ldPollMain, 1000);
+    LD_NET = setInterval(ldNetTick, 200);
+    LD_RAF = requestAnimationFrame(ldFrame);
   });
 }
 
-/* ---- 그리기 ---- */
-function ldColorAlpha(colorIdx, alpha) {
-  var hex = LD_COLORS[colorIdx % LD_COLORS.length];
-  var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-}
-
-function ldDrawTrail(trail, colorIdx) {
-  if (!trail || !trail.length || !LD_CTX) return;
-  var ctx = LD_CTX;
-  ctx.strokeStyle = LD_COLORS[colorIdx % LD_COLORS.length];
-  ctx.lineWidth = 4;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  trail.forEach(function (cell, i) {
-    var px = cell.c * LD_CELL + LD_CELL / 2, py = cell.r * LD_CELL + LD_CELL / 2;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+function ldHostInit() {
+  var order = shuffleArray((roomPlayersList || []).map(function (p) { return p.id; }));
+  var names = {}, spawns = {};
+  (roomPlayersList || []).forEach(function (p) { names[p.id] = p.name; });
+  order.forEach(function (pid, i) {
+    var a = (i / order.length) * Math.PI * 2;
+    spawns[pid] = { x: Math.round(LD_G / 2 + Math.cos(a) * LD_G * 0.3), y: Math.round(LD_G / 2 + Math.sin(a) * LD_G * 0.3), color: LD_COLORS[i % LD_COLORS.length] };
   });
-  ctx.stroke();
+  var startAt = Date.now() + 9000; // 캐릭터 고를 시간
+  return DBset(ldKey(), { gameId: Date.now(), order: order, names: names, spawns: spawns, startAt: startAt, endAt: startAt + LD_ROUND_MS, phase: 'play' });
+}
+function ldHostRestart() { if (myPlayerId === roomHostId) ldHostInit().then(ldPollMain); }
+
+function ldPollMain() {
+  DBget(ldKey()).then(function (st) {
+    if (!st || !st.order) return;
+    var isNew = !LD_MAIN || LD_MAIN.gameId !== st.gameId;
+    LD_MAIN = st;
+    if (isNew) ldInitMine(st);
+    if (myPlayerId === roomHostId && st.phase === 'play' && Date.now() > st.endAt + 1500) ldHostFinish(st);
+    if (st.phase === 'end') ldShowResult(st);
+  });
 }
 
-function ldDrawPlayer(x, y, colorIdx, name, isMe) {
-  if (x == null || y == null || !LD_CTX) return;
-  var ctx = LD_CTX;
-  var radius = LD_CELL * 0.42;
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = LD_COLORS[colorIdx % LD_COLORS.length];
-  ctx.fill();
-  ctx.lineWidth = isMe ? 3 : 2;
-  ctx.strokeStyle = isMe ? '#F5F3E7' : 'rgba(0,0,0,0.4)';
-  ctx.stroke();
-  ctx.fillStyle = '#16281F';
-  ctx.font = 'bold ' + Math.round(radius * 1.1) + 'px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText((name || '?').slice(0, 1), x, y + 1);
+function ldInitMine(st) {
+  var sp = st.spawns[myPlayerId] || { x: 10, y: 10, color: LD_COLORS[0] };
+  LD = {
+    gameId: st.gameId, color: sp.color, char: LD_PICK || (charLoadChoice() || {}).id || null,
+    mask: new Uint8Array(LD_G * LD_G), trail: [], trailMask: new Uint8Array(LD_G * LD_G),
+    x: sp.x, y: sp.y, px: sp.x, py: sp.y, dir: [1, 0], nextDir: null, stepT: 0,
+    alive: true, deadUntil: 0, cap: Date.now(), recent: [], kills: 0, deaths: 0, killedBy: null
+  };
+  ldFillSquare(sp.x, sp.y, 2);
+  document.getElementById('ld-result').style.display = 'none';
+  document.getElementById('ld-pick-box').style.display = '';
+}
+
+function ldFillSquare(cx, cy, r) {
+  for (var y = cy - r; y <= cy + r; y++) for (var x = cx - r; x <= cx + r; x++) {
+    if (x >= 0 && y >= 0 && x < LD_G && y < LD_G) LD.mask[ldIdx(x, y)] = 1;
+  }
+}
+
+/* ---- 내 움직임 ---- */
+function ldSetDir(dx, dy) {
+  if (!LD || !LD.alive) return;
+  var cur = LD.nextDir || LD.dir;
+  if (cur[0] === -dx && cur[1] === -dy) return; // 바로 뒤로는 못 돌아요
+  LD.nextDir = [dx, dy];
+}
+
+function ldStep() {
+  if (LD.nextDir) {
+    if (!(LD.nextDir[0] === -LD.dir[0] && LD.nextDir[1] === -LD.dir[1])) LD.dir = LD.nextDir;
+    LD.nextDir = null;
+  }
+  var nx = LD.x + LD.dir[0], ny = LD.y + LD.dir[1];
+  LD.px = LD.x; LD.py = LD.y;
+  if (nx < 0 || ny < 0 || nx >= LD_G || ny >= LD_G) return; // 벽에서는 멈춰요(방향을 바꾸세요)
+  LD.x = nx; LD.y = ny;
+  var id = ldIdx(nx, ny);
+  LD.recent.push(id);
+  if (LD.recent.length > 5) LD.recent.shift();
+  if (LD.trailMask[id]) { ldDie(null); return; }
+  if (LD.mask[id]) {
+    if (LD.trail.length) ldCapture();
+  } else {
+    LD.trail.push(id);
+    LD.trailMask[id] = 1;
+  }
+}
+
+/* 꼬리를 땅으로 바꾸고, 바깥과 연결되지 않은(둘러싸인) 칸도 전부 내 땅으로 */
+function ldCapture() {
+  var G = LD_G, mask = LD.mask;
+  LD.trail.forEach(function (id) { mask[id] = 1; });
+  var outside = new Uint8Array(G * G);
+  var stack = [];
+  for (var i = 0; i < G; i++) {
+    [ldIdx(i, 0), ldIdx(i, G - 1), ldIdx(0, i), ldIdx(G - 1, i)].forEach(function (id) {
+      if (!mask[id] && !outside[id]) { outside[id] = 1; stack.push(id); }
+    });
+  }
+  while (stack.length) {
+    var id = stack.pop();
+    var x = id % G, y = (id - x) / G;
+    var nb = [];
+    if (x > 0) nb.push(id - 1);
+    if (x < G - 1) nb.push(id + 1);
+    if (y > 0) nb.push(id - G);
+    if (y < G - 1) nb.push(id + G);
+    for (var k = 0; k < nb.length; k++) {
+      var n = nb[k];
+      if (!mask[n] && !outside[n]) { outside[n] = 1; stack.push(n); }
+    }
+  }
+  for (var j = 0; j < G * G; j++) if (!outside[j]) mask[j] = 1;
+  LD.trail = [];
+  LD.trailMask = new Uint8Array(G * G);
+  LD.cap = Date.now();
+}
+
+function ldDie(byPid) {
+  LD.alive = false;
+  LD.deaths++;
+  LD.killedBy = byPid;
+  LD.deadUntil = Date.now() + LD_RESPAWN_MS;
+  LD.mask = new Uint8Array(LD_G * LD_G);
+  LD.trail = []; LD.trailMask = new Uint8Array(LD_G * LD_G);
+  LD.cap = Date.now();
+  ldPublish(true);
+}
+
+function ldRespawn() {
+  // 다른 사람 땅이 적은 곳을 골라 다시 시작
+  var best = null, bestScore = -1;
+  for (var t = 0; t < 30; t++) {
+    var x = 3 + Math.floor(Math.random() * (LD_G - 6)), y = 3 + Math.floor(Math.random() * (LD_G - 6));
+    var free = 0;
+    for (var yy = y - 2; yy <= y + 2; yy++) for (var xx = x - 2; xx <= x + 2; xx++) if (!ldOwnerOf(ldIdx(xx, yy))) free++;
+    if (free > bestScore) { bestScore = free; best = { x: x, y: y }; }
+  }
+  LD.x = LD.px = best.x; LD.y = LD.py = best.y;
+  LD.dir = [1, 0]; LD.nextDir = null;
+  LD.alive = true; LD.killedBy = null;
+  LD.recent = [];
+  ldFillSquare(best.x, best.y, 2);
+  LD.cap = Date.now();
+}
+
+/* ---- 네트워크 ---- */
+function ldB64(mask) {
+  var bytes = new Uint8Array(Math.ceil(mask.length / 8));
+  for (var i = 0; i < mask.length; i++) if (mask[i]) bytes[i >> 3] |= (1 << (i & 7));
+  var s = '';
+  for (var j = 0; j < bytes.length; j++) s += String.fromCharCode(bytes[j]);
+  return btoa(s);
+}
+function ldUnB64(b64) {
+  var s = atob(b64 || ''), mask = new Uint8Array(LD_G * LD_G);
+  for (var i = 0; i < mask.length; i++) { var c = s.charCodeAt(i >> 3) || 0; if (c & (1 << (i & 7))) mask[i] = 1; }
+  return mask;
+}
+var LD_LAST_PUB = 0;
+function ldPublish(force) {
+  if (!LD || !LD_MAIN) return;
+  var now = Date.now();
+  if (!force && now - LD_LAST_PUB < 180) return;
+  LD_LAST_PUB = now;
+  var score = 0;
+  for (var i = 0; i < LD.mask.length; i++) score += LD.mask[i];
+  LD.score = score;
+  DBset(ldMyKey(), {
+    gameId: LD.gameId, name: me.name, color: LD.color, char: LD.char,
+    x: LD.x, y: LD.y, dir: LD.dir, alive: LD.alive, t: now,
+    mask: ldB64(LD.mask), cap: LD.cap, trail: LD.trail.slice(-300), recent: LD.recent.slice(),
+    score: score, kills: LD.kills, deaths: LD.deaths
+  });
+}
+
+function ldNetTick() {
+  if (!LD_MAIN || !LD) return;
+  ldPublish(false);
+  var others = LD_MAIN.order.filter(function (p) { return p !== myPlayerId; });
+  DBgetPrefix('ld_', others).then(function (all) {
+    Object.keys(all).forEach(function (pid) {
+      var d = all[pid];
+      if (!d || d.gameId !== LD_MAIN.gameId) return;
+      var prev = LD_OTHERS[pid];
+      if (!prev || prev.t !== d.t || !prev.maskArr) {
+        d.maskArr = (prev && prev.mask === d.mask) ? prev.maskArr : ldUnB64(d.mask);
+        d.trailSet = {};
+        (d.trail || []).forEach(function (id) { d.trailSet[id] = 1; });
+        d.recvAt = Date.now();
+        LD_OTHERS[pid] = d;
+      }
+    });
+    ldResolveConflicts();
+  });
+  ldUpdateBoard();
+}
+
+/* 다른 사람과의 충돌/땅 뺏김 판정 (내 화면에서 나에 대해서만 판단) */
+function ldResolveConflicts() {
+  if (!LD || !LD.alive || Date.now() < LD_MAIN.startAt) return;
+  Object.keys(LD_OTHERS).forEach(function (pid) {
+    var d = LD_OTHERS[pid];
+    if (!d.alive) return;
+    // 1) 그 사람 머리(최근 지나간 칸)가 내 꼬리를 밟았으면 나는 탈락
+    var stepped = (d.recent || []).some(function (id) { return LD.trailMask[id]; });
+    if (stepped && LD.alive) {
+      ldDie(pid);
+      ldToast('💥 ' + (d.name || '누군가') + '님이 내 꼬리를 밟았어요!');
+      return;
+    }
+    // 2) 그 사람이 나보다 나중에 땅을 차지했으면 겹친 칸은 그 사람 것
+    if (d.cap > LD.cap && d.maskArr) {
+      for (var i = 0; i < LD.mask.length; i++) if (LD.mask[i] && d.maskArr[i]) LD.mask[i] = 0;
+    }
+  });
+  // 내가 다른 사람 꼬리를 밟았는지(킬 카운트용 - 실제 탈락 판정은 상대 화면이 함)
+  LD.recent.forEach(function (id) {
+    Object.keys(LD_OTHERS).forEach(function (pid) {
+      var d = LD_OTHERS[pid];
+      if (d.alive && d.trailSet && d.trailSet[id] && Date.now() - (LD_KILL_AT[pid] || 0) > 4000) { LD_KILL_AT[pid] = Date.now(); LD.kills++; ldToast('⚔️ ' + (d.name || '') + '님의 꼬리를 끊었어요!'); }
+    });
+  });
+}
+
+function ldOwnerOf(id) {
+  if (LD && LD.mask[id]) return myPlayerId;
+  var owner = null, bestCap = -1;
+  Object.keys(LD_OTHERS).forEach(function (pid) {
+    var d = LD_OTHERS[pid];
+    if (d.maskArr && d.maskArr[id] && d.cap > bestCap) { bestCap = d.cap; owner = pid; }
+  });
+  return owner;
+}
+
+var LD_TOAST_T = null;
+function ldToast(msg) {
+  var el = document.getElementById('ld-toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(LD_TOAST_T);
+  LD_TOAST_T = setTimeout(function () { el.classList.remove('show'); }, 1800);
+}
+
+/* ---- 화면 ---- */
+function ldFrame(ts) {
+  LD_RAF = requestAnimationFrame(ldFrame);
+  if (!LD || !LD_MAIN || !document.getElementById('land').classList.contains('active')) return;
+  var now = Date.now();
+  var dt = ldFrame.last ? Math.min(0.05, (ts - ldFrame.last) / 1000) : 0.016;
+  ldFrame.last = ts;
+  var started = now >= LD_MAIN.startAt;
+  var ended = now >= LD_MAIN.endAt || LD_MAIN.phase === 'end';
+  document.getElementById('ld-pick-box').style.display = started ? 'none' : '';
+  if (!started) {
+    document.getElementById('ld-count').textContent = Math.ceil((LD_MAIN.startAt - now) / 1000);
+  }
+  if (started && !ended) {
+    if (LD.alive) {
+      LD.stepT += dt * LD_SPEED;
+      while (LD.stepT >= 1 && LD.alive) { LD.stepT -= 1; ldStep(); }
+    } else if (now >= LD.deadUntil) ldRespawn();
+  }
+  var remain = Math.max(0, Math.ceil((LD_MAIN.endAt - now) / 1000));
+  document.getElementById('ld-time').textContent = started ? (Math.floor(remain / 60) + ':' + ('0' + remain % 60).slice(-2)) : '준비';
+  ldDraw();
+}
+
+function ldResize() {
+  var rect = LD_CANVAS.getBoundingClientRect();
+  LD_DPR = window.devicePixelRatio || 1;
+  var w = Math.round(rect.width * LD_DPR), h = Math.round(rect.height * LD_DPR);
+  if (LD_CANVAS.width !== w || LD_CANVAS.height !== h) { LD_CANVAS.width = w; LD_CANVAS.height = h; }
 }
 
 function ldDraw() {
-  if (!LD_CTX) return;
-  var ctx = LD_CTX;
-  ctx.clearRect(0, 0, LD_CANVAS.width, LD_CANVAS.height);
-  ctx.fillStyle = '#16281F';
-  ctx.fillRect(0, 0, LD_CANVAS.width, LD_CANVAS.height);
-
-  var state = LD_GRID_STATE;
-  if (state && state.grid && state.players) {
-    for (var r = 0; r < LD_ROWS; r++) {
-      for (var c = 0; c < LD_COLS; c++) {
-        var v = state.grid[ldCellIdx(c, r)];
-        if (v > 0 && state.players[v - 1]) {
-          ctx.fillStyle = ldColorAlpha(state.players[v - 1].colorIdx, 0.55);
-          ctx.fillRect(c * LD_CELL, r * LD_CELL, LD_CELL, LD_CELL);
-        }
-      }
-    }
-
-    var pid;
-    for (pid in LD_OPP_STATES) {
-      if (!LD_OPP_STATES.hasOwnProperty(pid)) continue;
-      var idx = state.players.findIndex(function (p) { return p.id === pid; });
-      if (idx !== -1) ldDrawTrail(LD_OPP_STATES[pid].trail, state.players[idx].colorIdx);
-    }
-    if (LD_MY_IDX !== -1 && state.players[LD_MY_IDX]) ldDrawTrail(LD_MY_TRAIL, state.players[LD_MY_IDX].colorIdx);
-
-    for (pid in LD_OPP_STATES) {
-      if (!LD_OPP_STATES.hasOwnProperty(pid)) continue;
-      var opp = LD_OPP_STATES[pid];
-      var oidx = state.players.findIndex(function (p) { return p.id === pid; });
-      if (oidx !== -1) ldDrawPlayer(opp.x, opp.y, state.players[oidx].colorIdx, state.players[oidx].name, false);
-    }
-    if (LD_MY_IDX !== -1 && state.players[LD_MY_IDX]) {
-      ldDrawPlayer(LD_MY_X, LD_MY_Y, state.players[LD_MY_IDX].colorIdx, me.name, true);
-    }
+  ldResize();
+  var ctx = LD_CTX, W = LD_CANVAS.width, H = LD_CANVAS.height;
+  var cell = Math.max(10, Math.min(W, H) / 22);
+  var t = LD.alive ? Math.min(1, LD.stepT) : 1;
+  var hx = LD.px + (LD.x - LD.px) * t, hy = LD.py + (LD.y - LD.py) * t;
+  var camX = hx * cell + cell / 2 - W / 2, camY = hy * cell + cell / 2 - H / 2;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#e9eef5';
+  ctx.fillRect(0, 0, W, H);
+  ctx.translate(-camX, -camY);
+  // 판 바탕 + 격자
+  ctx.fillStyle = '#f7f9fc';
+  ctx.fillRect(0, 0, LD_G * cell, LD_G * cell);
+  ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+  ctx.lineWidth = 1;
+  var x0 = Math.max(0, Math.floor(camX / cell)), x1 = Math.min(LD_G, Math.ceil((camX + W) / cell));
+  var y0 = Math.max(0, Math.floor(camY / cell)), y1 = Math.min(LD_G, Math.ceil((camY + H) / cell));
+  ctx.beginPath();
+  for (var gx = x0; gx <= x1; gx++) { ctx.moveTo(gx * cell, y0 * cell); ctx.lineTo(gx * cell, y1 * cell); }
+  for (var gy = y0; gy <= y1; gy++) { ctx.moveTo(x0 * cell, gy * cell); ctx.lineTo(x1 * cell, gy * cell); }
+  ctx.stroke();
+  // 땅
+  for (var y = y0; y < y1; y++) for (var x = x0; x < x1; x++) {
+    var id = ldIdx(x, y);
+    var owner = ldOwnerOf(id);
+    if (!owner) continue;
+    ctx.fillStyle = owner === myPlayerId ? LD.color : (LD_OTHERS[owner] && LD_OTHERS[owner].color) || '#ccc';
+    ctx.globalAlpha = 0.72;
+    ctx.fillRect(x * cell, y * cell, cell + 0.5, cell + 0.5);
+    ctx.globalAlpha = 1;
   }
+  // 꼬리
+  function drawTrail(list, color) {
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.9;
+    list.forEach(function (id) { var x2 = id % LD_G, y2 = (id - x2) / LD_G; ctx.fillRect(x2 * cell + cell * 0.18, y2 * cell + cell * 0.18, cell * 0.64, cell * 0.64); });
+    ctx.globalAlpha = 1;
+  }
+  Object.keys(LD_OTHERS).forEach(function (pid) { var d = LD_OTHERS[pid]; if (d.alive) drawTrail(d.trail || [], d.color); });
+  drawTrail(LD.trail, LD.color);
+  // 테두리
+  ctx.strokeStyle = '#6b7a90'; ctx.lineWidth = 3;
+  ctx.strokeRect(0, 0, LD_G * cell, LD_G * cell);
+  // 캐릭터
+  function drawHead(px, py, color, charId, name, isMe) {
+    var cx = px * cell + cell / 2, cy = py * cell + cell / 2;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, cell * 0.78, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    var img = charId ? charImage(charId) : null;
+    if (img && img.complete && img.naturalWidth) {
+      var s = cell * 1.5, r = img.naturalWidth / img.naturalHeight;
+      ctx.drawImage(img, cx - (s * Math.min(1, r)) / 2, cy - (s / Math.max(1, r)) / 2 - cell * 0.1, s * Math.min(1, r), s / Math.max(1, r));
+    }
+    ctx.font = 'bold ' + Math.round(cell * 0.6) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeText(name + (isMe ? '(나)' : ''), cx, cy - cell * 1.1);
+    ctx.fillStyle = '#263238';
+    ctx.fillText(name + (isMe ? '(나)' : ''), cx, cy - cell * 1.1);
+  }
+  Object.keys(LD_OTHERS).forEach(function (pid) {
+    var d = LD_OTHERS[pid];
+    if (!d.alive) return;
+    var age = Math.min(0.25, (Date.now() - (d.recvAt || Date.now())) / 1000);
+    var ex = d.x + (d.dir ? d.dir[0] : 0) * age * LD_SPEED * 0.5, ey = d.y + (d.dir ? d.dir[1] : 0) * age * LD_SPEED * 0.5;
+    drawHead(ex, ey, d.color, d.char, d.name || '', false);
+  });
+  if (LD.alive) drawHead(hx, hy, LD.color, LD.char, me.name, true);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // 죽었을 때
+  if (!LD.alive) {
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+    ctx.font = 'bold ' + Math.round(H / 14) + 'px sans-serif';
+    ctx.fillText('으앙! 탈락…', W / 2, H / 2 - 10 * LD_DPR);
+    ctx.font = Math.round(H / 26) + 'px sans-serif';
+    ctx.fillText(Math.max(0, Math.ceil((LD.deadUntil - Date.now()) / 1000)) + '초 뒤 다시 시작', W / 2, H / 2 + 24 * LD_DPR);
+  }
+  ldDrawMinimap();
 }
 
-function ldUpdateHud(ts) {
-  if (ts - LD_HUD_LAST_UPDATE < 250) return;
-  LD_HUD_LAST_UPDATE = ts;
-  var state = LD_GRID_STATE;
-  var timerEl = document.getElementById('ld-timer');
-  if (timerEl && state && state.startTs) {
-    var remainMs = Math.max(0, state.durationMs - (Date.now() - state.startTs));
-    var remainSec = Math.ceil(remainMs / 1000);
-    var m = Math.floor(remainSec / 60), s = remainSec % 60;
-    timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
-    timerEl.classList.toggle('urgent', remainSec <= 10);
+function ldDrawMinimap() {
+  var mm = document.getElementById('ld-minimap');
+  var ctx = mm.getContext('2d');
+  var s = mm.width / LD_G;
+  ctx.fillStyle = '#f7f9fc'; ctx.fillRect(0, 0, mm.width, mm.height);
+  for (var id = 0; id < LD_G * LD_G; id++) {
+    var o = ldOwnerOf(id);
+    if (!o) continue;
+    var x = id % LD_G, y = (id - x) / LD_G;
+    ctx.fillStyle = o === myPlayerId ? LD.color : (LD_OTHERS[o] && LD_OTHERS[o].color) || '#ccc';
+    ctx.fillRect(x * s, y * s, s + 0.3, s + 0.3);
   }
-  var list = document.getElementById('ld-progress-list');
-  if (list && state && state.players) {
-    var totalCells = LD_COLS * LD_ROWS;
-    var counts = {};
-    state.grid.forEach(function (v) { if (v > 0) counts[v] = (counts[v] || 0) + 1; });
-    list.innerHTML = state.players.map(function (p, i) {
-      var pct = Math.round(((counts[i + 1] || 0) / totalCells) * 100);
-      var color = LD_COLORS[p.colorIdx % LD_COLORS.length];
-      return '<div class="ld-progress-row">' +
-        '<span class="ld-progress-dot" style="background:' + color + '"></span>' +
-        '<span class="ld-progress-name">' + esc(p.name) + (p.id === myPlayerId ? ' (나)' : '') + '</span>' +
-        '<div class="ld-progress-bar"><div class="ld-progress-fill" style="width:' + pct + '%; background:' + color + '"></div></div>' +
-        '<span class="ld-progress-pct">' + pct + '%</span>' +
-        '</div>';
-    }).join('');
-  }
+  ctx.fillStyle = '#263238';
+  if (LD.alive) { ctx.beginPath(); ctx.arc(LD.x * s + s / 2, LD.y * s + s / 2, 3, 0, Math.PI * 2); ctx.fill(); }
 }
 
-function stopLandGame() {
-  LD_ACTIVE = false;
-  cancelAnimationFrame(LD_RAF);
-  clearInterval(LD_GRID_POLL_TIMER);
-  clearInterval(LD_OPP_POLL_TIMER);
-  LD_GRID_STATE = null;
-  LD_OPP_STATES = {};
-  LD_MY_TRAIL = [];
-  LD_MY_IDX = -1;
+function ldUpdateBoard() {
+  if (!LD_MAIN) return;
+  var total = LD_G * LD_G;
+  var rows = [{ pid: myPlayerId, name: me.name, color: LD.color, score: LD.score || 0 }];
+  Object.keys(LD_OTHERS).forEach(function (pid) { var d = LD_OTHERS[pid]; rows.push({ pid: pid, name: d.name, color: d.color, score: d.score || 0 }); });
+  rows.sort(function (a, b) { return b.score - a.score; });
+  document.getElementById('ld-board').innerHTML = rows.map(function (r, i) {
+    return '<div class="ld-row' + (r.pid === myPlayerId ? ' me' : '') + '"><span class="ld-dot" style="background:' + r.color + '"></span><span class="ld-name">' + (i + 1) + '. ' + esc(r.name || '?') + '</span><b>' + (r.score / total * 100).toFixed(1) + '%</b></div>';
+  }).join('');
 }
+
+/* 방장: 시간이 끝나면 모두의 최종 땅을 모아서 결과 확정 */
+function ldHostFinish(st) {
+  DBgetPrefix('ld_', st.order).then(function (all) {
+    var res = st.order.map(function (pid) {
+      var d = all[pid];
+      return { pid: pid, name: st.names[pid], score: d && d.gameId === st.gameId ? (d.score || 0) : 0, kills: d ? d.kills || 0 : 0, color: d ? d.color : '#ccc' };
+    }).sort(function (a, b) { return b.score - a.score; });
+    DBget(ldKey()).then(function (cur) {
+      if (!cur || cur.gameId !== st.gameId || cur.phase !== 'play') return;
+      cur.phase = 'end'; cur.results = res;
+      DBset(ldKey(), cur).then(ldPollMain);
+    });
+  });
+}
+
+function ldShowResult(st) {
+  var box = document.getElementById('ld-result');
+  if (box.style.display !== 'none' && box.getAttribute('data-g') === String(st.gameId)) return;
+  box.setAttribute('data-g', st.gameId);
+  box.style.display = '';
+  var total = LD_G * LD_G;
+  var r = st.results || [];
+  document.getElementById('ld-result-banner').textContent = r.length ? ('🏆 ' + r[0].name + ' 승리! (' + (r[0].score / total * 100).toFixed(1) + '%)') : '게임 끝!';
+  renderRankBoard('ld-result-rank', r.map(function (x) { return { name: x.name, isMe: x.pid === myPlayerId, label: (x.score / total * 100).toFixed(1) + '% · 꼬리 끊기 ' + x.kills + '번' }; }));
+  document.getElementById('ld-restart-btn').style.display = myPlayerId === roomHostId ? '' : 'none';
+}
+
+(function ldSetupInput() {
+  var KEYMAP = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0] };
+  document.addEventListener('keydown', function (e) {
+    if (!document.getElementById('land').classList.contains('active')) return;
+    if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    var d = KEYMAP[e.key];
+    if (d) { e.preventDefault(); ldSetDir(d[0], d[1]); }
+  });
+  var cv = document.getElementById('ld-canvas');
+  if (!cv) return;
+  var sx = null, sy = null;
+  cv.addEventListener('pointerdown', function (e) { sx = e.clientX; sy = e.clientY; });
+  cv.addEventListener('pointermove', function (e) {
+    if (sx === null) return;
+    var dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) < 18 && Math.abs(dy) < 18) return;
+    if (Math.abs(dx) > Math.abs(dy)) ldSetDir(dx > 0 ? 1 : -1, 0); else ldSetDir(0, dy > 0 ? 1 : -1);
+    sx = e.clientX; sy = e.clientY;
+  });
+  ['pointerup', 'pointercancel'].forEach(function (ev) { cv.addEventListener(ev, function () { sx = sy = null; }); });
+  document.querySelectorAll('#ld-pad [data-d]').forEach(function (b) {
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      var d = b.getAttribute('data-d').split(',');
+      ldSetDir(+d[0], +d[1]);
+    });
+  });
+})();
