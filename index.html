@@ -722,6 +722,8 @@ window.addEventListener('load', function () {
         <div class="bb-hud-age"><span class="bb-age-label">AGE</span><span class="bb-age" id="bb-age">01</span></div>
         <div class="bb-hud-score" id="bb-score">0000000</div>
         <div class="bb-countdown" id="bb-countdown" style="display:none">3</div>
+        <button type="button" class="bb-pause-btn" id="bb-pause-btn" onclick="bbTogglePause()" title="잠깐 멈춤 (스페이스바)">⏸</button>
+        <div class="bb-pause" id="bb-pause" style="display:none" onclick="bbResume()"></div>
         <div class="bb-over" id="bb-over" style="display:none"></div>
         <div class="bb-spec-label" id="bb-spec-label" style="display:none"></div>
         <div class="bb-pick" id="bb-pick" style="display:none">
@@ -738,7 +740,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요</p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤</p>
   </div>
 </div>
 
@@ -775,6 +777,7 @@ window.addEventListener('load', function () {
     <div class="mm-steps" id="mm-steps">
       <span data-s="hunt">① 인어 사냥</span><span data-s="cook">② 재료 넣기</span><span data-s="boil">③ 보글보글</span><span data-s="done">④ 완성</span>
     </div>
+    <div class="mm-session" id="mm-session" style="display:none"></div>
     <div class="mm-stage" id="mm-stage"></div>
   </div>
 </div>
@@ -1074,6 +1077,7 @@ window.addEventListener('load', function () {
 <script src="data/quiz-data.js"></script>
 <script src="data/wordsearch-data.js"></script>
 <script src="data/baby-chars.js"></script>
+<script src="data/baby-pause.js"></script>
 <script src="data/siren-char.js"></script>
 <script src="data/mermaid-chars.js"></script>
 
