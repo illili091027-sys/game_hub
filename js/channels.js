@@ -234,6 +234,6 @@ function chSendFiles(files) {
 }
 
 (function chSetupRichChat() {
-  chatBindMessageArea(document.getElementById('ch-messages'), chSendFiles);
+  chatBindMessageArea(document.getElementById('ch-messages'), chSendFiles, function () { return chChatKey(CH_CURRENT_ID); }, function () { if (CH_CURRENT_ID) chPollInside(); });
   chatBindComposer({ inputId: 'ch-chat-input', attachBtnId: 'ch-attach-btn', fileInputId: 'ch-file-input', onFiles: chSendFiles });
 })();

@@ -1139,3 +1139,30 @@
 .mm-ring-msg.bad { color: #ff9db6; }
 .mm-ring.flash { animation: mmFlashG .3s; }
 @keyframes mmFlashG { 50% { background: rgba(60, 160, 110, .85); } }
+
+/* 채팅 수정/삭제 */
+.cmsg-more { background: rgba(0,0,0,0.25); color: #fff; border: none; border-radius: 10px; width: 24px; height: 20px; line-height: 14px; font-size: 14px; cursor: pointer; flex-shrink: 0; padding: 0; opacity: 0; transition: opacity .15s; align-self: center; }
+.cmsg.mine:hover .cmsg-more, .cmsg-more:focus { opacity: 1; }
+@media (hover: none) { .cmsg-more { opacity: .55; } }
+.cmsg-edited { font-size: 10px; margin-right: 3px; opacity: .85; }
+.cmsg-bubble.deleted { background: rgba(255,255,255,0.12) !important; color: rgba(245,243,231,0.7) !important; box-shadow: none; border: 1px dashed rgba(245,243,231,0.35); }
+.cmsg-deleted { font-size: 13px; font-style: italic; }
+.cmsg-img.sized { min-height: 0; max-height: 280px; }
+.cmsg-img.sized img { height: 100%; max-height: none; }
+.chat-msg-menu { position: fixed; z-index: 9999; display: none; flex-direction: column; background: #fff; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.35); overflow: hidden; min-width: 120px; }
+.chat-msg-menu button { border: none; background: #fff; padding: 11px 16px; font-size: 14px; font-family: inherit; text-align: left; cursor: pointer; color: #1d2a24; font-weight: 700; }
+.chat-msg-menu button + button { border-top: 1px solid #eee; }
+.chat-msg-menu button:hover { background: #f4f1e4; }
+.chat-msg-menu button.danger { color: #d0384e; }
+.chat-modal { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 16px; }
+.chat-modal-card { background: #fffdf5; color: #1d2a24; border-radius: 18px; padding: 18px; width: 100%; max-width: 380px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+.chat-modal-title { font-weight: 900; font-size: 17px; margin-bottom: 10px; }
+.chat-modal-sub { font-size: 13px; color: #5c6660; margin-bottom: 14px; line-height: 1.5; }
+.chat-modal-input { width: 100%; box-sizing: border-box; min-height: 90px; border-radius: 12px; border: 2px solid #ddd5b8; padding: 10px; font-size: 15px; font-family: inherit; resize: vertical; margin-bottom: 12px; }
+.chat-modal-input:focus { outline: none; border-color: var(--yellow); }
+.chat-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.chat-modal-btns .btn-ghost { color: #1d2a24; border-color: #ccc; }
+.btn-danger { background: #e2546a; color: #fff; }
+.mm-hole.rare.up .mm-pop img { filter: drop-shadow(0 0 6px #fff36b) drop-shadow(0 0 12px #ffd23f); animation: mmRare .35s ease-in-out infinite alternate; }
+.mm-hole.rare.up::before { content: '✨'; position: absolute; top: 4px; right: 6px; font-size: 22px; z-index: 2; animation: mmPulse .5s infinite; pointer-events: none; }
+@keyframes mmRare { to { transform: rotate(6deg) scale(1.05); } }

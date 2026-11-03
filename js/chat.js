@@ -71,7 +71,9 @@ function chatBubbleInner(m) {
   if (m.type === 'file') {
     if (m.isImage) {
       var cached = CHAT_FILE_CACHE[m.fileId];
-      return '<div class="cmsg-img" data-fid="' + esc(m.fileId) + '">' +
+      var iw = m.iw || (cached && cached.iw), ih = m.ih || (cached && cached.ih);
+      var ratio = iw && ih ? ' style="aspect-ratio:' + iw + '/' + ih + '"' : '';
+      return '<div class="cmsg-img' + (ratio ? ' sized' : '') + '" data-fid="' + esc(m.fileId) + '"' + ratio + '>' +
         (cached ? '<img src="' + cached.data + '" alt="' + esc(m.fname) + '" />' : '<div class="cmsg-img-loading">🖼️ 사진 불러오는 중...</div>') +
         '</div>';
     }
@@ -94,11 +96,16 @@ function chatRenderInto(el, messages, tracker, emptyText) {
   if (!el) return;
   var all = messages.concat(tracker.pending || []);
   var last = all[all.length - 1];
-  var sig = all.length + ':' + (last ? last.id : '');
+  /* 수정/삭제도 화면에 반영되도록 각 메시지의 id+수정번호+삭제여부로 비교 */
+  var sig = all.map(function (m) { return m.id + (m.ev ? '~' + m.ev : '') + (m.del ? 'x' : ''); }).join(',');
   if (sig === tracker.lastSig) return;
   var firstRender = tracker.lastSig == null;
+  var prevLastId = tracker.lastId;
   tracker.lastSig = sig;
-  var nearBottom = firstRender || (el.scrollHeight - el.scrollTop - el.clientHeight < 90);
+  tracker.lastId = last ? last.id : '';
+  chatWatchScroll(el, tracker);
+  if (firstRender) tracker.stick = true;
+  var nearBottom = tracker.stick !== false;
   if (!all.length) {
     el.innerHTML = '<div class="cmsg-empty">' + esc(emptyText || '아직 대화가 없어요. 첫 메시지를 남겨보세요!') + '</div>';
     return;
@@ -115,11 +122,15 @@ function chatRenderInto(el, messages, tracker, emptyText) {
     var cont = prev && prev.pid === m.pid && (m.ts - prev.ts < 120000);
     var sameMinuteNext = next && next.pid === m.pid && chatDayKey(next.ts) === chatDayKey(m.ts) &&
       Math.floor(next.ts / 60000) === Math.floor(m.ts / 60000);
-    var timeHtml = sameMinuteNext ? '' : '<span class="cmsg-time">' + (m.type === 'pending' ? '' : chatFmtTime(m.ts)) + '</span>';
-    var isMedia = m.type === 'file';
-    var bubble = '<div class="cmsg-bubble' + (isMedia ? ' media' : '') + '">' + chatBubbleInner(m) + '</div>';
+    var editedHtml = m.edited && !m.del ? '<span class="cmsg-edited">수정됨</span>' : '';
+    var timeHtml = (sameMinuteNext && !editedHtml) ? '' : '<span class="cmsg-time">' + editedHtml + (sameMinuteNext || m.type === 'pending' ? '' : chatFmtTime(m.ts)) + '</span>';
+    var isMedia = m.type === 'file' && !m.del;
+    var inner = m.del ? '<span class="cmsg-deleted">🚫 삭제된 메시지예요</span>' : chatBubbleInner(m);
+    var bubble = '<div class="cmsg-bubble' + (isMedia ? ' media' : '') + (m.del ? ' deleted' : '') + '">' + inner + '</div>';
     if (mine) {
-      html += '<div class="cmsg mine' + (cont ? ' cont' : '') + '"><div class="cmsg-line">' + timeHtml + bubble + '</div></div>';
+      var canMenu = !m.del && m.type !== 'pending';
+      var more = canMenu ? '<button type="button" class="cmsg-more" data-mid="' + esc(m.id) + '" title="수정/삭제">⋯</button>' : '';
+      html += '<div class="cmsg mine' + (cont ? ' cont' : '') + '"' + (canMenu ? ' data-mid="' + esc(m.id) + '" data-kind="' + (m.type === 'file' ? 'file' : 'text') + '"' : '') + '><div class="cmsg-line">' + more + timeHtml + bubble + '</div></div>';
     } else {
       var initial = esc((m.name || '?').trim().charAt(0) || '?');
       html += '<div class="cmsg other' + (cont ? ' cont' : '') + '">' +
@@ -130,8 +141,33 @@ function chatRenderInto(el, messages, tracker, emptyText) {
   });
   el.innerHTML = html;
   chatHydrateImages(el);
-  var lastIsMine = last && last.pid === myPlayerId;
-  if (nearBottom || lastIsMine) el.scrollTop = el.scrollHeight;
+  var newMineAtEnd = last && last.pid === myPlayerId && last.id !== prevLastId;
+  if (nearBottom || newMineAtEnd) chatScrollBottom(el, tracker);
+}
+
+/* 맨 아래를 보고 있었는지 기억해 둡니다. 사진이 늦게 불러와져서 높이가 늘어나도
+   '맨 아래 보는 중'이면 계속 맨 아래로 따라 내려가요. (사진 때문에 채팅이 멈춘 것처럼 보이던 문제 수정) */
+function chatScrollBottom(el, tracker) {
+  el.scrollTop = el.scrollHeight;
+  if (tracker) tracker.stick = true;
+  requestAnimationFrame(function () { if (!tracker || tracker.stick) el.scrollTop = el.scrollHeight; });
+}
+function chatWatchScroll(el, tracker) {
+  if (el._chatTracker === tracker) return;
+  el._chatTracker = tracker;
+  if (el._chatWatched) return;
+  el._chatWatched = true;
+  el.addEventListener('scroll', function () {
+    var tr = el._chatTracker;
+    if (tr) tr.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, { passive: true });
+  /* 사진(img)이 다 불러와지면(load는 버블링이 안 돼서 capture로 받음) 맨 아래로 */
+  el.addEventListener('load', function (e) {
+    if (e.target && e.target.tagName === 'IMG') {
+      var tr = el._chatTracker;
+      if (tr && tr.stick) el.scrollTop = el.scrollHeight;
+    }
+  }, true);
 }
 
 function chatLoadFile(fid) {
@@ -152,10 +188,9 @@ function chatHydrateImages(el) {
     chatLoadFile(fid).then(function (f) {
       if (!box.isConnected) return;
       if (!f || !f.data) { box.innerHTML = '<div class="cmsg-img-loading">사진이 만료됐어요</div>'; return; }
-      var atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 90;
       var img = document.createElement('img');
       img.alt = f.name || '';
-      img.onload = function () { if (atBottom) el.scrollTop = el.scrollHeight; };
+      img.onload = function () { f.iw = img.naturalWidth; f.ih = img.naturalHeight; };
       img.src = f.data;
       box.innerHTML = '';
       box.appendChild(img);
@@ -204,10 +239,42 @@ function chatOpenLightbox(src, name) {
 }
 
 /* 메시지 영역 하나에 클릭(사진 크게 보기/파일 저장)과 파일 끌어다 놓기를 연결합니다. */
-function chatBindMessageArea(el, onDropFiles) {
+function chatBindMessageArea(el, onDropFiles, getKey, onChanged) {
   if (!el || el.getAttribute('data-chat-bound')) return;
   el.setAttribute('data-chat-bound', '1');
+  if (getKey) {
+    /* 내 메시지: ⋯ 버튼, 오른쪽 클릭, 길게 누르기 → 수정/삭제 메뉴 */
+    var openFor = function (row, x, y) {
+      if (!row) return;
+      chatOpenMsgMenu(row, x, y, getKey(), onChanged);
+    };
+    el.addEventListener('contextmenu', function (e) {
+      var row = e.target.closest && e.target.closest('.cmsg.mine[data-mid]');
+      if (!row) return;
+      e.preventDefault();
+      openFor(row, e.clientX, e.clientY);
+    });
+    var lpTimer = null, lpX = 0, lpY = 0;
+    el.addEventListener('touchstart', function (e) {
+      var row = e.target.closest && e.target.closest('.cmsg.mine[data-mid] .cmsg-bubble');
+      if (!row || !e.touches[0]) return;
+      lpX = e.touches[0].clientX; lpY = e.touches[0].clientY;
+      clearTimeout(lpTimer);
+      lpTimer = setTimeout(function () { openFor(row.closest('.cmsg'), lpX, lpY); }, 550);
+    }, { passive: true });
+    var cancelLp = function () { clearTimeout(lpTimer); };
+    el.addEventListener('touchend', cancelLp);
+    el.addEventListener('touchmove', function (e) {
+      if (e.touches[0] && Math.abs(e.touches[0].clientX - lpX) + Math.abs(e.touches[0].clientY - lpY) > 10) cancelLp();
+    }, { passive: true });
+  }
   el.addEventListener('click', function (e) {
+    var moreBtn = e.target.closest && e.target.closest('.cmsg-more');
+    if (moreBtn && getKey) {
+      var r = moreBtn.getBoundingClientRect();
+      chatOpenMsgMenu(moreBtn.closest('.cmsg'), r.left, r.bottom, getKey(), onChanged);
+      return;
+    }
     var img = e.target.closest && e.target.closest('.cmsg-img img');
     if (img) { chatOpenLightbox(img.src, img.alt); return; }
     var fileBtn = e.target.closest && e.target.closest('.cmsg-file');
@@ -225,6 +292,128 @@ function chatBindMessageArea(el, onDropFiles) {
     e.preventDefault();
     onDropFiles(e.dataTransfer.files);
   });
+}
+
+/* ---------------- 내 메시지 수정 / 삭제 ---------------- */
+function chatUpdateMessage(key, id, fn) {
+  return DBget(key).then(function (state) {
+    if (!state || !state.messages) return false;
+    var m = null;
+    for (var i = 0; i < state.messages.length; i++) if (state.messages[i].id === id) { m = state.messages[i]; break; }
+    if (!m || m.pid !== myPlayerId || m.del) return false;
+    fn(m);
+    return DBset(key, state).then(function () { return true; });
+  });
+}
+
+function chatEditMessage(key, id, text) {
+  text = String(text || '').trim().slice(0, CHAT_MAX_TEXT);
+  if (!text) return Promise.resolve(false);
+  return chatUpdateMessage(key, id, function (m) {
+    m.text = text;
+    m.edited = true;
+    m.ev = (m.ev || 0) + 1;
+  });
+}
+
+function chatDeleteMessage(key, id) {
+  return chatUpdateMessage(key, id, function (m) {
+    if (m.type === 'file' && m.fileId) { DBset(chatFileKey(m.fileId), null); delete CHAT_FILE_CACHE[m.fileId]; }
+    m.del = true;
+    m.text = '';
+    m.type = 'text';
+    delete m.fileId; delete m.fname; delete m.fsize; delete m.fmime; delete m.isImage;
+  });
+}
+
+function chatCloseMsgMenu() {
+  var mm = document.getElementById('chat-msg-menu');
+  if (mm) mm.style.display = 'none';
+}
+
+function chatOpenMsgMenu(row, x, y, key, onChanged) {
+  if (!row || !key) return;
+  var id = row.getAttribute('data-mid');
+  var kind = row.getAttribute('data-kind');
+  var menu = document.getElementById('chat-msg-menu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = 'chat-msg-menu';
+    menu.className = 'chat-msg-menu';
+    document.body.appendChild(menu);
+    document.addEventListener('pointerdown', function (e) {
+      if (menu.style.display !== 'none' && !menu.contains(e.target)) chatCloseMsgMenu();
+    }, true);
+  }
+  menu.innerHTML = (kind === 'text' ? '<button type="button" data-act="edit">✏️ 수정</button>' : '') +
+    '<button type="button" data-act="del" class="danger">🗑️ 삭제</button>';
+  menu.style.display = 'flex';
+  var mw = menu.offsetWidth, mh = menu.offsetHeight;
+  menu.style.left = Math.max(6, Math.min(window.innerWidth - mw - 6, x - mw / 2)) + 'px';
+  menu.style.top = Math.max(6, Math.min(window.innerHeight - mh - 6, y + 6)) + 'px';
+  menu.onclick = function (e) {
+    var act = e.target.getAttribute && e.target.getAttribute('data-act');
+    if (!act) return;
+    chatCloseMsgMenu();
+    var done = function () { if (onChanged) onChanged(); };
+    if (act === 'del') {
+      chatConfirmBox('이 메시지를 삭제할까요?', '삭제하면 모두의 화면에서 "삭제된 메시지"로 바뀌어요.', '삭제', function () {
+        chatDeleteMessage(key, id).then(done);
+      });
+    } else if (act === 'edit') {
+      var bubble = row.querySelector('.cmsg-bubble');
+      DBget(key).then(function (state) {
+        var msg = ((state && state.messages) || []).filter(function (m) { return m.id === id; })[0];
+        var cur = msg ? msg.text : (bubble ? bubble.textContent : '');
+        chatEditBox(cur || '', function (text) { chatEditMessage(key, id, text).then(done); });
+      });
+    }
+  };
+}
+
+function chatModal(html) {
+  var box = document.getElementById('chat-modal');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'chat-modal';
+    box.className = 'chat-modal';
+    document.body.appendChild(box);
+    box.addEventListener('click', function (e) { if (e.target === box) box.style.display = 'none'; });
+  }
+  box.innerHTML = '<div class="chat-modal-card">' + html + '</div>';
+  box.style.display = 'flex';
+  return box;
+}
+
+function chatEditBox(text, onSave) {
+  var box = chatModal(
+    '<div class="chat-modal-title">✏️ 메시지 수정</div>' +
+    '<textarea class="chat-modal-input" maxlength="' + CHAT_MAX_TEXT + '"></textarea>' +
+    '<div class="chat-modal-btns"><button type="button" class="btn btn-ghost" data-act="cancel">취소</button><button type="button" class="btn btn-primary" data-act="save">저장</button></div>');
+  var ta = box.querySelector('textarea');
+  ta.value = text;
+  setTimeout(function () { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 30);
+  var save = function () {
+    var v = ta.value.trim();
+    if (!v) { ta.focus(); return; }
+    box.style.display = 'none';
+    if (v !== text) onSave(v);
+  };
+  ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); save(); }
+    if (e.key === 'Escape') box.style.display = 'none';
+  });
+  box.querySelector('[data-act="save"]').onclick = save;
+  box.querySelector('[data-act="cancel"]').onclick = function () { box.style.display = 'none'; };
+}
+
+function chatConfirmBox(title, sub, okText, onOk) {
+  var box = chatModal(
+    '<div class="chat-modal-title">' + esc(title) + '</div>' +
+    '<div class="chat-modal-sub">' + esc(sub) + '</div>' +
+    '<div class="chat-modal-btns"><button type="button" class="btn btn-ghost" data-act="cancel">취소</button><button type="button" class="btn btn-danger" data-act="ok">' + esc(okText) + '</button></div>');
+  box.querySelector('[data-act="ok"]').onclick = function () { box.style.display = 'none'; onOk(); };
+  box.querySelector('[data-act="cancel"]').onclick = function () { box.style.display = 'none'; };
 }
 
 /* 메시지 하나를 목록에 추가합니다. 상한을 넘어서 밀려난 오래된 파일 메시지의 파일 데이터도 같이 지웁니다. */
@@ -296,7 +485,7 @@ function chatPrepareFile(file) {
         }
         if (chatDataUrlBytes(data) > CHAT_MAX_FILE_BYTES) { reject(new Error('too_big')); return; }
         var base = (file.name || 'photo').replace(/\.[^.]+$/, '');
-        resolve({ data: data, name: base + '.jpg', mime: 'image/jpeg', size: chatDataUrlBytes(data), isImage: true });
+        resolve({ data: data, name: base + '.jpg', mime: 'image/jpeg', size: chatDataUrlBytes(data), isImage: true, iw: w, ih: h });
       };
       img.onerror = function () { reject(new Error('bad_image')); };
       img.src = src;
@@ -337,11 +526,13 @@ function chatSendFiles(key, fileList, tracker, onRefresh, onError) {
         var fid = chatNewId();
         return chatStoreFile(fid, { data: prepared.data, name: prepared.name, mime: prepared.mime, size: prepared.size }).then(function (ok) {
           if (!ok) throw new Error('upload');
-          CHAT_FILE_CACHE[fid] = { data: prepared.data, name: prepared.name, mime: prepared.mime, size: prepared.size };
-          return chatPushMessage(key, {
+          CHAT_FILE_CACHE[fid] = { data: prepared.data, name: prepared.name, mime: prepared.mime, size: prepared.size, iw: prepared.iw, ih: prepared.ih };
+          var fmsg = {
             id: chatNewId(), pid: myPlayerId, name: me.name, ts: Date.now(),
             type: 'file', fileId: fid, fname: prepared.name, fsize: prepared.size, fmime: prepared.mime, isImage: prepared.isImage
-          });
+          };
+          if (prepared.iw) { fmsg.iw = prepared.iw; fmsg.ih = prepared.ih; }
+          return chatPushMessage(key, fmsg);
         });
       }).then(function () {
         removePending();
@@ -511,6 +702,6 @@ var GROUP_CHAT_TRACKER = { lastSig: null, pending: [] };
       if (errEl) errEl.textContent = msg;
     });
   };
-  chatBindMessageArea(el, onFiles);
+  chatBindMessageArea(el, onFiles, function () { return groupChatKey(); }, function () { groupPoll(); });
   chatBindComposer({ inputId: 'group-chat-input', attachBtnId: 'group-attach-btn', fileInputId: 'group-file-input', onFiles: onFiles });
 })();

@@ -108,7 +108,7 @@ function mmRenderIntro() {
   st.className = 'mm-stage mm-sea';
   st.innerHTML =
     '<div class="mm-card mm-intro">' +
-      '<div class="mm-intro-pics"><img src="' + MM_IMG.fish1 + '" alt=""><img src="' + MM_IMG.fish2 + '" alt=""><img src="' + MM_IMG.fish3 + '" alt=""></div>' +
+      '<div class="mm-intro-pics"><img src="' + MM_IMG.fish1 + '" alt=""><img src="' + MM_IMG.fish2 + '" alt=""></div>' +
       '<div class="mm-big">오늘의 요리: 인어조림</div>' +
       '<p>바다에서 인어 <b>' + MM_HUNT_GOAL + '마리</b>를 잡아 오세요!<br>단, <b class="mm-red">세이렌</b>이 나타나면 화면을 <b>마구 연타!</b></p>' +
       '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">사냥 시작!</button>' +
@@ -191,15 +191,19 @@ function mmSpawnFish() {
   MM.holes.forEach(function (h, i) { if (!h.who) free.push(i); });
   if (!free.length) return;
   var i = free[Math.floor(Math.random() * free.length)];
-  var pics = ['fish1', 'fish2', 'fish3'];
+  var pics = ['fish1', 'fish2'];
   var who = pics[Math.floor(Math.random() * pics.length)];
   var stay = 800 - Math.min(380, MM.elapsed * 16) + Math.random() * 220;
+  /* 가끔(약 12%) 레어 인어가 튀어나와요! 잡으면 2마리로 쳐요. 대신 더 빨리 숨어요. */
+  var rare = Math.random() < 0.12;
+  if (rare) { who = Math.random() < 0.5 ? 'rare1' : 'rare2'; stay *= 0.75; }
   MM.holes[i] = { who: who, until: performance.now() + stay };
   var hole = document.querySelector('.mm-hole[data-i="' + i + '"]');
   if (!hole) return;
   var pop = hole.querySelector('.mm-pop');
   pop.innerHTML = '<img src="' + MM_IMG[who] + '" alt="">';
   hole.classList.remove('caught');
+  hole.classList.toggle('rare', rare);
   hole.classList.add('up');
   mmSound('pop');
 }
@@ -223,10 +227,12 @@ function mmTapHole(i) {
     mmFloatText(hole, '-' + MM_MISS_PENALTY + '초');
     return;
   }
-  MM.caught++;
+  var isRare = h.who === 'rare1' || h.who === 'rare2';
+  MM.caught = Math.min(MM_HUNT_GOAL, MM.caught + (isRare ? 2 : 1));
   mmSound('catch');
+  if (isRare) mmSound('win');
   mmHideHole(i, true);
-  mmFloatText(hole, '잡았다!');
+  mmFloatText(hole, isRare ? '✨레어! +2' : '잡았다!');
   mmEl('mm-caught').textContent = MM.caught;
   if (MM.caught >= MM_HUNT_GOAL) {
     MM.phase = 'huntdone';
