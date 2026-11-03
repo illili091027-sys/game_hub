@@ -102,6 +102,8 @@ function bbNewRun(withCountdown) {
   };
   bbGenerate();
   document.getElementById('bb-over').style.display = 'none';
+  var pz = document.getElementById('bb-pause'); if (pz) pz.style.display = 'none';
+  var pzb = document.getElementById('bb-pause-btn'); if (pzb) pzb.textContent = '⏸';
   document.getElementById('bb-mode-tag').textContent = BB.practice ? '🎈 연습 중 (기록 안 남아요)' : (playMode === 'online' ? '🏁 기록 도전 중 (첫 판만 인정!)' : '');
   document.getElementById('bb-mode-tag').style.display = playMode === 'online' ? '' : 'none';
   bbUpdateHud();
@@ -128,6 +130,40 @@ function bbBeginCountdown() {
   }, 700);
 }
 
+/* ---- 잠깐 멈춤 (스페이스바 / ⏸ 버튼) ----
+   멈췄을 때 보여줄 사진은 BB_PAUSE_IMG 에 넣으면 돼요(없으면 ⏸ 아이콘). */
+var BB_PAUSE_IMG = (typeof BB_PAUSE_IMG_SRC !== 'undefined') ? BB_PAUSE_IMG_SRC : null;
+function bbTogglePause() {
+  if (!BB || BB.over || BB_SPECTATE) return;
+  if (BB.paused) bbResume();
+  else if (BB.running) bbPause();
+}
+function bbPause() {
+  if (!BB || !BB.running || BB.over) return;
+  BB.paused = true;
+  BB.running = false;
+  cancelAnimationFrame(BB_RAF);
+  BB_KEYS.left = BB_KEYS.right = false;
+  var ov = document.getElementById('bb-pause');
+  if (ov) {
+    ov.innerHTML = (BB_PAUSE_IMG ? '<img class="bb-pause-img" src="' + BB_PAUSE_IMG + '" alt="">' : '') + '<div class="bb-pause-icon">⏸</div>' +
+      '<div class="bb-pause-title">잠깐 멈춤!</div>' +
+      '<div class="bb-pause-sub">스페이스바나 화면을 누르면 다시 시작해요</div>';
+    ov.style.display = '';
+  }
+  var pb = document.getElementById('bb-pause-btn'); if (pb) pb.textContent = '▶';
+}
+function bbResume() {
+  if (!BB || !BB.paused || BB.over) return;
+  BB.paused = false;
+  var ov = document.getElementById('bb-pause');
+  if (ov) ov.style.display = 'none';
+  var pb = document.getElementById('bb-pause-btn'); if (pb) pb.textContent = '⏸';
+  BB.running = true;
+  BB.lastTs = 0;
+  BB_RAF = requestAnimationFrame(bbTick);
+}
+
 function bbGo() {
   BB.running = true;
   BB.lastTs = 0;
@@ -147,7 +183,8 @@ function bbGenerate() {
   while (BB.lastPathY < BB.camY + BB_H + 260) {
     var age = Math.floor(BB.lastPathY / 650) + 1;
     /* 구름 더 많이: 간격을 좁히고(62~110), 옆에 진짜 구름을 하나 더 띄우기도 해요 */
-    var gap = Math.min(150, 62 + Math.random() * 48 + Math.min(age, 14) * 3);
+    /* 초반엔 구름이 아주 빽빽하게(간격 45~80), 올라갈수록 점점 넓어져요 */
+    var gap = Math.min(150, 42 + Math.random() * 34 + Math.min(age, 16) * 5);
     var y = BB.lastPathY + gap;
     var maxDx = 165;
     var x = BB.lastPathX + (Math.random() * 2 - 1) * maxDx;
@@ -162,7 +199,12 @@ function bbGenerate() {
     else if (r < 0.03 + pHoled) type = 'holed';
     var cloud = { x: x, y: y, w: w, type: type };
     BB.clouds.push(cloud);
-    if (Math.random() < Math.max(0.25, 0.6 - age * 0.03)) {
+    /* 옆 구름: 초반엔 거의 항상, 높아질수록 줄어요 */
+    if (age <= 4 && Math.random() < 0.6) {
+      var ex = Math.max(45, Math.min(BB_W - 45, 60 + Math.random() * (BB_W - 120)));
+      if (Math.abs(ex - x) > 70) BB.clouds.push({ x: ex, y: y - gap * (0.4 + Math.random() * 0.3), w: w * (0.8 + Math.random() * 0.3), type: 'normal' });
+    }
+    if (Math.random() < Math.max(0.3, 0.9 - age * 0.05)) {
       var sx = x < BB_W / 2 ? x + 120 + Math.random() * 110 : x - 120 - Math.random() * 110;
       sx = Math.max(45, Math.min(BB_W - 45, sx));
       BB.clouds.push({ x: sx, y: y - gap * (0.35 + Math.random() * 0.3), w: w * (0.85 + Math.random() * 0.3), type: Math.random() < pHoled ? 'holed' : 'normal' });
@@ -298,10 +340,9 @@ function bbTick(ts) {
   if (b.y > BB.maxH) BB.maxH = b.y;
   if (bbAge() > prevAge) BB.pops.push({ x: BB_W / 2, y: BB.camY + BB_H * 0.7, text: '🎂 ' + bbAge() + '살!', life: 1.4, fixed: true });
 
-  // 카메라: 아기를 따라 올라가고, 첫 점프 이후엔 저절로 조금씩 올라감
+  // 카메라: 저절로 올라가지 않고, 내가 올라간 만큼만 따라 올라가요 (내려가지는 않음)
   var want = b.y - BB_H * 0.42;
   if (want > BB.camY) BB.camY += (want - BB.camY) * Math.min(1, dt * 6);
-  if (BB.started) BB.camY += Math.min(18 + age * 5, 85) * dt;
 
   // 효과
   BB.sparkles.forEach(function (s) { s.life -= dt; s.y += s.vy * dt; });
@@ -694,12 +735,14 @@ function bbDraw() {
     if (!BB) return;
     e.preventDefault();
     if (BB_SPECTATE) { bbStopSpectate(true); return; }
+    if (BB.paused) { bbResume(); return; }
     BB.targetX = bbPointerToWorldX(e);
     BB.pointerActive = true;
   });
   document.addEventListener('keydown', function (e) {
     if (!document.getElementById('baby').classList.contains('active')) return;
     if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (!e.repeat) bbTogglePause(); return; }
     if (e.key === 'ArrowLeft') { BB_KEYS.left = true; e.preventDefault(); }
     else if (e.key === 'ArrowRight') { BB_KEYS.right = true; e.preventDefault(); }
   });

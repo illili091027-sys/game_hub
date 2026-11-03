@@ -1166,3 +1166,27 @@
 .mm-hole.rare.up .mm-pop img { filter: drop-shadow(0 0 6px #fff36b) drop-shadow(0 0 12px #ffd23f); animation: mmRare .35s ease-in-out infinite alternate; }
 .mm-hole.rare.up::before { content: '✨'; position: absolute; top: 4px; right: 6px; font-size: 22px; z-index: 2; animation: mmPulse .5s infinite; pointer-events: none; }
 @keyframes mmRare { to { transform: rotate(6deg) scale(1.05); } }
+
+/* 인어조림 가게(영업) */
+.mm-session { display: flex; justify-content: space-between; gap: 6px; background: #fff; border: 3px solid #6b4a55; border-radius: 18px; padding: 6px 12px; margin-bottom: 8px; font-family: 'Gaegu', cursive; font-size: 21px; font-weight: 700; color: #5a3a46; }
+.mm-s-time.hurry { color: #e14b6a; animation: mmPulse .5s infinite; display: inline-block; }
+.mm-shop { background: linear-gradient(#ffe9f0, #fff6e6); }
+.mm-ordercard { margin-top: 40px; }
+.mm-order-no { display: inline-block; background: #ffb8cc; border-radius: 99px; padding: 2px 14px; font-size: 18px; font-weight: 700; }
+.mm-cust-img { width: 130px; height: 130px; object-fit: contain; display: block; margin: 10px auto 4px; animation: mmBob 1.4s ease-in-out infinite; }
+.mm-cust-emoji { font-size: 80px; }
+.mm-bubble-say { display: inline-block; background: #fffdf3; border: 3px solid #6b4a55; border-radius: 18px; padding: 6px 14px; font-size: 22px; font-weight: 700; }
+.mm-hud-order { font-size: 18px; color: #8a6a76; }
+.mm-combo { color: #e8731f; }
+.mm-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 6px; }
+.mm-result-grid div { background: #fff4f7; border: 2px solid #e6c3cf; border-radius: 14px; padding: 6px; display: flex; flex-direction: column; }
+.mm-result-grid span { font-size: 15px; color: #8a6a76; }
+.mm-result-grid b { font-size: 24px; }
+.mm-resultcard .mm-dead-img { max-width: 300px; }
+.mm-note { width: 56px; height: 56px; font-size: 30px; }
+.bb-pause-btn { position: absolute; right: 10px; bottom: 10px; z-index: 6; width: 42px; height: 42px; border-radius: 50%; border: 3px solid #fff; background: rgba(232,80,138,.85); color: #fff; font-size: 18px; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+.bb-pause { position: absolute; inset: 0; z-index: 7; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(20,40,70,0.55); color: #fff; cursor: pointer; text-align: center; padding: 16px; }
+.bb-pause-img { max-width: 70%; max-height: 55%; object-fit: contain; animation: mmBob 1.6s ease-in-out infinite; }
+.bb-pause-icon { font-size: 44px; line-height: 1; }
+.bb-pause-title { font-family: 'Gaegu', cursive; font-size: 40px; font-weight: 700; -webkit-text-stroke: 1px #e8508a; text-shadow: 0 3px 0 #e8508a; }
+.bb-pause-sub { font-size: 14px; opacity: .9; }

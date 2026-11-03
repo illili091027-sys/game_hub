@@ -1,17 +1,22 @@
 /* ===================== 인어조림 만들기 (혼자 하기) =====================
-   ① 인어 사냥(세이렌 나오면 연타!) → ② 레시피 순서대로 재료 넣기 → ③ 보글보글(불 끄기 타이밍) → ④ 완성/별점
-   실패하면 언제든 거꾸로 매달린 친구들 그림이 나오고 처음부터 다시 시작해요. */
+   제한 시간(2분 30초) 동안 손님 주문을 받아 인어조림을 최대한 많이 만드는 가게 게임!
+   주문마다: ① 인어 사냥(세이렌 조심) → ② 레시피 순서대로 재료 넣기 → ③ 보글보글(불 끄기 타이밍) → 손님에게 내기
+   요리를 망치면 그 주문만 실패(매달린 친구들 그림)하고 다음 손님으로, 세이렌에게 잡히면 가게 문 닫기(게임 끝). */
 var MM = null;
 var MM_TIMERS = [];
 var MM_RAF = 0;
 var MM_AC = null;
 
-var MM_HUNT_GOAL = 10;
+var MM_HUNT_GOAL = 3;        /* 주문마다 잡아야 하는 인어 수 (주문이 쌓이면 늘어나요) */
 var MM_HUNT_SECONDS = 28;
+var MM_SHOP_SECONDS = 150;   /* 가게 영업 시간 */
+var MMS = null;              /* 한 판(영업) 전체 상태: 남은 시간, 완성 수, 코인 */
+var MMS_TIMER = 0;
+var MM_CUSTOMERS = ['치이카와', '하치와레', '우사기', '모몽가', '쿠리만쥬', '시사', '랏코', '포셰트', '고블린'];
 var MM_MASH_NEED = 30;       /* 세이렌 쫓아내는 데 필요한 연타 수 (손을 멈추면 게이지가 줄어요) */
 var MM_MASH_SECONDS = 4;
 var MM_MISS_PENALTY = 1.5;   /* 빈 물결을 누르면 시간 -1.5초 */
-var MM_RECIPE_PEEK = 3;      /* 레시피 외울 시간(초) */
+var MM_RECIPE_PEEK = 2;      /* 레시피 외울 시간(초) */
 var MM_MAX_MISTAKES = 2;
 
 var MM_ING = [
@@ -81,11 +86,16 @@ function mmSound(kind) {
 /* ---------- 시작 / 정지 ---------- */
 function startMermaidGame() {
   mmClearTimers();
+  clearInterval(MMS_TIMER);
+  MMS = null;
   MM = { phase: 'intro' };
+  mmRenderSession();
   mmRenderIntro();
 }
 function stopMermaidGame() {
   mmClearTimers();
+  clearInterval(MMS_TIMER);
+  MMS = null;
   MM = null;
   var st = mmEl('mm-stage');
   if (st) { st.innerHTML = ''; st.onpointerdown = null; }
@@ -102,6 +112,157 @@ function mmSetStep(step) {
   });
 }
 
+/* ---------- 영업(한 판) 관리 ---------- */
+function mmBest() { try { return JSON.parse(localStorage.getItem('gamehub_mermaid_best') || 'null'); } catch (e) { return null; } }
+function mmSaveBest(b) { try { localStorage.setItem('gamehub_mermaid_best', JSON.stringify(b)); } catch (e) {} }
+
+function mmRenderSession() {
+  var bar = mmEl('mm-session');
+  if (!bar) return;
+  if (!MMS) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  var s = Math.max(0, Math.ceil(MMS.left));
+  var mm = Math.floor(s / 60), ss = s % 60;
+  bar.innerHTML =
+    '<span class="mm-s-time' + (MMS.left <= 15 ? ' hurry' : '') + '">⏱ ' + mm + ':' + (ss < 10 ? '0' : '') + ss + '</span>' +
+    '<span>🍲 <b>' + MMS.dishes + '</b>그릇</span>' +
+    '<span>⭐ <b>' + MMS.stars + '</b></span>' +
+    '<span>💰 <b>' + MMS.coins + '</b></span>';
+}
+
+function mmStartShop() {
+  mmClearTimers();
+  clearInterval(MMS_TIMER);
+  MMS = { left: MM_SHOP_SECONDS, dishes: 0, stars: 0, coins: 0, orderNo: 0, failed: 0, combo: 0, over: false };
+  mmRenderSession();
+  var last = performance.now();
+  MMS_TIMER = setInterval(function () {
+    var now = performance.now(), dt = (now - last) / 1000; last = now;
+    if (!MMS || MMS.over) return;
+    /* 세이렌과 싸우는 동안은 가게 시계도 멈춰요 */
+    var frozen = MM && ((MM.sirenActive && MM.paused) || MM.freeze);
+    if (!frozen) MMS.left -= dt;
+    mmRenderSession();
+    if (MMS.left <= 0) mmShopClose(false);
+  }, 100);
+  mmNextOrder();
+}
+
+function mmNextOrder() {
+  if (!MMS || MMS.over) return;
+  mmClearTimers();
+  MMS.orderNo++;
+  var n = MMS.orderNo;
+  /* 주문이 쌓일수록 조금씩 어려워져요 */
+  var ingCount = Math.min(5, 2 + Math.ceil(n / 2));            /* 인어 말고 넣을 재료 수: 3 → 5 */
+  var pool = mmShuffle(MM_ING.slice(1).map(function (g) { return g.id; }));
+  var who = MM_CUSTOMERS[Math.floor(Math.random() * MM_CUSTOMERS.length)];
+  var charImg = null;
+  if (typeof BB_CHARS !== 'undefined' && BB_CHARS.length) {
+    var c = BB_CHARS[Math.floor(Math.random() * BB_CHARS.length)];
+    charImg = c.src || c.img || null; who = c.name || who;
+  }
+  MMS.order = {
+    no: n, who: who, img: charImg,
+    fish: Math.min(5, MM_HUNT_GOAL + Math.floor((n - 1) / 3)),
+    recipe: ['fish'].concat(pool.slice(0, ingCount)),
+    sirenChance: Math.min(0.75, 0.3 + n * 0.06),
+    boilSpeed: 1 + Math.min(0.5, (n - 1) * 0.06)
+  };
+  var o = MMS.order;
+  mmSetStep('');
+  var st = mmEl('mm-stage');
+  st.className = 'mm-stage mm-shop';
+  st.onpointerdown = null;
+  st.innerHTML =
+    '<div class="mm-card mm-ordercard">' +
+      '<div class="mm-order-no">주문 #' + n + '</div>' +
+      (o.img ? '<img class="mm-cust-img" src="' + o.img + '" alt="">' : '<div class="mm-cust-emoji">🙋</div>') +
+      '<div class="mm-bubble-say">' + esc(o.who) + ': "인어조림 하나 주세요!"</div>' +
+      '<p>인어 <b>' + o.fish + '마리</b> · 재료 <b>' + (o.recipe.length - 1) + '가지</b></p>' +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">사냥하러 가기 🎣</button>' +
+    '</div>';
+  /* 버튼을 안 눌러도 잠시 뒤 자동으로 출발 */
+  mmLater(function () { if (MM && MM.phase === 'order') mmStartHunt(); }, 1800);
+  MM = { phase: 'order' };
+}
+
+/* 요리 한 그릇 실패: 그림을 잠깐 보여주고 다음 손님 */
+function mmDishFail(title, sub) {
+  mmClearTimers();
+  if (!MMS || MMS.over) return;
+  MM.phase = 'dishfail';
+  MMS.failed++;
+  MMS.combo = 0;
+  mmSound('fail');
+  var st = mmEl('mm-stage');
+  st.onpointerdown = null;
+  st.className = 'mm-stage mm-failbg';
+  st.innerHTML =
+    '<div class="mm-card mm-failcard">' +
+      '<img class="mm-dead-img" src="' + MM_IMG.dead + '" alt="">' +
+      '<div class="mm-big">' + title + '</div>' +
+      '<p>' + sub + '<br>손님이 화나서 돌아갔어요… 다음 손님!</p>' +
+    '</div>';
+  mmLater(mmNextOrder, 2200);
+}
+
+/* 한 그릇 완성 → 손님에게 내기 */
+function mmServe() {
+  if (!MMS || MMS.over) return;
+  MM.phase = 'served';
+  MMS.dishes++;
+  MMS.stars += MM.stars;
+  MMS.combo++;
+  var coin = MM.stars * 100 + (MMS.combo >= 2 ? (MMS.combo - 1) * 30 : 0);
+  MMS.coins += coin;
+  mmRenderSession();
+  mmSound('win');
+  var starHtml = '';
+  for (var i = 0; i < 3; i++) starHtml += '<span class="mm-star' + (i < MM.stars ? ' on' : '') + '" style="animation-delay:' + (0.15 + i * 0.12) + 's">★</span>';
+  var st = mmEl('mm-stage');
+  st.className = 'mm-stage mm-donebg';
+  st.innerHTML =
+    '<div class="mm-card mm-donecard">' +
+      '<div class="mm-big">인어조림 완성!</div>' +
+      '<img class="mm-dish" src="' + MM_IMG.dish + '" alt="인어조림">' +
+      '<div class="mm-stars">' + starHtml + '</div>' +
+      '<p class="mm-comment">💰 +' + coin + (MMS.combo >= 2 ? ' <span class="mm-combo">🔥 ' + MMS.combo + '연속!</span>' : '') + '</p>' +
+    '</div>';
+  mmLater(mmNextOrder, 1500);
+}
+
+/* 영업 끝: 시간이 다 됐거나(timeUp) 세이렌에게 잡혔을 때(caught) */
+function mmShopClose(caught, title, sub) {
+  if (!MMS || MMS.over) return;
+  MMS.over = true;
+  clearInterval(MMS_TIMER);
+  mmClearTimers();
+  if (MM) MM.phase = 'closed';
+  mmRenderSession();
+  var best = mmBest();
+  var isBest = !best || MMS.coins > best.coins;
+  if (isBest) mmSaveBest({ coins: MMS.coins, dishes: MMS.dishes });
+  mmSound(caught ? 'fail' : 'win');
+  var st = mmEl('mm-stage');
+  st.onpointerdown = null;
+  st.className = 'mm-stage ' + (caught ? 'mm-failbg' : 'mm-donebg');
+  var head = caught
+    ? '<img class="mm-dead-img" src="' + MM_IMG.dead + '" alt=""><div class="mm-big">' + (title || '세이렌에게 붙잡혔어…') + '</div><p>' + (sub || '') + '<br>가게 문을 닫아요!</p>'
+    : '<div class="mm-big">⏰ 영업 끝!</div><img class="mm-dish" src="' + MM_IMG.dish + '" alt="">';
+  st.innerHTML =
+    '<div class="mm-card mm-resultcard">' + head +
+      '<div class="mm-result-grid">' +
+        '<div><span>만든 인어조림</span><b>' + MMS.dishes + '그릇</b></div>' +
+        '<div><span>받은 별</span><b>⭐ ' + MMS.stars + '</b></div>' +
+        '<div><span>번 돈</span><b>💰 ' + MMS.coins + '</b></div>' +
+        '<div><span>망친 요리</span><b>' + MMS.failed + '번</b></div>' +
+      '</div>' +
+      '<p class="mm-detail">' + (isBest ? '🏆 <b>새 최고 기록!</b>' : '최고 기록: 💰 ' + best.coins + ' (' + best.dishes + '그릇)') + '</p>' +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartShop()">다시 영업하기</button>' +
+    '</div>';
+}
+
 function mmRenderIntro() {
   mmSetStep('');
   var st = mmEl('mm-stage');
@@ -109,14 +270,22 @@ function mmRenderIntro() {
   st.innerHTML =
     '<div class="mm-card mm-intro">' +
       '<div class="mm-intro-pics"><img src="' + MM_IMG.fish1 + '" alt=""><img src="' + MM_IMG.fish2 + '" alt=""></div>' +
-      '<div class="mm-big">오늘의 요리: 인어조림</div>' +
-      '<p>바다에서 인어 <b>' + MM_HUNT_GOAL + '마리</b>를 잡아 오세요!<br>단, <b class="mm-red">세이렌</b>이 나타나면 화면을 <b>마구 연타!</b></p>' +
-      '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">사냥 시작!</button>' +
+      '<div class="mm-big">인어조림 가게 오픈!</div>' +
+      '<p><b>' + Math.floor(MM_SHOP_SECONDS / 60) + '분 ' + (MM_SHOP_SECONDS % 60) + '초</b> 동안 손님 주문을 받아<br>인어조림을 <b>최대한 많이</b> 만들어요!<br>' +
+      '<b class="mm-red">세이렌</b>에게 잡히면 가게 문을 닫아요.</p>' +
+      (mmBest() ? '<p class="mm-detail">🏆 최고 기록: 💰 ' + mmBest().coins + ' (' + mmBest().dishes + '그릇)</p>' : '') +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartShop()">영업 시작!</button>' +
     '</div>';
 }
 
 /* ---------- 실패 화면 (거꾸로 매달린 친구들) ---------- */
 function mmFail(title, sub) {
+  if (MMS && !MMS.over) {
+    /* 세이렌에게 잡힘 = 영업 끝, 요리 실패 = 이 주문만 실패 */
+    if (MM && MM.phase === 'hunt') mmShopClose(true, title, sub);
+    else mmDishFail(title, sub);
+    return;
+  }
   mmClearTimers();
   if (!MM) return;
   MM.phase = 'fail';
@@ -129,19 +298,22 @@ function mmFail(title, sub) {
       '<img class="mm-dead-img" src="' + MM_IMG.dead + '" alt="">' +
       '<div class="mm-big">' + title + '</div>' +
       '<p>' + sub + '</p>' +
-      '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">처음부터 다시</button>' +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartShop()">처음부터 다시</button>' +
     '</div>';
 }
 
 /* =============== ① 인어 사냥 =============== */
 function mmStartHunt() {
   mmClearTimers();
+  if (!MMS || MMS.over) return;
+  var order = MMS.order;
+  MM_HUNT_GOAL = order.fish;
   MM = { phase: 'hunt', caught: 0, left: MM_HUNT_SECONDS, holes: [], sirenTimes: [], paused: false, mistakes: 0 };
-  /* 세이렌은 사냥 중 2번 정도 등장 */
-  var a = 3 + Math.random() * 5, b = a + 6 + Math.random() * 5, c = b + 5 + Math.random() * 5;
-  MM.sirenTimes = [a, b, Math.min(c, MM_HUNT_SECONDS - 2)];
-  /* 세이렌이 나올 때마다 4가지 방식 중 하나 (한 판 안에서는 겹치지 않게) */
-  MM.sirenBag = mmShuffle(['tug', 'song', 'look', 'ring']);
+  /* 주문마다 정해진 확률로 세이렌이 한 번 나타나요 (사냥 초반에) */
+  MM.sirenTimes = Math.random() < order.sirenChance ? [0.8 + Math.random() * 1.8] : [];
+  /* 방식은 4가지 중 하나 (영업 중에는 골고루 돌아가며) */
+  if (!MMS.sirenBag || !MMS.sirenBag.length) MMS.sirenBag = mmShuffle(['tug', 'song', 'look', 'ring']);
+  MM.sirenBag = MMS.sirenBag;
   MM.sirenActive = false;
   MM.freeze = false;
   MM.elapsed = 0;
@@ -153,8 +325,7 @@ function mmStartHunt() {
     holes += '<div class="mm-hole" data-i="' + i + '"><div class="mm-pop"></div><div class="mm-wave"></div></div>';
   }
   st.innerHTML =
-    '<div class="mm-hud"><span>🧜 <b id="mm-caught">0</b> / ' + MM_HUNT_GOAL + '</span><span>⏱ <b id="mm-time">' + MM_HUNT_SECONDS + '</b>초</span></div>' +
-    '<div class="mm-timebar"><div id="mm-timefill"></div></div>' +
+    '<div class="mm-hud"><span>🧜 <b id="mm-caught">0</b> / ' + MM_HUNT_GOAL + '</span><span class="mm-hud-order">주문 #' + order.no + '</span></div>' +
     '<div class="mm-holes">' + holes + '</div>' +
     '<p class="mm-tip">쏙 올라온 인어를 톡! (빈 물결 누르면 -' + MM_MISS_PENALTY + '초)</p>';
   st.onpointerdown = null;
@@ -169,9 +340,7 @@ function mmStartHunt() {
     var dt = Math.min(0.1, (now - last) / 1000); last = now;
     if (!MM.paused) {
       if (!MM.freeze) MM.elapsed += dt;
-      MM.left = Math.max(0, MM_HUNT_SECONDS - MM.elapsed);
-      mmEl('mm-time').textContent = Math.ceil(MM.left);
-      mmEl('mm-timefill').style.width = (MM.left / MM_HUNT_SECONDS * 100) + '%';
+
       /* 인어 나오고 들어가기 */
       spawnAcc += dt;
       var gap = 0.55 - Math.min(0.25, MM.elapsed * 0.012);
@@ -179,7 +348,6 @@ function mmStartHunt() {
       MM.holes.forEach(function (h, i) { if (h.who && now > h.until) mmHideHole(i, false); });
       /* 세이렌 등장 */
       if (!MM.sirenActive && MM.sirenTimes.length && MM.elapsed >= MM.sirenTimes[0]) { MM.sirenTimes.shift(); mmSirenAppear(); }
-      if (MM.left <= 0) { mmFail('인어를 다 놓쳤어…', '시간 안에 인어 ' + MM_HUNT_GOAL + '마리를 잡지 못했어요. 다시 사냥하러 가요!'); return; }
     }
     MM_RAF = requestAnimationFrame(tick);
   };
@@ -218,12 +386,12 @@ function mmHideHole(i, caught) {
 
 function mmTapHole(i) {
   if (!MM || MM.phase !== 'hunt' || MM.paused) return;
-  if (MM.watching) { mmSirenLose('들켜버렸어…', '세이렌이 보고 있을 때 움직이면 안 돼요! 처음부터 다시 사냥해요.'); return; }
+  if (MM.watching) { mmSirenLose('들켜버렸어…', '세이렌이 보고 있을 때 움직이면 안 돼요!'); return; }
   var h = MM.holes[i];
   var hole = document.querySelector('.mm-hole[data-i="' + i + '"]');
   if (!h.who) {
     mmSound('miss');
-    MM.elapsed += MM_MISS_PENALTY;
+    if (MMS) MMS.left -= MM_MISS_PENALTY;
     mmFloatText(hole, '-' + MM_MISS_PENALTY + '초');
     return;
   }
@@ -241,9 +409,9 @@ function mmTapHole(i) {
     var st = mmEl('mm-stage');
     var msg = document.createElement('div');
     msg.className = 'mm-banner';
-    msg.textContent = '인어 ' + MM_HUNT_GOAL + '마리 잡기 성공! 🎉';
+    msg.textContent = '인어 ' + MM_HUNT_GOAL + '마리 잡았다! 🎉';
     st.appendChild(msg);
-    mmLater(mmStartCook, 1400);
+    mmLater(mmStartCook, 700);
   }
 }
 
@@ -359,7 +527,7 @@ function mmSirenTug() {
     if (r) r.style.left = (pos * 100) + '%';
     ov.classList.toggle('danger', pos < 0.25);
     if (won) return;
-    if (pos <= 0) { mmSirenLose('세이렌에게 끌려가 버렸어…', '줄다리기에서 졌어요! 처음부터 다시 사냥해요.'); return; }
+    if (pos <= 0) { mmSirenLose('세이렌에게 끌려가 버렸어…', '줄다리기에서 졌어요!'); return; }
     MM.sirenRaf = requestAnimationFrame(tick);
   };
   MM.sirenRaf = requestAnimationFrame(tick);
@@ -371,7 +539,25 @@ function mmSirenSong() {
     '<div class="mm-song-hud"><span id="mm-song-hearts">❤️❤️❤️</span><span>버티기 <b id="mm-song-left">8.0</b>초</span></div>' +
     '<img class="mm-song-siren" src="' + MM_IMG.siren + '" alt="">' +
     '<div class="mm-song-me" id="mm-song-me">🙉</div>');
-  var notes = [], hp = 3, start = performance.now(), last = start, spawnAcc = 0.5, DUR = 8;
+  var notes = [], hp = 3, start = performance.now(), last = start, spawnAcc = 0.5, DUR = 7;
+  /* 음표를 정확히 못 눌러도 '근처'를 누르면 가장 가까운 음표가 터져요 (휴대폰에서 잘 안 눌리던 문제 수정) */
+  var popNote = function (n) {
+    if (!n || n.dead) return;
+    n.dead = true; mmSound('catch');
+    n.el.classList.add('pop');
+    setTimeout(function () { if (n.el.parentNode) n.el.parentNode.removeChild(n.el); }, 250);
+  };
+  ov.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    var r = ov.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    var best = null, bd = 85;
+    notes.forEach(function (n) {
+      if (n.dead) return;
+      var d = Math.hypot(n.x - px, n.y - py);
+      if (d < bd) { bd = d; best = n; }
+    });
+    popNote(best);
+  });
   var rect = function () { return ov.getBoundingClientRect(); };
   var spawn = function () {
     var r = rect(), w = r.width, h = r.height;
@@ -383,14 +569,7 @@ function mmSirenSong() {
     if (side < 0.5) { x = Math.random() * w; y = -10; }
     else if (side < 0.75) { x = -10; y = Math.random() * h * 0.6; }
     else { x = w + 10; y = Math.random() * h * 0.6; }
-    var n = { el: el, x: x, y: y, sp: 120 + Math.random() * 60 + (performance.now() - start) / 1000 * 10 };
-    el.addEventListener('pointerdown', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      if (n.dead) return;
-      n.dead = true; mmSound('catch');
-      el.classList.add('pop');
-      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 250);
-    });
+    var n = { el: el, x: x, y: y, sp: 85 + Math.random() * 35 + (performance.now() - start) / 1000 * 6 };
     ov.appendChild(el);
     notes.push(n);
   };
@@ -400,11 +579,11 @@ function mmSirenSong() {
     var r = rect(), tx = r.width / 2, ty = r.height - 50;
     var el = (now - start) / 1000;
     spawnAcc += dt;
-    if (spawnAcc > Math.max(0.38, 0.75 - el * 0.05)) { spawnAcc = 0; spawn(); }
+    if (spawnAcc > Math.max(0.55, 0.95 - el * 0.06)) { spawnAcc = 0; spawn(); }
     notes.forEach(function (n) {
       if (n.dead) return;
       var dx = tx - n.x, dy = ty - n.y, d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 26) {
+      if (d < 30) {
         n.dead = true; hp--;
         mmSound('wrong');
         if (n.el.parentNode) n.el.parentNode.removeChild(n.el);
@@ -415,12 +594,12 @@ function mmSirenSong() {
         return;
       }
       n.x += dx / d * n.sp * dt; n.y += dy / d * n.sp * dt;
-      n.el.style.transform = 'translate(' + (n.x - 20) + 'px,' + (n.y - 20) + 'px)';
+      n.el.style.transform = 'translate(' + (n.x - 28) + 'px,' + (n.y - 28) + 'px)';
     });
     notes = notes.filter(function (n) { return !n.dead; });
     var left = DUR - el;
     var le = mmEl('mm-song-left'); if (le) le.textContent = Math.max(0, left).toFixed(1);
-    if (hp <= 0) { mmSirenLose('노래에 홀려버렸어…', '음표를 3개나 맞았어요! 처음부터 다시 사냥해요.'); return; }
+    if (hp <= 0) { mmSirenLose('노래에 홀려버렸어…', '음표를 3개나 맞았어요!'); return; }
     if (left <= 0) { mmSirenWin('노래를 다 막아냈다!'); return; }
     MM.sirenRaf = requestAnimationFrame(tick);
   };
@@ -483,7 +662,7 @@ function mmSirenRing() {
   var miss = function (m) {
     hp--; locked = true; mmSound('wrong'); setMsg(m, 'bad');
     var hs = mmEl('mm-ring-hearts'); if (hs) hs.textContent = '❤️❤️❤️'.slice(0, hp * 2) + '🤍🤍🤍'.slice(0, (3 - hp) * 2);
-    if (hp <= 0) { mmLater(function () { mmSirenLose('반격에 실패했어…', '타이밍이 안 맞았어요! 처음부터 다시 사냥해요.'); }, 400); return; }
+    if (hp <= 0) { mmLater(function () { mmSirenLose('반격에 실패했어…', '타이밍이 안 맞았어요!'); }, 400); return; }
     mmLater(newRound, 700);
   };
   ov.addEventListener('pointerdown', function (e) {
@@ -548,8 +727,7 @@ function mmStartCook() {
   MM.phase = 'cook';
   MM.mistakes = 0;
   MM.added = [];
-  var rest = mmShuffle(MM_ING.slice(1).map(function (g) { return g.id; }));
-  MM.recipe = ['fish'].concat(rest);
+  MM.recipe = MMS && MMS.order ? MMS.order.recipe.slice() : ['fish'].concat(mmShuffle(MM_ING.slice(1).map(function (g) { return g.id; })));
   mmSetStep('cook');
   var st = mmEl('mm-stage');
   st.className = 'mm-stage mm-kitchen';
@@ -623,7 +801,7 @@ function mmAddIng(btn) {
     mmEl('mm-msg').innerHTML = isDecoy ? '으악! 그건 <b>레시피에 없는 재료</b>예요!' : '앗! 그 재료는 <b>지금 차례가 아니에요</b>';
     if (MM.mistakes >= MM_MAX_MISTAKES) {
       MM.phase = 'failwait';
-      mmLater(function () { mmFail('요리가 엉망이 됐어…', '재료를 ' + MM_MAX_MISTAKES + '번이나 잘못 넣어서 냄비가 펑! 처음부터 다시 해요.'); }, 600);
+      mmLater(function () { mmFail('요리가 엉망이 됐어…', '재료를 ' + MM_MAX_MISTAKES + '번이나 잘못 넣어서 냄비가 펑!'); }, 600);
     }
     return;
   }
@@ -730,7 +908,7 @@ function mmStartBoil() {
     '<div class="mm-gauge-labels"><span>덜 익음</span><span>딱 좋아!</span><span>탐</span></div>';
   st.insertBefore(gauge, mmEl('mm-msg'));
   MM.heat = 0;
-  var dur = 2.6 + Math.random() * 1.0;
+  var dur = (2.6 + Math.random() * 1.0) / (MMS && MMS.order ? MMS.order.boilSpeed : 1);
   var wob = Math.random() * 6;
   var last = performance.now(), bubAcc = 0;
   var tick = function (now) {
@@ -783,12 +961,12 @@ function mmEndBoil(burned) {
   if (burned || h >= MM_ZONE.okHi) {
     mmEl('mm-pot-wrap').classList.add('burnt');
     mmEl('mm-msg').innerHTML = '앗 뜨거! 냄비가 <b>홀랑 탔어요</b> 🔥';
-    mmLater(function () { mmFail('인어조림이 새까맣게 탔어…', '불을 너무 늦게 껐어요. 처음부터 다시 도전!'); }, 1100);
+    mmLater(function () { mmFail('인어조림이 새까맣게 탔어…', '불을 너무 늦게 껐어요.'); }, 900);
     return;
   }
   if (h < MM_ZONE.okLo) {
     mmEl('mm-msg').innerHTML = '아직 <b>하나도 안 익었어요…</b>';
-    mmLater(function () { mmFail('덜 익은 인어가 도망갔어…', '불을 너무 빨리 껐어요. 처음부터 다시 도전!'); }, 1100);
+    mmLater(function () { mmFail('덜 익은 인어가 도망갔어…', '불을 너무 빨리 껐어요.'); }, 900);
     return;
   }
   var perfect = h >= MM_ZONE.perfLo && h <= MM_ZONE.perfHi;
@@ -799,7 +977,7 @@ function mmEndBoil(burned) {
   MM.stars = stars;
   MM.perfect = perfect;
   mmEl('mm-msg').innerHTML = perfect ? '<b>딱 좋게</b> 익었어요! ✨' : '조금 아쉽지만 <b>먹을 만해요!</b>';
-  mmLater(mmShowDone, 1100);
+  mmLater(function () { if (MMS && !MMS.over) mmServe(); else mmShowDone(); }, 800);
 }
 
 /* =============== ④ 완성 =============== */
@@ -824,6 +1002,6 @@ function mmShowDone() {
       '<div class="mm-stars">' + starHtml + '</div>' +
       '<p class="mm-comment">' + comment + '</p>' +
       '<p class="mm-detail">' + detail.join(' · ') + '</p>' +
-      '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">다시 만들기</button>' +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartShop()">다시 만들기</button>' +
     '</div>';
 }

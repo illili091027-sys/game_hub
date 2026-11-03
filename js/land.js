@@ -5,9 +5,9 @@
    - 내 움직임/땅 계산은 내 화면이 직접 하고, roomKey('ld_'+내id)에 0.2초마다 올려요.
    - 다른 사람 상태는 서버 일괄조회(DBgetPrefix)로 한 번에 읽어요.
    - 다른 사람이 내 땅을 뺏으면(그 사람이 나보다 나중에 땅을 차지했으면) 겹친 칸은 그 사람 것. */
-var LD_G = 44;                 // 판 크기 (44×44칸) - 바꾸면 LD_OWNER 크기도 같이 바꿔야 해요
+var LD_G = 72;                 // 판 크기 (72×72칸)
 var LD_SPEED = 6.2;            // 칸/초
-var LD_ROUND_MS = 120000;      // 2분
+var LD_ROUND_MS = 180000;      // 3분 (판이 커져서 조금 늘림)
 var LD_RESPAWN_MS = 3000;
 var LD_COLORS = ['#ef5350', '#42a5f5', '#43a047', '#ffa726', '#ab47bc', '#26c6da', '#c0ca33', '#ec407a', '#ffca28', '#26a69a'];
 var LD_MIN = 2, LD_MAX = 10;
@@ -220,7 +220,7 @@ function ldUnB64(b64) {
 }
 var LD_LAST_PUB = 0, LD_PUB_BUSY = false, LD_PUB_AGAIN = false, LD_FETCH_BUSY = false;
 var LD_PROCESSED = {};
-var LD_OWNER = new Int8Array(44 * 44).fill(-1), LD_OWNER_LIST = [], LD_OWNER_DIRTY = true;
+var LD_OWNER = new Int8Array(LD_G * LD_G).fill(-1), LD_OWNER_LIST = [], LD_OWNER_DIRTY = true;
 var LD_BIGMAP = false;
 var LD_MM_AT = 0;
 
