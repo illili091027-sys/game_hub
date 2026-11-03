@@ -354,10 +354,10 @@ if (document.getElementById('in-server').value) {
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land', 'card-blocks'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
-var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork', 'card-arrows'];
+var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
 
 function chooseMode(mode) {
   playMode = mode;
@@ -435,8 +435,8 @@ function backToModeSelect() {
   playMode = null;
 }
 
-var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'mafia', 'werewolf', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'land', 'blocks'];
-var SOLO_ONLY_GAME_IDS = ['wordsearch', 'stork', 'arrows'];
+var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'mafia', 'werewolf', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'land'];
+var SOLO_ONLY_GAME_IDS = ['wordsearch', 'stork', 'arrows', 'mermaid'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -683,7 +683,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', land: 'ld-room-pill', blocks: 'bk-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', land: 'ld-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
@@ -701,11 +701,11 @@ function enterGame(gameId) {
     else if (gameId === 'baby') startBabyGame();
     else if (gameId === 'stork') startStorkGame();
     else if (gameId === 'arrows') startArrowsGame();
+    else if (gameId === 'mermaid') startMermaidGame();
     else if (gameId === 'relay') startRelayGame();
     else if (gameId === 'bingo') startBingoGame();
     else if (gameId === 'tickbomb') startTickBombGame();
     else if (gameId === 'land') startLandGame();
-    else if (gameId === 'blocks') startBlocksGame();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
@@ -739,8 +739,7 @@ var GAME_ROOM_STATE_KEYS = {
   relay: ['relay'],
   bingo: ['bingo'],
   tickbomb: ['tickbomb'],
-  land: ['land'],
-  blocks: ['blocks']
+  land: ['land']
 };
 var GAME_PER_PLAYER_STATE_KEYS = {
   bomb: 'bomb_p_',
@@ -749,8 +748,7 @@ var GAME_PER_PLAYER_STATE_KEYS = {
   relay: 'rl_',
   bingo: 'bg_',
   tickbomb: 'tb_o_',
-  land: 'ld_',
-  blocks: 'bk_'
+  land: 'ld_'
 };
 var GAME_VOTE_KEYS = ['sudoku'];
 
@@ -768,6 +766,10 @@ function resetGameRoomState(gameId) {
 function goHome() {
   var activeView = document.querySelector('.view.active');
   var leavingGameId = (activeView && activeView.id !== 'home') ? activeView.id : null;
+  /* 나가기 버그 수정: 준비 화면(설명서)에서 나가면 아직 "들어간 게임"으로 기록이 안 돼 있어서,
+     다음 서버 확인(1.5초) 때 방장이 고른 게임으로 다시 끌려 들어갔어요. 이제 나간 게임은
+     방장이 새로 고를 때까지 자동으로 다시 들어가지 않아요. */
+  if (playMode === 'online' && roomCurrentGame) lastAutoEnteredGame = roomCurrentGame;
   clearInterval(pollTimer);
   clearInterval(pixelTickTimer);
   stopSudokuTimer();
@@ -781,11 +783,11 @@ function goHome() {
   stopBabyGame();
   stopStorkGame();
   stopArrowsGame();
+  stopMermaidGame();
   stopRelayGame();
   stopBingoGame();
   stopTickBombGame();
   stopLandGame();
-  stopBlocksGame();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';

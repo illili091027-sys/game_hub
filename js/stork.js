@@ -1,5 +1,5 @@
-/* ---------------- 비틀비틀 황새 (혼자하기 전용, 균형 잡고 오래 걷기) ----------------
-   황새가 저절로 앞으로 걸어가는데, 몸이 계속 앞뒤로 기우뚱거려요. ←/→ 를 톡톡 눌러서
+/* ---------------- 비틀비틀 세이렌 (혼자하기 전용, 균형 잡고 오래 걷기) ----------------
+   세이렌이 저절로 앞으로 걸어가는데, 몸이 계속 앞뒤로 기우뚱거려요. ←/→ 를 톡톡 눌러서
    몸을 반대쪽으로 밀어 균형을 잡고, 넘어지기 전까지 최대한 멀리(m) 걸어가면 돼요.
    멀리 갈수록 더 빨리 기울고 바람(흔들림)도 세져요.
    물리: 거꾸로 세운 막대(역진자) - 기울어진 쪽으로 점점 더 빨리 넘어가려는 힘 + 무작위 바람.
@@ -116,8 +116,8 @@ function skShowOverlay(kind, m, isBest) {
   ov.style.display = '';
   if (kind === 'start') {
     ov.className = 'sk-overlay start';
-    ov.innerHTML = '<div class="sk-ov-title">비틀비틀 황새</div>' +
-      '<div class="sk-ov-text">←/→ 를 톡톡 눌러서 황새가 넘어지지 않게 균형을 잡아요.<br>최대한 멀리 걸어가 보세요!</div>' +
+    ov.innerHTML = '<div class="sk-ov-title">비틀비틀 세이렌</div>' +
+      '<div class="sk-ov-text">←/→ 를 톡톡 눌러서 세이렌이 넘어지지 않게 균형을 잡아요.<br>최대한 멀리 걸어가 보세요!</div>' +
       '<button class="btn btn-primary sk-ov-btn" onclick="skBegin()">시작하기 (스페이스바)</button>';
   } else {
     ov.className = 'sk-overlay over';
@@ -146,14 +146,14 @@ function skDrawScenery(ctx) {
   var off = SK ? SK.dist * SK_PX_PER_M : 0;
   // 하늘
   var g = ctx.createLinearGradient(0, 0, 0, SK_H);
-  g.addColorStop(0, '#fbfdf8');
-  g.addColorStop(1, '#eef6e8');
+  g.addColorStop(0, '#dff3ff');
+  g.addColorStop(1, '#f6fbff');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, SK_W, SK_H);
   // 먼 언덕 덤불 (천천히)
   var far = off * 0.25;
-  ctx.fillStyle = '#b9dca8';
-  ctx.strokeStyle = '#8cc078';
+  ctx.fillStyle = '#7cc6e8';
+  ctx.strokeStyle = '#4fa9d4';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, SK_GROUND - 40);
@@ -169,8 +169,8 @@ function skDrawScenery(ctx) {
   ctx.stroke();
   // 들판
   var fg = ctx.createLinearGradient(0, SK_GROUND - 120, 0, SK_GROUND);
-  fg.addColorStop(0, '#d9efc9');
-  fg.addColorStop(1, '#f6fbf1');
+  fg.addColorStop(0, '#9fd8f0');
+  fg.addColorStop(1, '#e8f6fb');
   ctx.fillStyle = fg;
   ctx.fillRect(0, SK_GROUND - 70, SK_W, 70);
   // 울타리 (중간 속도)
@@ -205,11 +205,11 @@ function skDrawScenery(ctx) {
     ctx.restore();
   }
   // 땅 + 낙엽 (가장 빠르게)
-  ctx.fillStyle = '#fffdf6';
+  ctx.fillStyle = '#f6e7c1';
   ctx.fillRect(0, SK_GROUND, SK_W, SK_H - SK_GROUND);
   ctx.strokeStyle = '#d8d2c0';
   ctx.beginPath(); ctx.moveTo(0, SK_GROUND); ctx.lineTo(SK_W, SK_GROUND); ctx.stroke();
-  var cols = ['#f0a070', '#f5c98a', '#e8845a', '#f7dca6'];
+  var cols = ['#f4a3a8', '#ffffff', '#e8c48a', '#9fd3e6']; // 조개껍데기·조약돌
   var leafGap = 26;
   var start = Math.floor(off / leafGap) - 2;
   for (var li = start; li < start + SK_W / leafGap + 4; li++) {
@@ -225,85 +225,43 @@ function skDrawScenery(ctx) {
   }
 }
 
-/* 황새: 엉덩이(골반) 위치를 기준으로 다리는 땅을 딛고, 윗몸(몸통·목·머리)은 기울기(theta)만큼 회전 */
+/* 세이렌: 사용자가 넣은 캐릭터 그림을 발밑(아래 가운데)을 기준으로 기울기(theta)만큼 돌려서 그려요.
+   걸을 때는 통통 튀면서 좌우로 왔다 갔다(뒤뚱뒤뚱), 넘어지면 땅에 철퍼덕 누워요. */
+var SK_IMG = null;
 function skDrawStork(ctx) {
-  var hipX = 330, hipY = SK_GROUND - 150;
+  if (!SK_IMG && typeof SIREN_IMG_SRC !== 'undefined') { SK_IMG = new Image(); SK_IMG.src = SIREN_IMG_SRC; }
   var th = SK ? SK.theta : 0;
   var phase = SK ? SK.walkPhase : 0;
   var walking = SK && SK.running && !SK.falling;
-  var fallK = SK && SK.falling ? Math.min(1, Math.abs(th) / 1.62) : 0;
+  var h = 210, w = h * (typeof SIREN_W !== 'undefined' ? SIREN_W / SIREN_H : 0.9);
+  // 왔다 갔다: 걸음에 맞춰 좌우로 살랑 + 위아래로 통통
+  var sway = walking ? Math.sin(phase) * 18 : 0;
+  var hop = walking ? Math.abs(Math.sin(phase)) * 14 : 0;
+  var wob = walking ? Math.sin(phase) * 0.06 : 0;
+  var footX = 340 + sway, footY = SK_GROUND + 6;
+  // 그림자
   ctx.save();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#111';
-  ctx.lineWidth = 5;
-  // 넘어질 땐 몸 전체가 땅 쪽으로 내려감
-  hipY += fallK * 120;
-  hipX += fallK * 40 * (SK ? SK.fallDir : 0);
-  // 다리 두 개 (걷는 동작)
-  for (var leg = 0; leg < 2; leg++) {
-    var p = phase + leg * Math.PI;
-    var swing = walking ? Math.sin(p) * 34 : (leg ? 10 : -10);
-    var lift = walking ? Math.max(0, Math.cos(p)) * 16 : 0;
-    var footX = hipX + swing;
-    var footY = SK_GROUND - lift;
-    if (fallK) { footX = hipX + (leg ? 40 : 10) * (SK.fallDir || 1) * -1; footY = SK_GROUND - 8 - leg * 18; }
-    var kneeX = (hipX + footX) / 2 + 14;
-    var kneeY = (hipY + footY) / 2 - (fallK ? 20 : 0);
-    ctx.beginPath();
-    ctx.moveTo(hipX, hipY);
-    ctx.lineTo(kneeX, kneeY);
-    ctx.lineTo(footX, footY);
-    ctx.lineTo(footX + 16, footY);
-    ctx.stroke();
-  }
-  // 윗몸
-  ctx.translate(hipX, hipY);
-  ctx.rotate(th);
-  ctx.fillStyle = '#ffffff';
-  // 몸통
-  ctx.beginPath();
-  ctx.ellipse(-12, -26, 48, 30, -0.15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // 꼬리깃
-  ctx.beginPath();
-  ctx.moveTo(-56, -30); ctx.lineTo(-82, -18); ctx.moveTo(-56, -22); ctx.lineTo(-80, -6);
-  ctx.stroke();
-  // 날개 선
-  ctx.beginPath();
-  ctx.moveTo(-40, -36); ctx.quadraticCurveTo(-8, -18, 22, -36);
-  ctx.stroke();
-  // 목 (S자) - 기울기에 따라 반대쪽으로 살짝 휘어서 버티는 느낌
-  var bend = -th * 30;
-  ctx.beginPath();
-  ctx.moveTo(26, -42);
-  ctx.bezierCurveTo(56 + bend, -70, 6 + bend, -110, 30 + bend * 0.6, -150);
-  ctx.stroke();
-  // 머리
-  var headX = 30 + bend * 0.6, headY = -164;
-  ctx.beginPath();
-  ctx.arc(headX, headY, 17, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // 부리
-  ctx.beginPath();
-  ctx.moveTo(headX + 15, headY - 2);
-  ctx.lineTo(headX + 78, headY + 6);
-  ctx.lineTo(headX + 15, headY + 6);
-  ctx.stroke();
-  // 눈 (넘어지면 X눈)
-  if (SK && (SK.falling || SK.over)) {
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(headX - 2, headY - 7); ctx.lineTo(headX + 6, headY + 1);
-    ctx.moveTo(headX + 6, headY - 7); ctx.lineTo(headX - 2, headY + 1);
-    ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,0.13)';
+  ctx.beginPath(); ctx.ellipse(footX, SK_GROUND + 4, 70 - hop * 1.5, 12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.translate(footX, footY - hop);
+  ctx.rotate(th + wob);
+  if (SK_IMG && SK_IMG.complete && SK_IMG.naturalWidth) {
+    ctx.drawImage(SK_IMG, -w / 2, -h, w, h);
   } else {
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.arc(headX + 3, headY - 3, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(0, -h / 2, w / 2.4, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   }
   ctx.restore();
+  // 넘어지면 머리 위에 별 빙글빙글
+  if (SK && (SK.falling || SK.over)) {
+    var t = (SK.t || 0) * 4;
+    var cx = footX + Math.sin(th) * h * 0.85, cy = footY - Math.cos(th) * h * 0.85;
+    ctx.fillStyle = '#f2c744';
+    ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
+    for (var i = 0; i < 3; i++) ctx.fillText('★', cx + Math.cos(t + i * 2.1) * 34, cy - 20 + Math.sin(t + i * 2.1) * 10);
+  }
 }
 
 function skDrawBalanceMeter(ctx) {

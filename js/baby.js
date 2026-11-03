@@ -27,6 +27,7 @@ var BB_CHAR = null; // 고른 캐릭터 id (charpick.js)
 function bbKey(pid) { return roomKey('baby_p_' + pid); }
 
 function stopBabyGame() {
+  if (BB_SPECTATE) { BB_SPECTATE = null; clearInterval(BB_SPEC_TIMER); cancelAnimationFrame(BB_SPEC_RAF); }
   cancelAnimationFrame(BB_RAF);
   BB_RAF = null;
   clearInterval(BB_OPP_TIMER);
@@ -85,6 +86,7 @@ function bbChangeChar() {
 
 /* 새 판 준비 + 3,2,1 카운트다운 */
 function bbNewRun(withCountdown) {
+  if (BB_SPECTATE) bbStopSpectate(false);
   cancelAnimationFrame(BB_RAF);
   clearInterval(BB_COUNTDOWN_TIMER);
   var ground = { x: BB_W / 2, y: 40, w: 320, type: 'ground' };
@@ -144,7 +146,8 @@ function bbScore() { return Math.floor(BB.maxH / 4) + BB.bonus; }
 function bbGenerate() {
   while (BB.lastPathY < BB.camY + BB_H + 260) {
     var age = Math.floor(BB.lastPathY / 650) + 1;
-    var gap = Math.min(172, 82 + Math.random() * 55 + Math.min(age, 14) * 4);
+    /* 구름 더 많이: 간격을 좁히고(62~110), 옆에 진짜 구름을 하나 더 띄우기도 해요 */
+    var gap = Math.min(150, 62 + Math.random() * 48 + Math.min(age, 14) * 3);
     var y = BB.lastPathY + gap;
     var maxDx = 165;
     var x = BB.lastPathX + (Math.random() * 2 - 1) * maxDx;
@@ -153,12 +156,17 @@ function bbGenerate() {
     var w = Math.max(62, 112 - age * 3.2);
     var r = Math.random();
     var type = 'normal';
-    var pHoled = Math.min(0.05 + age * 0.025, 0.32);
+    var pHoled = Math.min(0.04 + age * 0.02, 0.25);
     /* 무지개 구름은 드물게: 3% 확률 + 앞 무지개와 최소 1600 높이 이상 떨어져야 나와요 */
     if (r < 0.03 && age >= 3 && y - (BB.lastRainbowY || 0) > 1600) { type = 'rainbow'; BB.lastRainbowY = y; }
     else if (r < 0.03 + pHoled) type = 'holed';
     var cloud = { x: x, y: y, w: w, type: type };
     BB.clouds.push(cloud);
+    if (Math.random() < Math.max(0.25, 0.6 - age * 0.03)) {
+      var sx = x < BB_W / 2 ? x + 120 + Math.random() * 110 : x - 120 - Math.random() * 110;
+      sx = Math.max(45, Math.min(BB_W - 45, sx));
+      BB.clouds.push({ x: sx, y: y - gap * (0.35 + Math.random() * 0.3), w: w * (0.85 + Math.random() * 0.3), type: Math.random() < pHoled ? 'holed' : 'normal' });
+    }
     // 가짜 먹구름(장식이자 함정)
     if (age >= 2 && Math.random() < Math.min(0.12 + age * 0.03, 0.45)) {
       var dx = (Math.random() < 0.5 ? -1 : 1) * (90 + Math.random() * 90);
@@ -309,6 +317,7 @@ function bbTick(ts) {
   bbDraw();
   bbUpdateHud();
   bbPostState(false);
+  bbPublishView();
   BB_RAF = requestAnimationFrame(bbTick);
 }
 
@@ -317,6 +326,83 @@ function bbUpdateHud() {
   document.getElementById('bb-age').textContent = (a < 10 ? '0' : '') + a;
   var sc = String(bbScore());
   document.getElementById('bb-score').textContent = ('0000000' + sc).slice(-Math.max(7, sc.length));
+}
+
+/* ---- 관전: 친구 화면 크게 보기 ----
+   플레이 중에는 내 화면 모습(카메라·캐릭터·근처 구름)을 roomKey('bbv_'+내id)에 0.3초마다 올려요.
+   떨어진 뒤 친구 카드를 누르면 그 친구 화면을 내 판에 크게 보여줘요(화면을 누르면 닫기). */
+var BB_VIEW_AT = 0, BB_VIEW_BUSY = false;
+var BB_SPECTATE = null, BB_SPEC_VIEW = null, BB_SPEC_TIMER = null, BB_SPEC_RAF = null, BB_SPEC_NAME = '';
+function bbPublishView() {
+  if (playMode !== 'online' || !roomJoined || !BB || !BB.running) return;
+  var now = Date.now();
+  if (now - BB_VIEW_AT < 300 || BB_VIEW_BUSY) return;
+  BB_VIEW_AT = now;
+  BB_VIEW_BUSY = true;
+  var top = BB.camY + BB_H + 80, bottom = BB.camY - 80;
+  var tc = { normal: 0, holed: 1, rainbow: 2, dark: 3, ground: 4 };
+  DBset(roomKey('bbv_' + myPlayerId), {
+    ts: now, x: Math.round(BB.baby.x), y: Math.round(BB.baby.y), vy: Math.round(BB.baby.vy), face: BB.baby.face,
+    camY: Math.round(BB.camY), maxH: Math.round(BB.maxH), bonus: BB.bonus, char: BB_CHAR, ride: BB.ride ? BB.ride.color : null,
+    clouds: BB.clouds.filter(function (c) { return c.y < top && c.y > bottom && !c.gone; }).map(function (c) { return [Math.round(c.x), Math.round(c.y), Math.round(c.w), tc[c.type] || 0]; }),
+    balloons: BB.balloons.filter(function (b) { return !b.taken && b.y < top && b.y > bottom; }).map(function (b) { return [Math.round(b.x), Math.round(b.y), b.color]; })
+  }).then(function () { BB_VIEW_BUSY = false; }, function () { BB_VIEW_BUSY = false; });
+}
+
+function bbSpectate(pid, name) {
+  if (!BB || BB.running) return;
+  BB_SPECTATE = pid; BB_SPEC_NAME = name || ''; BB_SPEC_VIEW = null;
+  document.getElementById('bb-over').style.display = 'none';
+  var lab = document.getElementById('bb-spec-label');
+  lab.textContent = '👀 ' + BB_SPEC_NAME + ' 화면 보는 중 · 화면을 누르면 닫기';
+  lab.style.display = '';
+  clearInterval(BB_SPEC_TIMER);
+  var poll = function () {
+    DBget(roomKey('bbv_' + pid)).then(function (v) { if (BB_SPECTATE === pid) BB_SPEC_VIEW = v; });
+  };
+  poll();
+  BB_SPEC_TIMER = setInterval(poll, 350);
+  cancelAnimationFrame(BB_SPEC_RAF);
+  var loop = function () {
+    if (BB_SPECTATE !== pid) return;
+    bbDrawSpectate();
+    BB_SPEC_RAF = requestAnimationFrame(loop);
+  };
+  BB_SPEC_RAF = requestAnimationFrame(loop);
+  bbRenderOpponents();
+}
+
+function bbStopSpectate(showOver) {
+  if (!BB_SPECTATE) return;
+  BB_SPECTATE = null; BB_SPEC_VIEW = null;
+  clearInterval(BB_SPEC_TIMER);
+  cancelAnimationFrame(BB_SPEC_RAF);
+  document.getElementById('bb-spec-label').style.display = 'none';
+  if (BB) { bbDraw(); bbUpdateHud(); }
+  if (showOver && BB && BB.over) document.getElementById('bb-over').style.display = '';
+  bbRenderOpponents();
+}
+
+function bbDrawSpectate() {
+  var v = BB_SPEC_VIEW;
+  if (!v || !BB_CTX) return;
+  var real = BB, realChar = BB_CHAR;
+  var types = ['normal', 'holed', 'rainbow', 'dark', 'ground'];
+  var stale = Date.now() - v.ts > 2500;
+  BB = {
+    t: performance.now() / 1000, camY: v.camY, maxH: v.maxH, bonus: v.bonus, over: stale,
+    baby: { x: v.x, y: v.y, vx: 0, vy: v.vy, face: v.face || 1, on: null },
+    clouds: (v.clouds || []).map(function (c) { return { x: c[0], y: c[1], w: c[2], type: types[c[3]] || 'normal' }; }),
+    balloons: (v.balloons || []).map(function (b) { return { x: b[0], y: b[1], color: b[2], bob: 0 }; }),
+    sparkles: [], pops: [], ride: v.ride ? { color: v.ride } : null
+  };
+  BB_CHAR = v.char;
+  try { bbDraw(); } finally { BB = real; BB_CHAR = realChar; }
+  var a = Math.floor((v.maxH || 0) / BB_AGE_UNIT) + 1;
+  document.getElementById('bb-age').textContent = (a < 10 ? '0' : '') + a;
+  var sc = String(Math.floor((v.maxH || 0) / 4) + (v.bonus || 0));
+  document.getElementById('bb-score').textContent = ('0000000' + sc).slice(-Math.max(7, sc.length));
+  if (stale) document.getElementById('bb-spec-label').textContent = '👀 ' + BB_SPEC_NAME + ' 님은 지금 쉬는 중 · 화면을 누르면 닫기';
 }
 
 function bbPostState(force) {
@@ -354,6 +440,7 @@ function bbDie() {
       '<div class="bb-over-rec">AGE <b>' + age + '</b> · <b>' + score + '점</b></div>' +
       '<div class="bb-over-sub">' + (isBest ? '🎉 최고 기록!' : '최고 기록 ' + BB_BEST_SOLO + '점') + '</div>';
   }
+  if (playMode === 'online') html += '<div class="bb-over-sub">👀 친구 카드를 누르면 친구 화면을 크게 볼 수 있어요</div>';
   html += '<div class="bb-over-btns"><button class="btn btn-primary" onclick="bbRetry()">' + (playMode === 'online' ? '연습 계속하기' : '다시 하기') + '</button>' +
     '<button class="btn btn-ghost" onclick="bbChangeChar()">캐릭터 바꾸기</button></div>';
   over.innerHTML = html;
@@ -386,9 +473,13 @@ function bbRenderOpponents() {
       var d = r.d || {};
       var isMe = r.p.id === myPlayerId;
       var status = !r.d ? '준비 중' : !d.done ? '🍼 올라가는 중' : (d.practicing ? '🎈 연습 중' : '💤 기록 확정');
-      return '<div class="bb-player' + (isMe ? ' me' : '') + (d.done ? ' done' : '') + '">' +
+      var canWatch = !isMe && BB && !BB.running;
+      var watching = BB_SPECTATE === r.p.id;
+      return '<div class="bb-player' + (isMe ? ' me' : '') + (d.done ? ' done' : '') + (canWatch ? ' watchable' : '') + (watching ? ' watching' : '') + '"' +
+        (canWatch ? ' onclick="' + (watching ? 'bbStopSpectate(true)' : 'bbSpectate(\'' + r.p.id + '\', \'' + esc(r.p.name).replace(/'/g, '') + '\')') + '"' : '') + '>' +
         '<div class="bb-player-top"><span class="bb-player-name">' + (d.char && charById(d.char) ? '<img class="bb-player-char" src="' + charById(d.char).src + '" alt="" />' : '') + esc(r.p.name) + (isMe ? ' (나)' : '') + '</span><span class="bb-player-age">AGE ' + (d.age || 1) + '</span></div>' +
-        '<div class="bb-player-bottom"><span>' + status + '</span><b>' + (d.score || 0) + '점</b></div></div>';
+        '<div class="bb-player-bottom"><span>' + status + '</span><b>' + (d.score || 0) + '점</b></div>' +
+        (canWatch ? '<div class="bb-watch-hint">' + (watching ? '👀 보는 중 (누르면 닫기)' : '👀 눌러서 크게 보기') + '</div>' : '') + '</div>';
     }).join('');
     var finalEl = document.getElementById('bb-final');
     if (allDone) {
@@ -602,6 +693,7 @@ function bbDraw() {
   canvas.addEventListener('pointerdown', function (e) {
     if (!BB) return;
     e.preventDefault();
+    if (BB_SPECTATE) { bbStopSpectate(true); return; }
     BB.targetX = bbPointerToWorldX(e);
     BB.pointerActive = true;
   });

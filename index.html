@@ -146,12 +146,6 @@ window.addEventListener('load', function () {
           <div class="game-name">먼작귀 땅따먹기</div>
         </div>
       </button>
-      <button class="game-card" id="card-blocks" onclick="cardClicked('blocks')">
-        <div class="game-card-top">
-          <div class="game-icon">13</div>
-          <div class="game-name">블록 배틀</div>
-        </div>
-      </button>
       <!-- 혼자하기 전용 -->
       <button class="game-card" id="card-wordsearch" onclick="cardClicked('wordsearch')">
         <div class="game-card-top">
@@ -163,9 +157,9 @@ window.addEventListener('load', function () {
       <button class="game-card" id="card-stork" onclick="cardClicked('stork')">
         <div class="game-card-top">
           <div class="game-icon">2</div>
-          <div class="game-name">비틀비틀 황새</div>
+          <div class="game-name">비틀비틀 세이렌</div>
         </div>
-        <div class="game-desc" id="desc-stork">←/→ 로 균형을 잡으며 황새를 최대한 멀리 걷게 해요!</div>
+        <div class="game-desc" id="desc-stork">←/→ 로 균형을 잡으며 세이렌을 최대한 멀리 걷게 해요!</div>
       </button>
       <button class="game-card" id="card-arrows" onclick="cardClicked('arrows')">
         <div class="game-card-top">
@@ -173,6 +167,13 @@ window.addEventListener('load', function () {
           <div class="game-name">화살표 탈출</div>
         </div>
         <div class="game-desc" id="desc-arrows">얽힌 화살표를 순서대로 눌러 판 밖으로 모두 빼내요!</div>
+      </button>
+      <button class="game-card" id="card-mermaid" onclick="cardClicked('mermaid')">
+        <div class="game-card-top">
+          <div class="game-icon">4</div>
+          <div class="game-name">인어조림 만들기</div>
+        </div>
+        <div class="game-desc" id="desc-mermaid">인어를 잡아 냄비에 보글보글 인어조림을 만들어요!</div>
       </button>
       <!-- 혼자하기 + 온라인 둘 다 -->
       <button class="game-card" id="card-baby" onclick="cardClicked('baby')">
@@ -295,6 +296,7 @@ window.addEventListener('load', function () {
           </div>
           <div class="bm-player" id="bm-player"><img src="" alt="캐릭터" id="bm-player-img" /></div>
           <img class="bm-ufo" id="bm-ufo" src="" alt="" />
+          <div class="bm-watch" id="bm-watch" style="display:none"></div>
           <div class="bm-overlay" id="bm-ready-overlay">
             <div style="font-family:'Gaegu',cursive; font-size:22px;">방향키(←/→)를 눌러서<br/>똥을 피해보세요!</div>
           </div>
@@ -721,6 +723,7 @@ window.addEventListener('load', function () {
         <div class="bb-hud-score" id="bb-score">0000000</div>
         <div class="bb-countdown" id="bb-countdown" style="display:none">3</div>
         <div class="bb-over" id="bb-over" style="display:none"></div>
+        <div class="bb-spec-label" id="bb-spec-label" style="display:none"></div>
         <div class="bb-pick" id="bb-pick" style="display:none">
           <div class="bb-pick-title">캐릭터를 골라요!</div>
           <div class="char-pick bb-pick-grid" id="bb-pick-grid"></div>
@@ -745,7 +748,7 @@ window.addEventListener('load', function () {
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
       <span class="room-pill" id="sk-room-pill">혼자 하기</span>
     </div>
-    <h2 class="game-heading">비틀비틀 황새</h2>
+    <h2 class="game-heading">비틀비틀 세이렌</h2>
     <div class="sk-hud">
       <span>거리 <b id="sk-dist">0</b>m</span>
       <span>최고 <b id="sk-best">0</b>m</span>
@@ -759,6 +762,20 @@ window.addEventListener('load', function () {
       <button class="sk-btn" id="sk-btn-right">오른쪽 ▶</button>
     </div>
     <p class="bb-help">키보드 ←/→ 를 톡톡! · 휴대폰은 아래 버튼이나 화면 왼쪽/오른쪽을 눌러요</p>
+  </div>
+</div>
+
+<div id="mermaid" class="view">
+  <div class="wrap mm-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="mm-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading mm-heading">인어조림 만들기</h2>
+    <div class="mm-steps" id="mm-steps">
+      <span data-s="hunt">① 인어 사냥</span><span data-s="cook">② 재료 넣기</span><span data-s="boil">③ 보글보글</span><span data-s="done">④ 완성</span>
+    </div>
+    <div class="mm-stage" id="mm-stage"></div>
   </div>
 </div>
 
@@ -864,7 +881,7 @@ window.addEventListener('load', function () {
       <div class="bg-fill-grid" id="bg-fill-grid"></div>
       <div class="pixel-err" id="bg-fill-err"></div>
       <div class="btn-row" style="justify-content:center">
-        <button class="btn btn-ghost" id="bg-random-btn" onclick="bgRandomFill()">🎲 숫자 랜덤 채우기</button>
+        <button class="btn btn-ghost" id="bg-random-btn" onclick="bgRandomFill()">🎲 자동 채우기</button>
         <button class="btn btn-ghost" id="bg-topic-btn" onclick="bgHostChangeTopic()">🔄 주제 바꾸기 (방장)</button>
         <button class="btn btn-primary" id="bg-submit-btn" onclick="bgSubmitBoard()">다 채웠어요!</button>
         <button class="btn btn-ghost" id="bg-unready-btn" onclick="bgUnready()">다시 고치기</button>
@@ -957,35 +974,6 @@ window.addEventListener('load', function () {
       </div>
     </div>
     <p class="bb-help">방향키·WASD로 이동 · 휴대폰은 화면을 밀거나 아래 버튼</p>
-  </div>
-</div>
-
-<div id="blocks" class="view">
-  <div class="wrap bk-wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="bk-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">블록 배틀</h2>
-    <div class="sd-msg over" id="bk-msg"></div>
-    <div class="bk-layout">
-      <div class="bk-stage">
-        <canvas id="bk-canvas"></canvas>
-        <div class="bk-countdown" id="bk-countdown" style="display:none"></div>
-        <div class="bk-flash" id="bk-flash"></div>
-        <div class="bk-result" id="bk-result" style="display:none">
-          <div class="round-summary-title" id="bk-result-banner"></div>
-          <div class="board-box"><div id="bk-result-rank"></div></div>
-          <button class="btn btn-primary" id="bk-restart-btn" onclick="bkHostRestart()">한 판 더!</button>
-        </div>
-      </div>
-      <div class="bk-others" id="bk-others"></div>
-    </div>
-    <div class="bk-pad" id="bk-pad">
-      <button data-a="H">홀드</button><button data-a="CCW">⟲</button><button data-a="CW">⟳</button><button data-a="HD">⤓</button>
-      <button data-a="L">◀</button><button data-a="D">▼</button><button data-a="R">▶</button>
-    </div>
-    <p class="bb-help">←/→ 이동 · ↓ 내리기 · 스페이스 바로 내리기 · ↑/X 회전 · Z 반대 회전 · C 홀드</p>
   </div>
 </div>
 
@@ -1086,6 +1074,8 @@ window.addEventListener('load', function () {
 <script src="data/quiz-data.js"></script>
 <script src="data/wordsearch-data.js"></script>
 <script src="data/baby-chars.js"></script>
+<script src="data/siren-char.js"></script>
+<script src="data/mermaid-chars.js"></script>
 
 <!-- 게임 로직 파일: 공용 코드(core.js)를 먼저 불러온 뒤 각 게임 코드를 불러옵니다 -->
 <script src="js/core.js"></script>
@@ -1102,11 +1092,11 @@ window.addEventListener('load', function () {
 <script src="js/baby.js"></script>
 <script src="js/stork.js"></script>
 <script src="js/arrows.js"></script>
+<script src="js/mermaid.js"></script>
 <script src="js/relay.js"></script>
 <script src="js/bingo.js"></script>
 <script src="js/tickbomb.js"></script>
 <script src="js/land.js"></script>
-<script src="js/blocks.js"></script>
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 </body>

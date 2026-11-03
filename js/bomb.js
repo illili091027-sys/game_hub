@@ -47,7 +47,7 @@ function bmPostState(force) {
   var stageW = bmStageEl.clientWidth || 1;
   var stageH = bmStageEl.clientHeight || 1;
   var bombsData = bmBombs.slice(0, 20).map(function (b) {
-    return [Math.round((b.x / stageW) * 1000) / 1000, Math.round((b.y / stageH) * 1000) / 1000];
+    return [Math.round((b.x / stageW) * 1000) / 1000, Math.round((b.y / stageH) * 1000) / 1000, b.type === 'heal' ? 1 : b.type === 'danger' ? 2 : 0];
   });
   DBset(bmOpponentKey(myPlayerId), {
     name: me.name,
@@ -76,7 +76,9 @@ function bmRenderOpponents() {
     var miniChar = (typeof BOMB_CHAR_IMG !== 'undefined' && BOMB_CHAR_IMG) ? BOMB_CHAR_IMG : '';
     results.forEach(function (r) {
       var d = r.data;
-      html += '<div class="bm-mini-stage" style="background-image:url(\'' + miniBg + '\')"><div class="bm-mini-name">' + esc(r.p.name) + '</div>';
+      var canWatch = BM_STATUS === 'dead' && d && d.status === 'playing';
+      html += '<div class="bm-mini-stage' + (canWatch ? ' watchable' : '') + (BM_WATCH === r.p.id ? ' watching' : '') + '" data-pid="' + r.p.id + '" data-name="' + esc(r.p.name) + '" style="background-image:url(\'' + miniBg + '\')"><div class="bm-mini-name">' + esc(r.p.name) + '</div>' +
+        (canWatch ? '<div class="bm-mini-watch">👀 크게 보기</div>' : '');
       if (!d || d.status === 'waiting') {
         allOthersDead = false;
         html += '<div class="bm-mini-status">대기 중</div>';
@@ -101,6 +103,7 @@ function bmRenderOpponents() {
 }
 
 function bmShowFinalResults(results) {
+  bmStopWatch();
   document.getElementById('bm-my-status').style.display = 'none';
   document.getElementById('bm-game-area').style.display = 'none';
   document.getElementById('bm-over-area').style.display = '';
@@ -113,6 +116,67 @@ function bmShowFinalResults(results) {
   document.getElementById('bm-over-msg').innerHTML = '모두 탈락! 최종 결과<br>' + lines.join('<br>');
 }
 
+/* ---- 탈락 후 친구 화면 크게 보기 ----
+   탈락하면 친구 미니 화면을 눌러서 내 게임판 자리에 그 친구 화면을 크게 볼 수 있어요.
+   (0.2초마다 그 친구 상태를 읽고, 똥 위치는 부드럽게 이어지도록 CSS로 움직여요) */
+var BM_WATCH = null, BM_WATCH_TIMER = null, BM_WATCH_NAME = '';
+function bmStartWatch(pid, name) {
+  BM_WATCH = pid; BM_WATCH_NAME = name || '';
+  var box = document.getElementById('bm-watch');
+  box.style.display = '';
+  box.innerHTML = '<div class="bm-watch-label">👀 ' + esc(BM_WATCH_NAME) + ' 화면 보는 중 · 누르면 닫기</div><div class="bm-watch-score"></div><div class="bm-watch-layer"></div><img class="bm-watch-player" alt="" />';
+  box.style.backgroundImage = (typeof BOMB_BG_IMG !== 'undefined' && BOMB_BG_IMG) ? 'url(' + BOMB_BG_IMG + ')' : 'none';
+  clearInterval(BM_WATCH_TIMER);
+  bmWatchTick();
+  BM_WATCH_TIMER = setInterval(bmWatchTick, 200);
+  bmRenderOpponents();
+}
+function bmStopWatch() {
+  BM_WATCH = null;
+  clearInterval(BM_WATCH_TIMER);
+  var box = document.getElementById('bm-watch');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+function bmWatchTick() {
+  var pid = BM_WATCH;
+  if (!pid) return;
+  DBget(bmOpponentKey(pid)).then(function (d) {
+    if (BM_WATCH !== pid || !d) return;
+    var box = document.getElementById('bm-watch');
+    var layer = box.querySelector('.bm-watch-layer');
+    box.querySelector('.bm-watch-score').textContent = (d.score || 0) + '점 · ' + (d.hp > 0 ? '❤️'.repeat(d.hp) : '');
+    var pl = box.querySelector('.bm-watch-player');
+    pl.src = d.char ? bmCharSrc(d.char) : ((typeof BOMB_CHAR_IMG !== 'undefined') ? BOMB_CHAR_IMG : '');
+    pl.style.left = ((d.xFrac || 0.5) * 100) + '%';
+    if (d.status === 'dead') {
+      box.querySelector('.bm-watch-label').textContent = '💀 ' + BM_WATCH_NAME + '도 탈락했어요 · 누르면 닫기';
+      layer.innerHTML = '';
+      return;
+    }
+    var bombs = d.bombs || [];
+    var els = layer.children;
+    while (els.length < bombs.length) {
+      var el = document.createElement('div');
+      el.className = 'bm-watch-bomb';
+      layer.appendChild(el);
+    }
+    while (els.length > bombs.length) layer.removeChild(layer.lastChild);
+    bombs.forEach(function (b, i) {
+      var el = els[i];
+      var t = b[2] || 0;
+      var kind = t === 1 ? 'heal' : t === 2 ? 'danger' : 'poop';
+      if (el.getAttribute('data-k') !== kind) {
+        el.setAttribute('data-k', kind);
+        if (kind === 'heal') el.innerHTML = '💚';
+        else if (kind === 'danger') el.innerHTML = '☠️';
+        else el.innerHTML = (typeof BOMB_POOP_IMG !== 'undefined' && BOMB_POOP_IMG) ? '<img src="' + BOMB_POOP_IMG + '" alt="" />' : '💩';
+      }
+      el.style.left = (b[0] * 100) + '%';
+      el.style.top = (b[1] * 100) + '%';
+    });
+  });
+}
+
 function bmStartOppPoll() {
   bmStopOppPoll();
   if (playMode !== 'online') return;
@@ -121,6 +185,7 @@ function bmStartOppPoll() {
 }
 
 function bmStopOppPoll() {
+  bmStopWatch();
   clearInterval(BM_OPP_POLL_TIMER);
   BM_OPP_POLL_TIMER = null;
 }
@@ -193,6 +258,7 @@ function bmUpdateHpDisplay() {
 }
 
 function bmBeginGame() {
+  bmStopWatch();
   document.getElementById('bm-intro').style.display = 'none';
   document.getElementById('bm-over-area').style.display = 'none';
   document.getElementById('bm-game-area').style.display = '';
@@ -347,7 +413,7 @@ function bmFinishRoundLocal(soloMsg) {
   if (playMode === 'online') {
     document.getElementById('bm-game-area').style.display = '';
     document.getElementById('bm-my-status').style.display = '';
-    document.getElementById('bm-my-status').textContent = '💀 탈락! 다른 사람이 다 끝날 때까지 기다리는 중... (내 점수: ' + bmScore + '점)';
+    document.getElementById('bm-my-status').innerHTML = '💀 탈락! 다른 사람이 다 끝날 때까지 기다리는 중... (내 점수: ' + bmScore + '점)<br><b>👀 친구 화면을 누르면 크게 볼 수 있어요</b>';
   } else {
     document.getElementById('bm-game-area').style.display = 'none';
     document.getElementById('bm-over-area').style.display = '';
@@ -444,4 +510,16 @@ document.addEventListener('keyup', function (e) {
   rightBtn.addEventListener('mouseleave', setRight(false));
   rightBtn.addEventListener('touchstart', setRight(true), { passive: false });
   rightBtn.addEventListener('touchend', setRight(false));
+})();
+
+(function bmSetupWatch() {
+  var panel = document.getElementById('bm-opponents');
+  if (panel) panel.addEventListener('click', function (e) {
+    var st = e.target.closest && e.target.closest('.bm-mini-stage');
+    if (!st || BM_STATUS !== 'dead') return;
+    var pid = st.getAttribute('data-pid');
+    if (BM_WATCH === pid) bmStopWatch(); else bmStartWatch(pid, st.getAttribute('data-name'));
+  });
+  var box = document.getElementById('bm-watch');
+  if (box) box.addEventListener('click', function () { bmStopWatch(); bmRenderOpponents(); });
 })();

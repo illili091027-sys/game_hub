@@ -26,10 +26,15 @@ var HU_BANNED_COLOR_WORDS = ['빨강', '빨간', '빨갛', '파랑', '파란', '
 function huKey() { return roomKey('hues'); }
 
 /* 색상판 색: 가로(1~30)는 색상환을 한 바퀴, 세로(A~P)는 위쪽이 밝고 아래쪽이 어둡게. */
+/* 색상판 색 (더 다채롭게): 가로 30칸은 사람 눈에 고르게 보이도록 고른 색상환(빨강→주황→노랑→
+   초록→하늘→파랑→보라→분홍), 세로 16줄은 위쪽 파스텔 → 가운데 쨍한 원색 → 아래쪽 진한 색. */
+var HU_HUES = [0, 10, 20, 28, 36, 44, 50, 56, 64, 80, 100, 120, 140, 158, 172, 185, 196, 206, 216, 226, 238, 252, 266, 278, 290, 302, 315, 328, 340, 351];
 function huColor(r, c) {
-  var hue = Math.round((c / HU_COLS) * 360);
-  var light = Math.round(86 - r * 4.1);
-  var sat = Math.round(62 + Math.sin((r / (HU_ROWS - 1)) * Math.PI) * 26);
+  var hue = HU_HUES[c % HU_HUES.length];
+  var t = r / (HU_ROWS - 1);                       // 0(위) ~ 1(아래)
+  var light = Math.round(90 - t * 70);             // 90% → 20%
+  var sat = Math.round(78 + Math.sin(t * Math.PI) * 22); // 가운데 줄이 가장 쨍하게
+  if (hue >= 44 && hue <= 70) light = Math.round(light * 0.97 + (t > 0.5 ? -4 : 0)); // 노랑 계열 너무 밝지 않게
   return 'hsl(' + hue + ', ' + sat + '%, ' + light + '%)';
 }
 function huCoord(r, c) { return HU_ROW_LABELS[r] + (c + 1); }
@@ -59,11 +64,15 @@ function startHuesGame() {
   });
 }
 
+/* 카드 4장: 밝기 구간 4개(파스텔/밝은/진한/어두운)에서 하나씩 + 서로 색상이 6칸 이상 떨어지게 */
 function huRandomCards(count) {
+  var bands = shuffleArray([[0, 3], [4, 7], [8, 11], [12, 15]]);
   var picks = [];
-  while (picks.length < count) {
-    var p = { r: Math.floor(Math.random() * HU_ROWS), c: Math.floor(Math.random() * HU_COLS) };
-    if (picks.some(function (q) { var dc = Math.abs(p.c - q.c); return Math.min(dc, HU_COLS - dc) < 5; })) continue;
+  var guard = 0;
+  while (picks.length < count && guard++ < 500) {
+    var band = bands[picks.length % bands.length];
+    var p = { r: band[0] + Math.floor(Math.random() * (band[1] - band[0] + 1)), c: Math.floor(Math.random() * HU_COLS) };
+    if (picks.some(function (q) { var dc = Math.abs(p.c - q.c); return Math.min(dc, HU_COLS - dc) < 6; })) continue;
     picks.push(p);
   }
   return picks;

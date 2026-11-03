@@ -1,0 +1,620 @@
+/* ===================== 인어조림 만들기 (혼자 하기) =====================
+   ① 인어 사냥(세이렌 나오면 연타!) → ② 레시피 순서대로 재료 넣기 → ③ 보글보글(불 끄기 타이밍) → ④ 완성/별점
+   실패하면 언제든 거꾸로 매달린 친구들 그림이 나오고 처음부터 다시 시작해요. */
+var MM = null;
+var MM_TIMERS = [];
+var MM_RAF = 0;
+var MM_AC = null;
+
+var MM_HUNT_GOAL = 10;
+var MM_HUNT_SECONDS = 28;
+var MM_MASH_NEED = 30;       /* 세이렌 쫓아내는 데 필요한 연타 수 (손을 멈추면 게이지가 줄어요) */
+var MM_MASH_SECONDS = 4;
+var MM_MISS_PENALTY = 1.5;   /* 빈 물결을 누르면 시간 -1.5초 */
+var MM_RECIPE_PEEK = 3;      /* 레시피 외울 시간(초) */
+var MM_MAX_MISTAKES = 2;
+
+var MM_ING = [
+  { id: 'fish',  name: '잡은 인어', svg: null },
+  { id: 'scale', name: '인어 비늘',
+    svg: '<svg viewBox="0 0 64 64"><g stroke="#7a3b4a" stroke-width="3" fill="#f6a8bd"><path d="M12 30a10 10 0 0 1 20 0z"/><path d="M32 30a10 10 0 0 1 20 0z"/><path d="M22 44a10 10 0 0 1 20 0z"/></g><circle cx="18" cy="24" r="2.5" fill="#fff"/><circle cx="38" cy="24" r="2.5" fill="#fff"/></svg>' },
+  { id: 'water', name: '바닷물',
+    svg: '<svg viewBox="0 0 64 64"><path d="M32 6C24 20 14 30 14 40a18 18 0 0 0 36 0C50 30 40 20 32 6z" fill="#9fd8f5" stroke="#3d7fa6" stroke-width="3"/><path d="M22 40c0 5 4 9 9 10" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/></svg>' },
+  { id: 'pearl', name: '진주',
+    svg: '<svg viewBox="0 0 64 64"><path d="M8 44c6-14 42-14 48 0-10 8-38 8-48 0z" fill="#ffd9e4" stroke="#b46a82" stroke-width="3"/><circle cx="32" cy="32" r="13" fill="#fdfbff" stroke="#9a8fb5" stroke-width="3"/><circle cx="27" cy="27" r="4" fill="#fff"/><circle cx="36" cy="36" r="3" fill="#e8e0f5"/></svg>' },
+  { id: 'coral', name: '산호',
+    svg: '<svg viewBox="0 0 64 64"><path d="M32 58V34M32 40l-12-12V16M20 28l-8-6M32 34l12-12V10M44 22l8-4M26 46l-10-4" stroke="#ff8a8a" stroke-width="7" stroke-linecap="round" fill="none"/><path d="M32 58V34M32 40l-12-12V16M32 34l12-12V10" stroke="#ffc2c2" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>' },
+  { id: 'soy',   name: '마법 간장',
+    svg: '<svg viewBox="0 0 64 64"><rect x="26" y="6" width="12" height="10" rx="3" fill="#e65a5a" stroke="#6b2f2f" stroke-width="3"/><path d="M24 16h16v8c6 4 8 9 8 15v13a6 6 0 0 1-6 6H22a6 6 0 0 1-6-6V39c0-6 2-11 8-15z" fill="#8a5a3c" stroke="#4b2c1c" stroke-width="3"/><rect x="20" y="34" width="24" height="14" rx="4" fill="#fff4d6"/><path d="M32 36l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z" fill="#f5b83d"/></svg>' }
+];
+var MM_DECOY = [
+  { id: 'seaweed', name: '미역', decoy: true,
+    svg: '<svg viewBox="0 0 64 64"><path d="M24 58c-8-10 8-16 0-26s6-16 0-26M38 58c8-10-8-16 0-26s-6-16 2-26" stroke="#4f9a5e" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M24 58c-8-10 8-16 0-26M38 58c8-10-8-16 0-26" stroke="#9fd8a5" stroke-width="2" fill="none"/></svg>' },
+  { id: 'clam', name: '조개', decoy: true,
+    svg: '<svg viewBox="0 0 64 64"><path d="M8 40C8 20 56 20 56 40z" fill="#ffd9a8" stroke="#8a5a3c" stroke-width="3"/><path d="M32 22v18M20 25l6 15M44 25l-6 15" stroke="#8a5a3c" stroke-width="2.5"/><rect x="24" y="40" width="16" height="8" rx="3" fill="#ffd9a8" stroke="#8a5a3c" stroke-width="3"/></svg>' },
+  { id: 'salt', name: '왕소금', decoy: true,
+    svg: '<svg viewBox="0 0 64 64"><rect x="20" y="8" width="24" height="10" rx="4" fill="#cfd8e6" stroke="#556" stroke-width="3"/><circle cx="27" cy="13" r="1.6" fill="#556"/><circle cx="32" cy="13" r="1.6" fill="#556"/><circle cx="37" cy="13" r="1.6" fill="#556"/><path d="M18 18h28l-3 38H21z" fill="#fff" stroke="#556" stroke-width="3"/><path d="M24 34h16" stroke="#9ab" stroke-width="3"/></svg>' }
+];
+var MM_ING_COLOR = { fish: '#f4b6a6', scale: '#f19fb3', water: '#9fd8f5', pearl: '#f2ecff', coral: '#ff9c9c', soy: '#9b5d3f' };
+
+function mmEl(id) { return document.getElementById(id); }
+function mmLater(fn, ms) { var t = setTimeout(fn, ms); MM_TIMERS.push(t); return t; }
+function mmClearTimers() {
+  MM_TIMERS.forEach(function (t) { clearTimeout(t); clearInterval(t); });
+  MM_TIMERS = [];
+  cancelAnimationFrame(MM_RAF);
+  MM_RAF = 0;
+}
+
+/* ---------- 효과음 (WebAudio) ---------- */
+function mmSound(kind) {
+  try {
+    if (!MM_AC) MM_AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (MM_AC.state === 'suspended') MM_AC.resume();
+    var ac = MM_AC, now = ac.currentTime;
+    var tone = function (freq, freq2, dur, type, vol, delay) {
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = type || 'sine';
+      var t0 = now + (delay || 0);
+      o.frequency.setValueAtTime(freq, t0);
+      if (freq2) o.frequency.exponentialRampToValueAtTime(freq2, t0 + dur);
+      g.gain.setValueAtTime(vol || 0.15, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    };
+    if (kind === 'catch') { tone(700, 1400, 0.12, 'sine', 0.18); tone(1400, 1800, 0.1, 'sine', 0.1, 0.08); }
+    else if (kind === 'miss') tone(260, 180, 0.12, 'triangle', 0.08);
+    else if (kind === 'plop') { tone(500, 160, 0.18, 'sine', 0.2); tone(900, 1200, 0.06, 'sine', 0.07, 0.12); }
+    else if (kind === 'bubble') tone(300 + Math.random() * 300, 700 + Math.random() * 300, 0.07, 'sine', 0.05);
+    else if (kind === 'wrong') { tone(220, 200, 0.15, 'square', 0.06); tone(180, 160, 0.18, 'square', 0.06, 0.12); }
+    else if (kind === 'siren') { for (var i = 0; i < 4; i++) tone(500, 900, 0.18, 'sawtooth', 0.05, i * 0.2); }
+    else if (kind === 'mash') tone(600 + Math.random() * 200, 0, 0.04, 'square', 0.04);
+    else if (kind === 'fail') { tone(400, 300, 0.25, 'triangle', 0.12); tone(300, 200, 0.3, 'triangle', 0.12, 0.25); tone(200, 90, 0.5, 'triangle', 0.12, 0.55); }
+    else if (kind === 'win') { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0, 0.18, 'sine', 0.14, i * 0.12); }); }
+    else if (kind === 'pop') tone(900, 1300, 0.06, 'sine', 0.06);
+  } catch (e) {}
+}
+
+/* ---------- 시작 / 정지 ---------- */
+function startMermaidGame() {
+  mmClearTimers();
+  MM = { phase: 'intro' };
+  mmRenderIntro();
+}
+function stopMermaidGame() {
+  mmClearTimers();
+  MM = null;
+  var st = mmEl('mm-stage');
+  if (st) { st.innerHTML = ''; st.onpointerdown = null; }
+}
+
+function mmSetStep(step) {
+  var box = mmEl('mm-steps');
+  if (!box) return;
+  var order = ['hunt', 'cook', 'boil', 'done'];
+  var idx = order.indexOf(step);
+  box.querySelectorAll('span').forEach(function (s) {
+    var i = order.indexOf(s.getAttribute('data-s'));
+    s.className = i === idx ? 'on' : (i < idx ? 'past' : '');
+  });
+}
+
+function mmRenderIntro() {
+  mmSetStep('');
+  var st = mmEl('mm-stage');
+  st.className = 'mm-stage mm-sea';
+  st.innerHTML =
+    '<div class="mm-card mm-intro">' +
+      '<div class="mm-intro-pics"><img src="' + MM_IMG.fish1 + '" alt=""><img src="' + MM_IMG.fish2 + '" alt=""><img src="' + MM_IMG.fish3 + '" alt=""></div>' +
+      '<div class="mm-big">오늘의 요리: 인어조림</div>' +
+      '<p>바다에서 인어 <b>' + MM_HUNT_GOAL + '마리</b>를 잡아 오세요!<br>단, <b class="mm-red">세이렌</b>이 나타나면 화면을 <b>마구 연타!</b></p>' +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">사냥 시작!</button>' +
+    '</div>';
+}
+
+/* ---------- 실패 화면 (거꾸로 매달린 친구들) ---------- */
+function mmFail(title, sub) {
+  mmClearTimers();
+  if (!MM) return;
+  MM.phase = 'fail';
+  mmSound('fail');
+  var st = mmEl('mm-stage');
+  st.onpointerdown = null;
+  st.className = 'mm-stage mm-failbg';
+  st.innerHTML =
+    '<div class="mm-card mm-failcard">' +
+      '<img class="mm-dead-img" src="' + MM_IMG.dead + '" alt="">' +
+      '<div class="mm-big">' + title + '</div>' +
+      '<p>' + sub + '</p>' +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">처음부터 다시</button>' +
+    '</div>';
+}
+
+/* =============== ① 인어 사냥 =============== */
+function mmStartHunt() {
+  mmClearTimers();
+  MM = { phase: 'hunt', caught: 0, left: MM_HUNT_SECONDS, holes: [], sirenTimes: [], paused: false, mistakes: 0 };
+  /* 세이렌은 사냥 중 2번 정도 등장 */
+  var a = 3 + Math.random() * 5, b = a + 6 + Math.random() * 5, c = b + 5 + Math.random() * 5;
+  MM.sirenTimes = [a, b, Math.min(c, MM_HUNT_SECONDS - 2)];
+  MM.elapsed = 0;
+  mmSetStep('hunt');
+  var st = mmEl('mm-stage');
+  st.className = 'mm-stage mm-sea';
+  var holes = '';
+  for (var i = 0; i < 6; i++) {
+    holes += '<div class="mm-hole" data-i="' + i + '"><div class="mm-pop"></div><div class="mm-wave"></div></div>';
+  }
+  st.innerHTML =
+    '<div class="mm-hud"><span>🧜 <b id="mm-caught">0</b> / ' + MM_HUNT_GOAL + '</span><span>⏱ <b id="mm-time">' + MM_HUNT_SECONDS + '</b>초</span></div>' +
+    '<div class="mm-timebar"><div id="mm-timefill"></div></div>' +
+    '<div class="mm-holes">' + holes + '</div>' +
+    '<p class="mm-tip">쏙 올라온 인어를 톡! (빈 물결 누르면 -' + MM_MISS_PENALTY + '초)</p>';
+  st.onpointerdown = null;
+  st.querySelectorAll('.mm-hole').forEach(function (h) {
+    h.addEventListener('pointerdown', function (e) { e.preventDefault(); mmTapHole(+h.getAttribute('data-i')); });
+  });
+  for (var k = 0; k < 6; k++) MM.holes.push({ who: null, until: 0 });
+  var last = performance.now();
+  var spawnAcc = 0;
+  var tick = function (now) {
+    if (!MM || MM.phase !== 'hunt') return;
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (!MM.paused) {
+      MM.elapsed += dt;
+      MM.left = Math.max(0, MM_HUNT_SECONDS - MM.elapsed);
+      mmEl('mm-time').textContent = Math.ceil(MM.left);
+      mmEl('mm-timefill').style.width = (MM.left / MM_HUNT_SECONDS * 100) + '%';
+      /* 인어 나오고 들어가기 */
+      spawnAcc += dt;
+      var gap = 0.55 - Math.min(0.25, MM.elapsed * 0.012);
+      if (spawnAcc > gap) { spawnAcc = 0; mmSpawnFish(); }
+      MM.holes.forEach(function (h, i) { if (h.who && now > h.until) mmHideHole(i, false); });
+      /* 세이렌 등장 */
+      if (MM.sirenTimes.length && MM.elapsed >= MM.sirenTimes[0]) { MM.sirenTimes.shift(); mmSirenAppear(); }
+      if (MM.left <= 0) { mmFail('인어를 다 놓쳤어…', '시간 안에 인어 ' + MM_HUNT_GOAL + '마리를 잡지 못했어요. 다시 사냥하러 가요!'); return; }
+    }
+    MM_RAF = requestAnimationFrame(tick);
+  };
+  MM_RAF = requestAnimationFrame(tick);
+}
+
+function mmSpawnFish() {
+  var free = [];
+  MM.holes.forEach(function (h, i) { if (!h.who) free.push(i); });
+  if (!free.length) return;
+  var i = free[Math.floor(Math.random() * free.length)];
+  var pics = ['fish1', 'fish2', 'fish3'];
+  var who = pics[Math.floor(Math.random() * pics.length)];
+  var stay = 800 - Math.min(380, MM.elapsed * 16) + Math.random() * 220;
+  MM.holes[i] = { who: who, until: performance.now() + stay };
+  var hole = document.querySelector('.mm-hole[data-i="' + i + '"]');
+  if (!hole) return;
+  var pop = hole.querySelector('.mm-pop');
+  pop.innerHTML = '<img src="' + MM_IMG[who] + '" alt="">';
+  hole.classList.remove('caught');
+  hole.classList.add('up');
+  mmSound('pop');
+}
+
+function mmHideHole(i, caught) {
+  MM.holes[i] = { who: null, until: 0 };
+  var hole = document.querySelector('.mm-hole[data-i="' + i + '"]');
+  if (!hole) return;
+  hole.classList.remove('up');
+  if (caught) hole.classList.add('caught');
+}
+
+function mmTapHole(i) {
+  if (!MM || MM.phase !== 'hunt' || MM.paused) return;
+  var h = MM.holes[i];
+  var hole = document.querySelector('.mm-hole[data-i="' + i + '"]');
+  if (!h.who) {
+    mmSound('miss');
+    MM.elapsed += MM_MISS_PENALTY;
+    mmFloatText(hole, '-' + MM_MISS_PENALTY + '초');
+    return;
+  }
+  MM.caught++;
+  mmSound('catch');
+  mmHideHole(i, true);
+  mmFloatText(hole, '잡았다!');
+  mmEl('mm-caught').textContent = MM.caught;
+  if (MM.caught >= MM_HUNT_GOAL) {
+    MM.phase = 'huntdone';
+    cancelAnimationFrame(MM_RAF);
+    mmSound('win');
+    var st = mmEl('mm-stage');
+    var msg = document.createElement('div');
+    msg.className = 'mm-banner';
+    msg.textContent = '인어 ' + MM_HUNT_GOAL + '마리 잡기 성공! 🎉';
+    st.appendChild(msg);
+    mmLater(mmStartCook, 1400);
+  }
+}
+
+function mmFloatText(anchor, text) {
+  if (!anchor) return;
+  var f = document.createElement('div');
+  f.className = 'mm-float';
+  f.textContent = text;
+  anchor.appendChild(f);
+  setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 800);
+}
+
+/* ---------- 세이렌 연타 ---------- */
+function mmSirenAppear() {
+  MM.paused = true;
+  for (var i = 0; i < MM.holes.length; i++) if (MM.holes[i].who) mmHideHole(i, false);
+  mmSound('siren');
+  var st = mmEl('mm-stage');
+  var ov = document.createElement('div');
+  ov.className = 'mm-siren-ov';
+  ov.id = 'mm-siren-ov';
+  ov.innerHTML =
+    '<div class="mm-siren-warn">⚠️ 세이렌이 나타났다! ⚠️</div>' +
+    '<img class="mm-siren-img" id="mm-siren-img" src="' + MM_IMG.siren + '" alt="">' +
+    '<div class="mm-mash-text">화면을 마구 연타!!</div>' +
+    '<div class="mm-mashbar"><div id="mm-mashfill"></div></div>' +
+    '<div class="mm-mash-time"><span id="mm-mash-left">' + MM_MASH_SECONDS.toFixed(1) + '</span>초</div>';
+  st.appendChild(ov);
+  var power = 0;
+  var start = performance.now();
+  var done = false;
+  ov.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    if (done) return;
+    power++;
+    mmSound('mash');
+    var img = mmEl('mm-siren-img');
+    if (img) {
+      img.classList.remove('hit'); void img.offsetWidth; img.classList.add('hit');
+      img.style.transform = 'scale(' + Math.max(0.35, 1 - power / MM_MASH_NEED * 0.6) + ')';
+    }
+    mmEl('mm-mashfill').style.width = Math.min(100, power / MM_MASH_NEED * 100) + '%';
+    if (power >= MM_MASH_NEED) {
+      done = true;
+      ov.classList.add('win');
+      ov.querySelector('.mm-mash-text').textContent = '세이렌을 쫓아냈다!';
+      mmSound('win');
+      mmLater(function () {
+        if (ov.parentNode) ov.parentNode.removeChild(ov);
+        if (MM && MM.phase === 'hunt') MM.paused = false;
+      }, 700);
+    }
+  });
+  var lastT = performance.now();
+  var t = setInterval(function () {
+    if (done || !MM) { clearInterval(t); return; }
+    var nowT = performance.now();
+    power = Math.max(0, power - (nowT - lastT) / 1000 * 3); /* 손을 멈추면 1초에 3씩 줄어요 */
+    lastT = nowT;
+    var mf = mmEl('mm-mashfill');
+    if (mf) mf.style.width = Math.min(100, power / MM_MASH_NEED * 100) + '%';
+    var left = MM_MASH_SECONDS - (performance.now() - start) / 1000;
+    var el = mmEl('mm-mash-left');
+    if (el) el.textContent = Math.max(0, left).toFixed(1);
+    if (left <= 0) {
+      done = true;
+      clearInterval(t);
+      mmFail('세이렌에게 붙잡혀 버렸어…', '연타가 부족했어요! 처음부터 다시 사냥해요.');
+    }
+  }, 50);
+  MM_TIMERS.push(t);
+}
+
+/* =============== ② 재료 넣기 =============== */
+function mmShuffle(a) {
+  for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = a[i]; a[i] = a[j]; a[j] = x; }
+  return a;
+}
+
+function mmPotHtml() {
+  return '<div class="mm-pot-wrap" id="mm-pot-wrap">' +
+    '<div class="mm-steam" id="mm-steam"></div>' +
+    '<svg class="mm-pot" viewBox="0 0 240 170">' +
+      '<rect x="4" y="52" width="34" height="16" rx="8" fill="#ffc9d6" stroke="#6b4a55" stroke-width="4"/>' +
+      '<rect x="202" y="52" width="34" height="16" rx="8" fill="#ffc9d6" stroke="#6b4a55" stroke-width="4"/>' +
+      '<path d="M28 44h184v70a46 46 0 0 1-46 46H74a46 46 0 0 1-46-46z" fill="#ffe1ea" stroke="#6b4a55" stroke-width="5"/>' +
+      '<ellipse cx="120" cy="46" rx="92" ry="17" fill="#fff5f8" stroke="#6b4a55" stroke-width="5"/>' +
+      '<ellipse id="mm-soup" cx="120" cy="48" rx="82" ry="12" fill="#cfe9f7" opacity="0"/>' +
+      '<path d="M60 100c10 8 22 8 32 0M148 100c10 8 22 8 32 0" stroke="#e6a4b7" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+      '<ellipse cx="70" cy="116" rx="10" ry="6" fill="#ffb3c5" opacity=".7"/><ellipse cx="170" cy="116" rx="10" ry="6" fill="#ffb3c5" opacity=".7"/>' +
+      '<path d="M108 112q12 10 24 0" stroke="#6b4a55" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+    '</svg>' +
+    '<div class="mm-pot-items" id="mm-pot-items"></div>' +
+    '<div class="mm-fire" id="mm-fire"><span>🔥</span><span>🔥</span><span>🔥</span></div>' +
+  '</div>';
+}
+
+function mmIngIcon(ing) {
+  if (ing.id === 'fish') return '<img src="' + MM_IMG.fish1 + '" alt="">';
+  return ing.svg;
+}
+
+function mmStartCook() {
+  mmClearTimers();
+  if (!MM) return;
+  MM.phase = 'cook';
+  MM.mistakes = 0;
+  MM.added = [];
+  var rest = mmShuffle(MM_ING.slice(1).map(function (g) { return g.id; }));
+  MM.recipe = ['fish'].concat(rest);
+  mmSetStep('cook');
+  var st = mmEl('mm-stage');
+  st.className = 'mm-stage mm-kitchen';
+  st.onpointerdown = null;
+  var recipe = MM.recipe.map(function (id, i) {
+    var g = MM_ING.filter(function (x) { return x.id === id; })[0];
+    return '<li data-id="' + id + '"><span class="mm-rnum">' + (i + 1) + '</span>' + g.name + '</li>';
+  }).join('');
+  var shelf = mmShuffle(MM_ING.concat(MM_DECOY)).map(function (g) {
+    return '<button class="mm-ing" data-id="' + g.id + '"><span class="mm-ing-ic">' + mmIngIcon(g) + '</span><span class="mm-ing-name">' + g.name + '</span></button>';
+  }).join('');
+  st.innerHTML =
+    '<div class="mm-cook-top">' +
+      '<div class="mm-recipe"><div class="mm-recipe-title">📜 레시피</div><ol id="mm-recipe">' + recipe + '</ol></div>' +
+      '<div class="mm-mistakes">실수 <b id="mm-miss">0</b> / ' + MM_MAX_MISTAKES + '</div>' +
+    '</div>' +
+    mmPotHtml() +
+    '<div class="mm-msg" id="mm-msg">레시피를 외워요! <b id="mm-peek">' + MM_RECIPE_PEEK + '</b>초 뒤에 사라져요 👀</div>' +
+    '<div class="mm-shelf">' + shelf + '</div>' +
+    '<button class="mm-btn mm-btn-cook" id="mm-cook-btn" disabled>🔥 조리 시작</button>';
+  st.querySelectorAll('.mm-ing').forEach(function (b) {
+    b.addEventListener('click', function () { mmAddIng(b); });
+  });
+  MM.peeking = true;
+  st.querySelector('.mm-shelf').classList.add('locked');
+  mmMarkRecipe();
+  var peekLeft = MM_RECIPE_PEEK;
+  var pt = setInterval(function () {
+    if (!MM || MM.phase !== 'cook') { clearInterval(pt); return; }
+    peekLeft--;
+    var el = mmEl('mm-peek');
+    if (el) el.textContent = peekLeft;
+    if (peekLeft <= 0) {
+      clearInterval(pt);
+      MM.peeking = false;
+      st.querySelector('.mm-shelf').classList.remove('locked');
+      mmEl('mm-recipe').classList.add('hidden');
+      mmMarkRecipe();
+      mmEl('mm-msg').innerHTML = '기억나는 순서대로 재료를 넣어요! (미끼 재료 조심)';
+    }
+  }, 1000);
+  MM_TIMERS.push(pt);
+}
+
+function mmMarkRecipe() {
+  var lis = document.querySelectorAll('#mm-recipe li');
+  lis.forEach(function (li, i) {
+    li.className = i < MM.added.length ? 'done' : (MM.peeking ? '' : 'secret');
+  });
+}
+
+function mmShuffleShelf() {
+  var shelf = document.querySelector('.mm-shelf');
+  if (!shelf) return;
+  var btns = Array.prototype.slice.call(shelf.children);
+  mmShuffle(btns).forEach(function (b) { shelf.appendChild(b); });
+}
+
+function mmAddIng(btn) {
+  if (!MM || MM.phase !== 'cook' || MM.peeking) return;
+  var id = btn.getAttribute('data-id');
+  if (btn.classList.contains('used')) return;
+  var want = MM.recipe[MM.added.length];
+  if (id !== want) {
+    MM.mistakes++;
+    mmSound('wrong');
+    mmEl('mm-miss').textContent = MM.mistakes;
+    btn.classList.remove('shake'); void btn.offsetWidth; btn.classList.add('shake');
+    var pw = mmEl('mm-pot-wrap'); pw.classList.remove('shake'); void pw.offsetWidth; pw.classList.add('shake');
+    var isDecoy = MM_DECOY.some(function (x) { return x.id === id; });
+    mmEl('mm-msg').innerHTML = isDecoy ? '으악! 그건 <b>레시피에 없는 재료</b>예요!' : '앗! 그 재료는 <b>지금 차례가 아니에요</b>';
+    if (MM.mistakes >= MM_MAX_MISTAKES) {
+      MM.phase = 'failwait';
+      mmLater(function () { mmFail('요리가 엉망이 됐어…', '재료를 ' + MM_MAX_MISTAKES + '번이나 잘못 넣어서 냄비가 펑! 처음부터 다시 해요.'); }, 600);
+    }
+    return;
+  }
+  btn.classList.add('used');
+  MM.added.push(id);
+  mmFlyToPot(btn, id);
+  mmMarkRecipe();
+  setTimeout(mmShuffleShelf, 500); /* 넣을 때마다 선반이 뒤섞여요 */
+  var gname = MM_ING.filter(function (x) { return x.id === id; })[0].name;
+  mmEl('mm-msg').innerHTML = '<b>' + gname + '</b> 퐁당! 💦';
+  if (MM.added.length === MM.recipe.length) {
+    var cb = mmEl('mm-cook-btn');
+    cb.disabled = false;
+    cb.classList.add('ready');
+    cb.onclick = mmStartBoil;
+    mmEl('mm-msg').innerHTML = '재료를 다 넣었어요! <b>조리 시작</b>을 눌러요';
+  }
+}
+
+function mmFlyToPot(btn, id) {
+  var st = mmEl('mm-stage');
+  var pot = mmEl('mm-pot-wrap');
+  var sr = st.getBoundingClientRect(), br = btn.getBoundingClientRect(), pr = pot.getBoundingClientRect();
+  var fly = document.createElement('div');
+  fly.className = 'mm-fly';
+  fly.innerHTML = btn.querySelector('.mm-ing-ic').innerHTML;
+  fly.style.left = (br.left - sr.left + br.width / 2 - 24) + 'px';
+  fly.style.top = (br.top - sr.top + 4) + 'px';
+  st.appendChild(fly);
+  var tx = pr.left - sr.left + pr.width / 2 - 24 + (Math.random() * 40 - 20);
+  var ty = pr.top - sr.top + pr.height * 0.18;
+  requestAnimationFrame(function () {
+    fly.style.transform = 'translate(' + (tx - parseFloat(fly.style.left)) + 'px,' + (ty - parseFloat(fly.style.top)) + 'px) scale(.7) rotate(25deg)';
+  });
+  setTimeout(function () {
+    if (fly.parentNode) fly.parentNode.removeChild(fly);
+    if (!MM) return;
+    mmSound('plop');
+    var soup = mmEl('mm-soup');
+    if (soup) {
+      soup.setAttribute('opacity', '1');
+      soup.setAttribute('fill', mmMixColor());
+    }
+    mmSplash();
+    var items = mmEl('mm-pot-items');
+    if (items) {
+      var it = document.createElement('span');
+      it.className = 'mm-pot-item';
+      it.innerHTML = btn.querySelector('.mm-ing-ic').innerHTML;
+      it.style.left = (12 + Math.random() * 64) + '%';
+      items.appendChild(it);
+    }
+  }, 480);
+}
+
+function mmMixColor() {
+  var r = 0, g = 0, b = 0;
+  MM.added.forEach(function (id) {
+    var c = MM_ING_COLOR[id];
+    r += parseInt(c.substr(1, 2), 16); g += parseInt(c.substr(3, 2), 16); b += parseInt(c.substr(5, 2), 16);
+  });
+  var n = MM.added.length || 1;
+  return 'rgb(' + Math.round(r / n) + ',' + Math.round(g / n) + ',' + Math.round(b / n) + ')';
+}
+
+function mmSplash() {
+  var pw = mmEl('mm-pot-wrap');
+  if (!pw) return;
+  for (var i = 0; i < 6; i++) {
+    var d = document.createElement('span');
+    d.className = 'mm-drop';
+    d.style.left = (40 + Math.random() * 20) + '%';
+    d.style.setProperty('--dx', (Math.random() * 120 - 60) + 'px');
+    pw.appendChild(d);
+    (function (el) { setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 600); })(d);
+  }
+}
+
+/* =============== ③ 보글보글 =============== */
+var MM_ZONE = { okLo: 55, perfLo: 71, perfHi: 79, okHi: 88 };
+
+function mmStartBoil() {
+  if (!MM || MM.phase !== 'cook') return;
+  MM.phase = 'boil';
+  mmSetStep('boil');
+  var st = mmEl('mm-stage');
+  st.querySelector('.mm-shelf').style.display = 'none';
+  var cb = mmEl('mm-cook-btn');
+  cb.textContent = '🧯 불 끄기!';
+  cb.classList.remove('ready');
+  cb.classList.add('stop');
+  mmEl('mm-msg').innerHTML = '보글보글… <b class="mm-green">진한 초록 칸</b>에서 불을 꺼요!';
+  mmEl('mm-fire').classList.add('on');
+  mmEl('mm-pot-wrap').classList.add('boiling');
+  var gauge = document.createElement('div');
+  gauge.className = 'mm-gauge';
+  gauge.innerHTML =
+    '<div class="mm-gauge-track">' +
+      '<div class="mm-z mm-z-ok" style="left:' + MM_ZONE.okLo + '%;width:' + (MM_ZONE.okHi - MM_ZONE.okLo) + '%"></div>' +
+      '<div class="mm-z mm-z-perf" style="left:' + MM_ZONE.perfLo + '%;width:' + (MM_ZONE.perfHi - MM_ZONE.perfLo) + '%"></div>' +
+      '<div class="mm-z mm-z-burn" style="left:' + MM_ZONE.okHi + '%;width:' + (100 - MM_ZONE.okHi) + '%"></div>' +
+      '<div class="mm-needle" id="mm-needle"></div>' +
+    '</div>' +
+    '<div class="mm-gauge-labels"><span>덜 익음</span><span>딱 좋아!</span><span>탐</span></div>';
+  st.insertBefore(gauge, mmEl('mm-msg'));
+  MM.heat = 0;
+  var dur = 2.6 + Math.random() * 1.0;
+  var wob = Math.random() * 6;
+  var last = performance.now(), bubAcc = 0;
+  var tick = function (now) {
+    if (!MM || MM.phase !== 'boil') return;
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    /* 끓을수록 조금씩 빨라짐 */
+    /* 속도가 들쭉날쭉해서 타이밍 맞추기 어려워요 */
+    var speed = 0.75 + MM.heat / 200 + 0.55 * Math.sin(now / 260 + wob);
+    MM.heat += dt / dur * 100 * Math.max(0.25, speed);
+    var n = mmEl('mm-needle');
+    if (n) n.style.left = Math.min(100, MM.heat) + '%';
+    bubAcc += dt;
+    if (bubAcc > 0.12 - Math.min(0.08, MM.heat / 1200)) { bubAcc = 0; mmBubble(); }
+    if (MM.heat >= 100) { mmEndBoil(true); return; }
+    MM_RAF = requestAnimationFrame(tick);
+  };
+  MM_RAF = requestAnimationFrame(tick);
+  cb.onclick = function () { mmEndBoil(false); };
+}
+
+function mmBubble() {
+  var pw = mmEl('mm-pot-wrap');
+  if (!pw) return;
+  var b = document.createElement('span');
+  b.className = 'mm-bub';
+  var s = 8 + Math.random() * 14;
+  b.style.width = b.style.height = s + 'px';
+  b.style.left = (20 + Math.random() * 60) + '%';
+  pw.appendChild(b);
+  if (Math.random() < 0.35) mmSound('bubble');
+  setTimeout(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 1100);
+  if (Math.random() < 0.3) {
+    var sm = document.createElement('span');
+    sm.className = 'mm-smoke';
+    sm.style.left = (25 + Math.random() * 50) + '%';
+    var steam = mmEl('mm-steam');
+    if (steam) steam.appendChild(sm);
+    setTimeout(function () { if (sm.parentNode) sm.parentNode.removeChild(sm); }, 1600);
+  }
+}
+
+function mmEndBoil(burned) {
+  if (!MM || MM.phase !== 'boil') return;
+  cancelAnimationFrame(MM_RAF);
+  MM.phase = 'judge';
+  mmEl('mm-fire').classList.remove('on');
+  var cb = mmEl('mm-cook-btn');
+  cb.disabled = true;
+  var h = MM.heat;
+  if (burned || h >= MM_ZONE.okHi) {
+    mmEl('mm-pot-wrap').classList.add('burnt');
+    mmEl('mm-msg').innerHTML = '앗 뜨거! 냄비가 <b>홀랑 탔어요</b> 🔥';
+    mmLater(function () { mmFail('인어조림이 새까맣게 탔어…', '불을 너무 늦게 껐어요. 처음부터 다시 도전!'); }, 1100);
+    return;
+  }
+  if (h < MM_ZONE.okLo) {
+    mmEl('mm-msg').innerHTML = '아직 <b>하나도 안 익었어요…</b>';
+    mmLater(function () { mmFail('덜 익은 인어가 도망갔어…', '불을 너무 빨리 껐어요. 처음부터 다시 도전!'); }, 1100);
+    return;
+  }
+  var perfect = h >= MM_ZONE.perfLo && h <= MM_ZONE.perfHi;
+  var stars = 3;
+  if (MM.mistakes >= 1) stars--;
+  if (!perfect) stars--;
+  stars = Math.max(1, stars);
+  MM.stars = stars;
+  MM.perfect = perfect;
+  mmEl('mm-msg').innerHTML = perfect ? '<b>딱 좋게</b> 익었어요! ✨' : '조금 아쉽지만 <b>먹을 만해요!</b>';
+  mmLater(mmShowDone, 1100);
+}
+
+/* =============== ④ 완성 =============== */
+function mmShowDone() {
+  if (!MM) return;
+  MM.phase = 'done';
+  mmSetStep('done');
+  mmSound('win');
+  var st = mmEl('mm-stage');
+  st.className = 'mm-stage mm-donebg';
+  var starHtml = '';
+  for (var i = 0; i < 3; i++) starHtml += '<span class="mm-star' + (i < MM.stars ? ' on' : '') + '" style="animation-delay:' + (0.3 + i * 0.25) + 's">★</span>';
+  var comment = MM.stars === 3 ? '완벽한 인어조림! 요리왕 탄생 👑' : (MM.stars === 2 ? '맛있는 인어조림 완성! 조금만 더 하면 별 3개!' : '먹을 수는 있는 인어조림… 다시 도전해 봐요!');
+  var detail = [];
+  detail.push(MM.mistakes ? '재료 순서 실수 ' + MM.mistakes + '번' : '재료 순서 완벽 ✔');
+  detail.push(MM.perfect ? '익힘 딱 좋아 ✔' : '익힘 조금 아쉬움');
+  st.innerHTML =
+    '<div class="mm-card mm-donecard">' +
+      '<div class="mm-sparkle">✨</div>' +
+      '<div class="mm-big">인어조림 완성!</div>' +
+      '<img class="mm-dish" src="' + MM_IMG.dish + '" alt="인어조림">' +
+      '<div class="mm-stars">' + starHtml + '</div>' +
+      '<p class="mm-comment">' + comment + '</p>' +
+      '<p class="mm-detail">' + detail.join(' · ') + '</p>' +
+      '<button class="mm-btn mm-btn-go" onclick="mmStartHunt()">다시 만들기</button>' +
+    '</div>';
+}
