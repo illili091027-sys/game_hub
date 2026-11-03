@@ -1089,3 +1089,53 @@
 .mm-recipe li.secret .mm-rnum { color: #5a3a46; text-shadow: none; }
 .mm-shelf.locked { opacity: .55; pointer-events: none; }
 .mm-shelf { grid-template-columns: repeat(3, 1fr); }
+
+/* 세이렌 4가지 방식 */
+.mm-siren-how { color: #fff; font-family: 'Noto Sans KR', sans-serif; font-size: 15px; text-align: center; padding: 0 16px; margin: 0; }
+.mm-siren-img.flee { animation: mmFlee .8s forwards; }
+@keyframes mmFlee { to { transform: translateY(-140%) scale(.3) rotate(30deg); opacity: 0; } }
+.mm-siren-ov.mm-tug, .mm-siren-ov.mm-song, .mm-siren-ov.mm-ring { animation: none; background: rgba(60, 10, 30, .82); }
+.mm-tug.danger { background: rgba(150, 20, 50, .88) !important; }
+.mm-tug-top { position: relative; }
+.mm-tug-siren { width: 150px; pointer-events: none; filter: drop-shadow(0 0 14px rgba(255,120,150,.8)); }
+.mm-tug-siren.hit { animation: mmHit .12s; }
+.mm-tug-say { position: absolute; right: -40px; top: 0; background: #fff; color: #c7445f; font-weight: 700; font-size: 22px; padding: 2px 10px; border-radius: 14px; border: 3px solid #6b4a55; opacity: 0; }
+.mm-tug-say.show { animation: mmSay .9s; }
+@keyframes mmSay { 0% { opacity: 0; transform: scale(.4); } 20% { opacity: 1; transform: scale(1.15); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.mm-tug-rope { position: relative; width: 88%; height: 56px; display: flex; align-items: center; }
+.mm-tug-line { position: absolute; left: 44px; right: 44px; height: 10px; border-radius: 6px; background: repeating-linear-gradient(90deg, #e9c58f 0 12px, #c99a5b 12px 24px); border: 2px solid #6b4a55; }
+.mm-tug-end { position: absolute; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border: 3px solid #fff; }
+.mm-tug-end.l { left: 0; background: #ff8fb1; color: #fff; }
+.mm-tug-end.r { right: 0; background: #7fd6a4; color: #1f5a3a; }
+.mm-tug-ribbon { position: absolute; top: 50%; font-size: 34px; transform: translate(-50%, -50%); margin-left: 0; left: 50%; pointer-events: none; }
+.mm-tug-rope .mm-tug-ribbon { left: 50%; }
+.mm-song-hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; color: #fff; font-size: 20px; font-weight: 700; }
+.mm-song-siren { width: 110px; position: absolute; top: 58px; left: 50%; transform: translateX(-50%); pointer-events: none; opacity: .9; animation: mmBob 1.2s infinite; }
+.mm-song-me { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); font-size: 48px; }
+.mm-song-me.hurt { animation: mmHurt .4s; }
+@keyframes mmHurt { 30% { transform: translateX(-50%) scale(1.3); filter: hue-rotate(-40deg) saturate(3); } }
+.mm-note { position: absolute; left: 0; top: 0; width: 44px; height: 44px; border-radius: 50%; background: #ffe36e; border: 3px solid #6b4a55; color: #6b2c43; font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; }
+.mm-note.pop { animation: mmNotePop .25s forwards; pointer-events: none; }
+@keyframes mmNotePop { to { scale: 1.8; opacity: 0; } }
+.mm-watcher { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; flex-direction: column; align-items: center; pointer-events: none; transition: filter .2s; }
+.mm-watcher img { width: 96px; transition: transform .25s; filter: drop-shadow(0 0 10px rgba(255,120,150,.8)); }
+.mm-watcher.away img { transform: scaleX(-1) rotate(-8deg); opacity: .55; }
+.mm-watcher.warn img { animation: mmShakeX .1s infinite; }
+.mm-watcher.watch img { transform: scale(1.25); }
+.mm-watch-say { background: #fff; border: 3px solid #6b4a55; border-radius: 14px; padding: 2px 12px; font-size: 20px; font-weight: 700; white-space: nowrap; }
+.mm-watcher.away .mm-watch-say { background: #d7f5e3; color: #1f6a3f; }
+.mm-watcher.warn .mm-watch-say { background: #fff3c4; }
+.mm-watcher.watch .mm-watch-say { background: #ff6f8f; color: #fff; animation: mmPulse .4s infinite; }
+.mm-watch-count { font-size: 14px; color: #2e6a8c; font-weight: 700; margin-top: 2px; }
+.mm-stage:has(.mm-watcher.watch) { box-shadow: inset 0 0 0 8px #ff6f8f; }
+.mm-stage:has(.mm-watcher) .mm-holes { margin-top: 120px; }
+.mm-ring-box { position: relative; width: 260px; height: 260px; max-width: 78vw; max-height: 78vw; display: flex; align-items: center; justify-content: center; }
+.mm-ring-siren { width: 42%; pointer-events: none; }
+.mm-ring-target { position: absolute; width: 50%; height: 50%; border-radius: 50%; border: 8px solid #ffe36e; box-sizing: border-box; left: 25%; top: 25%; box-shadow: 0 0 14px #ffe36e; }
+.mm-ring-shrink { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; border: 5px solid #fff; box-sizing: border-box; }
+.mm-ring-shrink.in { border-color: #7fffb0; box-shadow: 0 0 12px #7fffb0; }
+.mm-ring-msg { color: #fff; font-size: 26px; font-weight: 700; min-height: 36px; }
+.mm-ring-msg.good { color: #7fffb0; }
+.mm-ring-msg.bad { color: #ff9db6; }
+.mm-ring.flash { animation: mmFlashG .3s; }
+@keyframes mmFlashG { 50% { background: rgba(60, 160, 110, .85); } }

@@ -42,6 +42,8 @@ function mmLater(fn, ms) { var t = setTimeout(fn, ms); MM_TIMERS.push(t); return
 function mmClearTimers() {
   MM_TIMERS.forEach(function (t) { clearTimeout(t); clearInterval(t); });
   MM_TIMERS = [];
+  if (MM && MM.sirenRaf) cancelAnimationFrame(MM.sirenRaf);
+  if (MM) MM.watching = false;
   cancelAnimationFrame(MM_RAF);
   MM_RAF = 0;
 }
@@ -138,6 +140,10 @@ function mmStartHunt() {
   /* 세이렌은 사냥 중 2번 정도 등장 */
   var a = 3 + Math.random() * 5, b = a + 6 + Math.random() * 5, c = b + 5 + Math.random() * 5;
   MM.sirenTimes = [a, b, Math.min(c, MM_HUNT_SECONDS - 2)];
+  /* 세이렌이 나올 때마다 4가지 방식 중 하나 (한 판 안에서는 겹치지 않게) */
+  MM.sirenBag = mmShuffle(['tug', 'song', 'look', 'ring']);
+  MM.sirenActive = false;
+  MM.freeze = false;
   MM.elapsed = 0;
   mmSetStep('hunt');
   var st = mmEl('mm-stage');
@@ -162,7 +168,7 @@ function mmStartHunt() {
     if (!MM || MM.phase !== 'hunt') return;
     var dt = Math.min(0.1, (now - last) / 1000); last = now;
     if (!MM.paused) {
-      MM.elapsed += dt;
+      if (!MM.freeze) MM.elapsed += dt;
       MM.left = Math.max(0, MM_HUNT_SECONDS - MM.elapsed);
       mmEl('mm-time').textContent = Math.ceil(MM.left);
       mmEl('mm-timefill').style.width = (MM.left / MM_HUNT_SECONDS * 100) + '%';
@@ -172,7 +178,7 @@ function mmStartHunt() {
       if (spawnAcc > gap) { spawnAcc = 0; mmSpawnFish(); }
       MM.holes.forEach(function (h, i) { if (h.who && now > h.until) mmHideHole(i, false); });
       /* 세이렌 등장 */
-      if (MM.sirenTimes.length && MM.elapsed >= MM.sirenTimes[0]) { MM.sirenTimes.shift(); mmSirenAppear(); }
+      if (!MM.sirenActive && MM.sirenTimes.length && MM.elapsed >= MM.sirenTimes[0]) { MM.sirenTimes.shift(); mmSirenAppear(); }
       if (MM.left <= 0) { mmFail('인어를 다 놓쳤어…', '시간 안에 인어 ' + MM_HUNT_GOAL + '마리를 잡지 못했어요. 다시 사냥하러 가요!'); return; }
     }
     MM_RAF = requestAnimationFrame(tick);
@@ -208,6 +214,7 @@ function mmHideHole(i, caught) {
 
 function mmTapHole(i) {
   if (!MM || MM.phase !== 'hunt' || MM.paused) return;
+  if (MM.watching) { mmSirenLose('들켜버렸어…', '세이렌이 보고 있을 때 움직이면 안 돼요! 처음부터 다시 사냥해요.'); return; }
   var h = MM.holes[i];
   var hole = document.querySelector('.mm-hole[data-i="' + i + '"]');
   if (!h.who) {
@@ -244,64 +251,260 @@ function mmFloatText(anchor, text) {
 }
 
 /* ---------- 세이렌 연타 ---------- */
+/* ---------- 세이렌 등장: 4가지 방식 중 하나 ---------- */
+var MM_SIREN_INFO = {
+  tug:  { title: '줄다리기!', how: '화면을 연타해서 리본을 내 쪽 끝까지 당겨요!' },
+  song: { title: '세이렌의 노래', how: '날아오는 음표 ♪ 를 눌러 터뜨려요! 3개 맞으면 홀려요' },
+  look: { title: '세이렌이 뒤돌아본다', how: '세이렌이 <b>보고 있을 땐</b> 아무것도 누르지 마요!' },
+  ring: { title: '타이밍 반격', how: '줄어드는 동그라미가 <b>노란 원</b>에 겹칠 때 톡! 3번 성공' }
+};
+
 function mmSirenAppear() {
+  MM.sirenActive = true;
   MM.paused = true;
   for (var i = 0; i < MM.holes.length; i++) if (MM.holes[i].who) mmHideHole(i, false);
+  var mode = MM.sirenBag.length ? MM.sirenBag.shift() : ['tug', 'song', 'look', 'ring'][Math.floor(Math.random() * 4)];
   mmSound('siren');
+  var info = MM_SIREN_INFO[mode];
   var st = mmEl('mm-stage');
   var ov = document.createElement('div');
   ov.className = 'mm-siren-ov';
   ov.id = 'mm-siren-ov';
   ov.innerHTML =
     '<div class="mm-siren-warn">⚠️ 세이렌이 나타났다! ⚠️</div>' +
-    '<img class="mm-siren-img" id="mm-siren-img" src="' + MM_IMG.siren + '" alt="">' +
-    '<div class="mm-mash-text">화면을 마구 연타!!</div>' +
-    '<div class="mm-mashbar"><div id="mm-mashfill"></div></div>' +
-    '<div class="mm-mash-time"><span id="mm-mash-left">' + MM_MASH_SECONDS.toFixed(1) + '</span>초</div>';
+    '<img class="mm-siren-img" src="' + MM_IMG.siren + '" alt="">' +
+    '<div class="mm-mash-text">' + info.title + '</div>' +
+    '<div class="mm-siren-how">' + info.how + '</div>';
   st.appendChild(ov);
-  var power = 0;
-  var start = performance.now();
-  var done = false;
+  /* 1.8초 동안 방법을 보여주고 시작 */
+  mmLater(function () {
+    if (!MM || MM.phase !== 'hunt') return;
+    if (ov.parentNode) ov.parentNode.removeChild(ov);
+    if (mode === 'tug') mmSirenTug();
+    else if (mode === 'song') mmSirenSong();
+    else if (mode === 'look') mmSirenLook();
+    else mmSirenRing();
+  }, 1800);
+}
+
+function mmSirenOverlay(cls, inner) {
+  var st = mmEl('mm-stage');
+  var ov = document.createElement('div');
+  ov.className = 'mm-siren-ov ' + cls;
+  ov.id = 'mm-siren-ov';
+  ov.innerHTML = inner;
+  st.appendChild(ov);
+  return ov;
+}
+
+function mmSirenWin(text) {
+  if (!MM || MM.phase !== 'hunt') return;
+  cancelAnimationFrame(MM.sirenRaf);
+  MM.watching = false;
+  mmSound('win');
+  var old = mmEl('mm-siren-ov');
+  var watcher = mmEl('mm-watcher');
+  if (watcher && watcher.parentNode) watcher.parentNode.removeChild(watcher);
+  var ov = old || mmSirenOverlay('', '');
+  ov.className = 'mm-siren-ov win';
+  ov.innerHTML = '<img class="mm-siren-img flee" src="' + MM_IMG.siren + '" alt=""><div class="mm-mash-text">' + (text || '세이렌을 쫓아냈다!') + '</div>';
+  mmLater(function () {
+    if (ov.parentNode) ov.parentNode.removeChild(ov);
+    if (MM && MM.phase === 'hunt') { MM.paused = false; MM.freeze = false; MM.sirenActive = false; }
+  }, 900);
+}
+
+function mmSirenLose(title, sub) {
+  if (!MM) return;
+  cancelAnimationFrame(MM.sirenRaf);
+  MM.watching = false;
+  mmFail(title, sub);
+}
+
+/* --- 1) 줄다리기 --- */
+function mmSirenTug() {
+  var ov = mmSirenOverlay('mm-tug',
+    '<div class="mm-tug-top"><img class="mm-tug-siren" id="mm-tug-siren" src="' + MM_IMG.siren + '" alt=""><div class="mm-tug-say" id="mm-tug-say"></div></div>' +
+    '<div class="mm-tug-rope"><div class="mm-tug-end l">세이렌</div><div class="mm-tug-line"></div><div class="mm-tug-ribbon" id="mm-tug-ribbon">🎀</div><div class="mm-tug-end r">나</div></div>' +
+    '<div class="mm-mash-text">연타! 연타!</div>' +
+    '<p class="mm-siren-how">리본이 <b>세이렌 끝</b>에 닿으면 잡혀요</p>');
+  var won = false, pos = 0.5, last = performance.now(), nextSpurt = performance.now() + 1400 + Math.random() * 900, spurtUntil = 0;
   ov.addEventListener('pointerdown', function (e) {
     e.preventDefault();
-    if (done) return;
-    power++;
+    if (won) return;
+    pos = Math.min(1, pos + 0.06);
     mmSound('mash');
-    var img = mmEl('mm-siren-img');
-    if (img) {
-      img.classList.remove('hit'); void img.offsetWidth; img.classList.add('hit');
-      img.style.transform = 'scale(' + Math.max(0.35, 1 - power / MM_MASH_NEED * 0.6) + ')';
-    }
-    mmEl('mm-mashfill').style.width = Math.min(100, power / MM_MASH_NEED * 100) + '%';
-    if (power >= MM_MASH_NEED) {
-      done = true;
-      ov.classList.add('win');
-      ov.querySelector('.mm-mash-text').textContent = '세이렌을 쫓아냈다!';
-      mmSound('win');
-      mmLater(function () {
-        if (ov.parentNode) ov.parentNode.removeChild(ov);
-        if (MM && MM.phase === 'hunt') MM.paused = false;
-      }, 700);
-    }
+    if (pos >= 0.985) { won = true; mmSirenWin('영차! 줄다리기 승리!'); return; }
+    var s = mmEl('mm-tug-siren');
+    if (s) { s.classList.remove('hit'); void s.offsetWidth; s.classList.add('hit'); }
   });
-  var lastT = performance.now();
-  var t = setInterval(function () {
-    if (done || !MM) { clearInterval(t); return; }
-    var nowT = performance.now();
-    power = Math.max(0, power - (nowT - lastT) / 1000 * 3); /* 손을 멈추면 1초에 3씩 줄어요 */
-    lastT = nowT;
-    var mf = mmEl('mm-mashfill');
-    if (mf) mf.style.width = Math.min(100, power / MM_MASH_NEED * 100) + '%';
-    var left = MM_MASH_SECONDS - (performance.now() - start) / 1000;
-    var el = mmEl('mm-mash-left');
-    if (el) el.textContent = Math.max(0, left).toFixed(1);
-    if (left <= 0) {
-      done = true;
-      clearInterval(t);
-      mmFail('세이렌에게 붙잡혀 버렸어…', '연타가 부족했어요! 처음부터 다시 사냥해요.');
+  var tick = function (now) {
+    if (!MM || MM.phase !== 'hunt') return;
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (now > nextSpurt) {
+      spurtUntil = now + 550;
+      nextSpurt = now + 1700 + Math.random() * 1200;
+      var say = mmEl('mm-tug-say');
+      if (say) { say.textContent = ['흥!', '이리 와!', '내 거야!'][Math.floor(Math.random() * 3)]; say.classList.remove('show'); void say.offsetWidth; say.classList.add('show'); }
     }
-  }, 50);
-  MM_TIMERS.push(t);
+    var pull = now < spurtUntil ? 0.35 : 0.08;
+    pos -= pull * dt;
+    var r = mmEl('mm-tug-ribbon');
+    if (r) r.style.left = (pos * 100) + '%';
+    ov.classList.toggle('danger', pos < 0.25);
+    if (won) return;
+    if (pos <= 0) { mmSirenLose('세이렌에게 끌려가 버렸어…', '줄다리기에서 졌어요! 처음부터 다시 사냥해요.'); return; }
+    MM.sirenRaf = requestAnimationFrame(tick);
+  };
+  MM.sirenRaf = requestAnimationFrame(tick);
+}
+
+/* --- 2) 세이렌의 노래 (음표 터뜨리기) --- */
+function mmSirenSong() {
+  var ov = mmSirenOverlay('mm-song',
+    '<div class="mm-song-hud"><span id="mm-song-hearts">❤️❤️❤️</span><span>버티기 <b id="mm-song-left">8.0</b>초</span></div>' +
+    '<img class="mm-song-siren" src="' + MM_IMG.siren + '" alt="">' +
+    '<div class="mm-song-me" id="mm-song-me">🙉</div>');
+  var notes = [], hp = 3, start = performance.now(), last = start, spawnAcc = 0.5, DUR = 8;
+  var rect = function () { return ov.getBoundingClientRect(); };
+  var spawn = function () {
+    var r = rect(), w = r.width, h = r.height;
+    var el = document.createElement('div');
+    el.className = 'mm-note';
+    el.textContent = ['♪', '♫', '♬', '♩'][Math.floor(Math.random() * 4)];
+    /* 위쪽 세 변 중 아무 데서나 */
+    var side = Math.random(), x, y;
+    if (side < 0.5) { x = Math.random() * w; y = -10; }
+    else if (side < 0.75) { x = -10; y = Math.random() * h * 0.6; }
+    else { x = w + 10; y = Math.random() * h * 0.6; }
+    var n = { el: el, x: x, y: y, sp: 120 + Math.random() * 60 + (performance.now() - start) / 1000 * 10 };
+    el.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (n.dead) return;
+      n.dead = true; mmSound('catch');
+      el.classList.add('pop');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 250);
+    });
+    ov.appendChild(el);
+    notes.push(n);
+  };
+  var tick = function (now) {
+    if (!MM || MM.phase !== 'hunt') return;
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    var r = rect(), tx = r.width / 2, ty = r.height - 50;
+    var el = (now - start) / 1000;
+    spawnAcc += dt;
+    if (spawnAcc > Math.max(0.38, 0.75 - el * 0.05)) { spawnAcc = 0; spawn(); }
+    notes.forEach(function (n) {
+      if (n.dead) return;
+      var dx = tx - n.x, dy = ty - n.y, d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 26) {
+        n.dead = true; hp--;
+        mmSound('wrong');
+        if (n.el.parentNode) n.el.parentNode.removeChild(n.el);
+        var me = mmEl('mm-song-me');
+        if (me) { me.classList.remove('hurt'); void me.offsetWidth; me.classList.add('hurt'); }
+        var hs = mmEl('mm-song-hearts');
+        if (hs) hs.textContent = '❤️❤️❤️'.slice(0, hp * 2) + '🤍🤍🤍'.slice(0, (3 - hp) * 2);
+        return;
+      }
+      n.x += dx / d * n.sp * dt; n.y += dy / d * n.sp * dt;
+      n.el.style.transform = 'translate(' + (n.x - 20) + 'px,' + (n.y - 20) + 'px)';
+    });
+    notes = notes.filter(function (n) { return !n.dead; });
+    var left = DUR - el;
+    var le = mmEl('mm-song-left'); if (le) le.textContent = Math.max(0, left).toFixed(1);
+    if (hp <= 0) { mmSirenLose('노래에 홀려버렸어…', '음표를 3개나 맞았어요! 처음부터 다시 사냥해요.'); return; }
+    if (left <= 0) { mmSirenWin('노래를 다 막아냈다!'); return; }
+    MM.sirenRaf = requestAnimationFrame(tick);
+  };
+  MM.sirenRaf = requestAnimationFrame(tick);
+}
+
+/* --- 3) 세이렌이 뒤돌아본다 (무궁화 꽃이 피었습니다) --- */
+function mmSirenLook() {
+  var st = mmEl('mm-stage');
+  var w = document.createElement('div');
+  w.className = 'mm-watcher away';
+  w.id = 'mm-watcher';
+  w.innerHTML = '<img src="' + MM_IMG.siren + '" alt=""><div class="mm-watch-say" id="mm-watch-say">지금이야! 잡아!</div><div class="mm-watch-count" id="mm-watch-count"></div>';
+  st.appendChild(w);
+  MM.paused = false;      /* 사냥은 계속돼요 */
+  MM.watching = false;
+  var rounds = 3, round = 0;
+  var say = function (txt) { var s = mmEl('mm-watch-say'); if (s) s.innerHTML = txt; };
+  var cnt = function () { var c = mmEl('mm-watch-count'); if (c) c.textContent = '남은 감시 ' + (rounds - round) + '번'; };
+  cnt();
+  var awayThen = function () {
+    if (!MM || MM.phase !== 'hunt') return;
+    if (round >= rounds) { mmSirenWin('세이렌이 지쳐서 돌아갔다!'); return; }
+    w.className = 'mm-watcher away';
+    MM.watching = false; MM.freeze = false;
+    say('지금이야! 잡아!');
+    mmLater(warn, 1800 + Math.random() * 1500);
+  };
+  var warn = function () {
+    if (!MM || MM.phase !== 'hunt') return;
+    w.className = 'mm-watcher warn';
+    say('흐음…? 🤔');
+    mmSound('pop');
+    mmLater(watch, 550);
+  };
+  var watch = function () {
+    if (!MM || MM.phase !== 'hunt') return;
+    w.className = 'mm-watcher watch';
+    MM.watching = true; MM.freeze = true;   /* 보고 있는 동안은 시간도 멈춰요 */
+    say('👀 보고 있어! 멈춰!');
+    mmSound('siren');
+    round++; cnt();
+    mmLater(function () { if (MM && MM.watching) awayThen(); }, 1300 + Math.random() * 1000);
+  };
+  awayThen();
+}
+
+/* --- 4) 타이밍 반격 --- */
+function mmSirenRing() {
+  var ov = mmSirenOverlay('mm-ring',
+    '<div class="mm-song-hud"><span id="mm-ring-hearts">❤️❤️❤️</span><span>성공 <b id="mm-ring-ok">0</b> / 3</span></div>' +
+    '<div class="mm-ring-box"><img class="mm-ring-siren" src="' + MM_IMG.siren + '" alt=""><div class="mm-ring-target"></div><div class="mm-ring-shrink" id="mm-ring-shrink"></div></div>' +
+    '<div class="mm-ring-msg" id="mm-ring-msg">노란 원에 겹칠 때 톡!</div>');
+  var ok = 0, hp = 3, roundStart = 0, dur = 1.5, last = 0, locked = false;
+  var TARGET = 0.5;           /* 목표 원 크기 (최대 대비) */
+  var WINDOW = 0.085;
+  var cur = 1;
+  var setMsg = function (m, c) { var e = mmEl('mm-ring-msg'); if (e) { e.textContent = m; e.className = 'mm-ring-msg ' + (c || ''); } };
+  var newRound = function () { roundStart = performance.now(); locked = false; cur = 1; };
+  var miss = function (m) {
+    hp--; locked = true; mmSound('wrong'); setMsg(m, 'bad');
+    var hs = mmEl('mm-ring-hearts'); if (hs) hs.textContent = '❤️❤️❤️'.slice(0, hp * 2) + '🤍🤍🤍'.slice(0, (3 - hp) * 2);
+    if (hp <= 0) { mmLater(function () { mmSirenLose('반격에 실패했어…', '타이밍이 안 맞았어요! 처음부터 다시 사냥해요.'); }, 400); return; }
+    mmLater(newRound, 700);
+  };
+  ov.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    if (locked) return;
+    if (Math.abs(cur - TARGET) <= WINDOW) {
+      ok++; locked = true; mmSound('catch');
+      var k = mmEl('mm-ring-ok'); if (k) k.textContent = ok;
+      setMsg(['좋아!', '딱 맞았어!', '퍼펙트!'][ok - 1] || '좋아!', 'good');
+      ov.classList.remove('flash'); void ov.offsetWidth; ov.classList.add('flash');
+      if (ok >= 3) { mmLater(function () { mmSirenWin('반격 성공! 세이렌 도망!'); }, 400); return; }
+      dur = Math.max(0.95, dur - 0.2);
+      mmLater(newRound, 600);
+    } else miss(cur > TARGET ? '너무 빨라!' : '너무 늦어!');
+  });
+  newRound();
+  var tick = function (now) {
+    if (!MM || MM.phase !== 'hunt') return;
+    if (!locked) {
+      cur = Math.max(0, 1 - (now - roundStart) / 1000 / dur * (1 - 0.15) );
+      if (cur <= 0.15) { cur = 0.15; miss('놓쳤어!'); }
+    }
+    var s = mmEl('mm-ring-shrink');
+    if (s) { s.style.width = s.style.height = (cur * 100) + '%'; s.classList.toggle('in', Math.abs(cur - TARGET) <= WINDOW); }
+    MM.sirenRaf = requestAnimationFrame(tick);
+  };
+  MM.sirenRaf = requestAnimationFrame(tick);
 }
 
 /* =============== ② 재료 넣기 =============== */
