@@ -742,10 +742,28 @@ function bbDraw() {
   document.addEventListener('keydown', function (e) {
     if (!document.getElementById('baby').classList.contains('active')) return;
     if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
-    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); if (!e.repeat) bbTogglePause(); return; }
     if (e.key === 'ArrowLeft') { BB_KEYS.left = true; e.preventDefault(); }
     else if (e.key === 'ArrowRight') { BB_KEYS.right = true; e.preventDefault(); }
   });
+  /* 스페이스바 = 잠깐 멈춤. 다른 처리보다 먼저(capture) 받아서, 버튼에 포커스가 남아 있어도
+     버튼이 눌리거나 화면이 스크롤되지 않게 막아요. */
+  var isSpace = function (e) { return e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar' || e.keyCode === 32; };
+  window.addEventListener('keydown', function (e) {
+    if (!isSpace(e)) return;
+    if (!document.getElementById('baby').classList.contains('active')) return;
+    if (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (document.activeElement && document.activeElement !== document.body && document.activeElement.blur) document.activeElement.blur();
+    if (!e.repeat) bbTogglePause();
+  }, true);
+  window.addEventListener('keyup', function (e) {
+    if (!isSpace(e)) return;
+    if (!document.getElementById('baby').classList.contains('active')) return;
+    if (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
   document.addEventListener('keyup', function (e) {
     if (e.key === 'ArrowLeft') BB_KEYS.left = false;
     else if (e.key === 'ArrowRight') BB_KEYS.right = false;

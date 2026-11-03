@@ -722,7 +722,7 @@ window.addEventListener('load', function () {
         <div class="bb-hud-age"><span class="bb-age-label">AGE</span><span class="bb-age" id="bb-age">01</span></div>
         <div class="bb-hud-score" id="bb-score">0000000</div>
         <div class="bb-countdown" id="bb-countdown" style="display:none">3</div>
-        <button type="button" class="bb-pause-btn" id="bb-pause-btn" onclick="bbTogglePause()" title="잠깐 멈춤 (스페이스바)">⏸</button>
+        <button type="button" class="bb-pause-btn" id="bb-pause-btn" onmousedown="event.preventDefault()" onclick="bbTogglePause(); this.blur();" title="잠깐 멈춤 (스페이스바)">⏸</button>
         <div class="bb-pause" id="bb-pause" style="display:none" onclick="bbResume()"></div>
         <div class="bb-over" id="bb-over" style="display:none"></div>
         <div class="bb-spec-label" id="bb-spec-label" style="display:none"></div>
