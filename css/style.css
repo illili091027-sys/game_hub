@@ -1190,3 +1190,4 @@
 .bb-pause-icon { font-size: 44px; line-height: 1; }
 .bb-pause-title { font-family: 'Gaegu', cursive; font-size: 40px; font-weight: 700; -webkit-text-stroke: 1px #e8508a; text-shadow: 0 3px 0 #e8508a; }
 .bb-pause-sub { font-size: 14px; opacity: .9; }
+.bb-ver { opacity: .6; font-size: 11px; }

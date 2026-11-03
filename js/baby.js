@@ -184,13 +184,13 @@ function bbGenerate() {
     var age = Math.floor(BB.lastPathY / 650) + 1;
     /* 구름 더 많이: 간격을 좁히고(62~110), 옆에 진짜 구름을 하나 더 띄우기도 해요 */
     /* 초반엔 구름이 아주 빽빽하게(간격 45~80), 올라갈수록 점점 넓어져요 */
-    var gap = Math.min(150, 42 + Math.random() * 34 + Math.min(age, 16) * 5);
+    var gap = Math.min(150, 56 + Math.random() * 40 + Math.min(age, 16) * 4);
     var y = BB.lastPathY + gap;
     var maxDx = 165;
     var x = BB.lastPathX + (Math.random() * 2 - 1) * maxDx;
     if (x < 50) x = 50 + Math.random() * 40;
     if (x > BB_W - 50) x = BB_W - 50 - Math.random() * 40;
-    var w = Math.max(62, 112 - age * 3.2);
+    var w = Math.max(70, 118 - age * 3);
     var r = Math.random();
     var type = 'normal';
     var pHoled = Math.min(0.04 + age * 0.02, 0.25);
@@ -200,11 +200,7 @@ function bbGenerate() {
     var cloud = { x: x, y: y, w: w, type: type };
     BB.clouds.push(cloud);
     /* 옆 구름: 초반엔 거의 항상, 높아질수록 줄어요 */
-    if (age <= 4 && Math.random() < 0.6) {
-      var ex = Math.max(45, Math.min(BB_W - 45, 60 + Math.random() * (BB_W - 120)));
-      if (Math.abs(ex - x) > 70) BB.clouds.push({ x: ex, y: y - gap * (0.4 + Math.random() * 0.3), w: w * (0.8 + Math.random() * 0.3), type: 'normal' });
-    }
-    if (Math.random() < Math.max(0.3, 0.9 - age * 0.05)) {
+    if (Math.random() < Math.max(0.25, 0.55 - age * 0.03)) {
       var sx = x < BB_W / 2 ? x + 120 + Math.random() * 110 : x - 120 - Math.random() * 110;
       sx = Math.max(45, Math.min(BB_W - 45, sx));
       BB.clouds.push({ x: sx, y: y - gap * (0.35 + Math.random() * 0.3), w: w * (0.85 + Math.random() * 0.3), type: Math.random() < pHoled ? 'holed' : 'normal' });
@@ -353,7 +349,8 @@ function bbTick(ts) {
 
   bbGenerate();
 
-  if (b.y < BB.camY - 50) { bbDie(); return; }
+  /* 탈락은 '아래로 떨어져서' 화면 밑으로 사라질 때만 (화면이 저절로 올라가 죽는 일은 없어요) */
+  if (b.vy <= 0 && !b.on && b.y < BB.camY - 50) { bbDie(); return; }
 
   bbDraw();
   bbUpdateHud();
@@ -547,34 +544,49 @@ function bbResize() {
 
 function bbSY(y) { return BB_H - (y - BB.camY); }
 
-function bbCloudShape(ctx, cx, top, w, fill, stroke) {
-  var h = w * 0.36;
-  var cy = top + h * 0.55;
+/* 몽실몽실 뭉게구름: 큰 덩어리 여러 개 + 파란 테두리 + 아래쪽 연한 그림자 */
+var BB_PUFFS = [
+  [0.04, 0.20, 0.23], [-0.24, 0.33, 0.18], [0.29, 0.32, 0.17],
+  [-0.33, 0.48, 0.15], [-0.11, 0.50, 0.18], [0.14, 0.50, 0.18], [0.35, 0.47, 0.14]
+];
+function bbPuffPath(ctx, cx, top, w, dx, dy) {
   ctx.beginPath();
-  ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
-  ctx.moveTo(cx - w * 0.18 + w * 0.2, top + h * 0.3);
-  ctx.arc(cx - w * 0.18, top + h * 0.3, w * 0.2, 0, Math.PI * 2);
-  ctx.moveTo(cx + w * 0.15 + w * 0.24, top + h * 0.22);
-  ctx.arc(cx + w * 0.15, top + h * 0.22, w * 0.24, 0, Math.PI * 2);
-  ctx.fillStyle = fill;
+  BB_PUFFS.forEach(function (p) {
+    var x = cx + p[0] * w + (dx || 0), y = top + p[1] * w + (dy || 0), r = p[2] * w;
+    ctx.moveTo(x + r, y);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+  });
+}
+function bbCloudShape(ctx, cx, top, w, fill, stroke, shade) {
+  ctx.save();
+  /* 1) 테두리: 굵은 선을 먼저 그리고 2) 흰색으로 덮으면 바깥선만 남아요 */
+  bbPuffPath(ctx, cx, top, w);
+  ctx.lineWidth = Math.max(5, w * 0.055);
+  ctx.lineJoin = 'round';
   ctx.strokeStyle = stroke;
-  ctx.lineWidth = 3;
   ctx.stroke();
+  ctx.fillStyle = shade || fill;
   ctx.fill();
+  /* 3) 그림자: 구름 안쪽에서 덩어리를 위로 살짝 올려 흰색으로 칠하면 아래쪽에 연한 그림자가 남아요 */
+  if (shade) {
+    bbPuffPath(ctx, cx, top, w);
+    ctx.clip();
+    bbPuffPath(ctx, cx, top, w, -w * 0.035, -w * 0.075);
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function bbDrawCloud(ctx, c) {
   var top = bbSY(c.y) - 2;
   if (top < -80 || top > BB_H + 80) return;
   if (c.type === 'ground') {
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#8cc4f0';
-    ctx.lineWidth = 3;
-    for (var i = 0; i < 6; i++) {
-      ctx.beginPath();
-      ctx.arc(c.x - c.w / 2 + 30 + i * (c.w - 60) / 5, top + 34, 40, 0, Math.PI * 2);
-      ctx.stroke(); ctx.fill();
-    }
+    ctx.save();
+    var gp = function (dy) { ctx.beginPath(); for (var i = 0; i < 6; i++) { var gx = c.x - c.w / 2 + 30 + i * (c.w - 60) / 5; ctx.moveTo(gx + 42, top + 36 + dy); ctx.arc(gx, top + 36 + dy, 42, 0, Math.PI * 2); } };
+    gp(0); ctx.lineWidth = 6; ctx.strokeStyle = '#5b9cf0'; ctx.stroke(); ctx.fillStyle = '#cbd7f4'; ctx.fill();
+    gp(0); ctx.clip(); gp(-8); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.restore();
     return;
   }
   ctx.save();
@@ -584,13 +596,13 @@ function bbDrawCloud(ctx, c) {
     ctx.translate((Math.random() - 0.5) * 3, 0);
   }
   if (c.type === 'dark') {
-    bbCloudShape(ctx, c.x, top - 6, c.w, '#8d97a8', '#606b7d');
+    bbCloudShape(ctx, c.x, top - 6, c.w, '#9aa3b4', '#5d687c', '#7c8698');
     ctx.strokeStyle = 'rgba(120,150,200,0.7)';
     ctx.lineWidth = 2;
     for (var r = 0; r < 4; r++) {
       var rx = c.x - c.w * 0.3 + r * c.w * 0.2;
       var off = (BB.t * 60 + r * 9) % 18;
-      ctx.beginPath(); ctx.moveTo(rx, top + c.w * 0.36 + off); ctx.lineTo(rx - 3, top + c.w * 0.36 + off + 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rx, top + c.w * 0.66 + off); ctx.lineTo(rx - 3, top + c.w * 0.66 + off + 7); ctx.stroke();
     }
   } else {
     if (c.type === 'rainbow') {
@@ -603,11 +615,11 @@ function bbDrawCloud(ctx, c) {
         ctx.stroke();
       });
     }
-    bbCloudShape(ctx, c.x, top - 6, c.w, '#ffffff', '#8cc4f0');
+    bbCloudShape(ctx, c.x, top - 4, c.w, '#ffffff', '#5b9cf0', '#cbd7f4');
     if (c.type === 'holed') {
       ctx.fillStyle = 'rgba(70,110,160,0.55)';
-      ctx.beginPath(); ctx.ellipse(c.x - c.w * 0.15, top + c.w * 0.14, c.w * 0.08, c.w * 0.05, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(c.x + c.w * 0.17, top + c.w * 0.2, c.w * 0.06, c.w * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(c.x - c.w * 0.15, top + c.w * 0.32, c.w * 0.08, c.w * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(c.x + c.w * 0.17, top + c.w * 0.42, c.w * 0.06, c.w * 0.04, 0, 0, Math.PI * 2); ctx.fill();
     }
     if (c.amp) {
       ctx.fillStyle = 'rgba(111,195,223,0.9)';
