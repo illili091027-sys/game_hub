@@ -549,6 +549,27 @@ function chatSendFiles(key, fileList, tracker, onRefresh, onError) {
   });
 }
 
+/* 여러 줄 입력칸: PC는 Enter=보내기, Shift+Enter=줄바꿈 / 휴대폰은 Enter=줄바꿈, 보내기 버튼으로 전송.
+   글이 길어지면 입력칸이 최대 5줄까지 저절로 늘어나요. */
+function chatAutoGrow(ta) {
+  if (!ta) return;
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+}
+function chatSetupMultiline(ta, sendFn) {
+  if (!ta || ta.getAttribute('data-ml')) return;
+  ta.setAttribute('data-ml', '1');
+  var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  ta.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+    if (e.shiftKey || touch) return; /* 줄바꿈 */
+    e.preventDefault();
+    sendFn();
+  });
+  ta.addEventListener('input', function () { chatAutoGrow(ta); });
+  chatAutoGrow(ta);
+}
+
 /* 입력칸 하나에 📎 버튼/파일 선택창/사진 붙여넣기(Ctrl+V)를 연결합니다. */
 function chatBindComposer(opts) {
   var input = document.getElementById(opts.inputId);
@@ -703,5 +724,6 @@ var GROUP_CHAT_TRACKER = { lastSig: null, pending: [] };
     });
   };
   chatBindMessageArea(el, onFiles, function () { return groupChatKey(); }, function () { groupPoll(); });
+  chatSetupMultiline(document.getElementById('group-chat-input'), groupSendChat); /* 오른쪽 채팅창: Shift+Enter 줄바꿈 */
   chatBindComposer({ inputId: 'group-chat-input', attachBtnId: 'group-attach-btn', fileInputId: 'group-file-input', onFiles: onFiles });
 })();

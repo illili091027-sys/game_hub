@@ -318,6 +318,18 @@ function bbTick(ts) {
   }
   b.x = Math.max(14, Math.min(BB_W - 14, b.x));
 
+  // 먹구름: 몸이 닿으면 '펑!' 하고 사라져요 (밟을 수는 없어요)
+  for (var di = 0; di < BB.clouds.length; di++) {
+    var dc = BB.clouds[di];
+    if (dc.type !== 'dark') continue;
+    if (dc.poofAt) { if (BB.t - dc.poofAt > 0.3) dc.gone = true; continue; }
+    if (Math.abs(b.x - dc.x) < dc.w * 0.45 && b.y < dc.y + 6 && b.y + 38 > dc.y - dc.w * 0.62) {
+      dc.poofAt = BB.t;
+      BB.pops.push({ x: dc.x, y: dc.y - dc.w * 0.2, text: '펑!', life: 0.7 });
+      for (var pk = 0; pk < 10; pk++) BB.sparkles.push({ x: dc.x + (Math.random() - 0.5) * dc.w * 0.8, y: dc.y - Math.random() * dc.w * 0.5, life: 0.6, vy: -30 - Math.random() * 60 });
+    }
+  }
+
   // 풍선
   BB.balloons.forEach(function (bl) {
     if (bl.taken) return;
@@ -596,6 +608,13 @@ function bbDrawCloud(ctx, c) {
     ctx.translate((Math.random() - 0.5) * 3, 0);
   }
   if (c.type === 'dark') {
+    if (c.poofAt) {
+      var pf = Math.min(1, (BB.t - c.poofAt) / 0.3);
+      ctx.globalAlpha = 1 - pf;
+      ctx.translate(c.x, top + c.w * 0.35);
+      ctx.scale(1 + pf * 0.5, 1 + pf * 0.5);
+      ctx.translate(-c.x, -(top + c.w * 0.35));
+    }
     bbCloudShape(ctx, c.x, top - 6, c.w, '#9aa3b4', '#5d687c', '#7c8698');
     ctx.strokeStyle = 'rgba(120,150,200,0.7)';
     ctx.lineWidth = 2;

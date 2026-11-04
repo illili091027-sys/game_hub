@@ -99,7 +99,7 @@ function DBgetPrefix(prefix, pids) {
       });
       return out;
     })
-    .catch(function () { BATCH_SUPPORTED = false; return oneByOne(); });
+    .catch(function (e) { if (e && e.message === 'nobatch') BATCH_SUPPORTED = false; return oneByOne(); }); /* 잠깐 끊긴 건 '일괄조회 없음'으로 착각하지 않게 */
 }
 
 function updateIdStatus() {
@@ -181,18 +181,69 @@ function roomHeartbeat() {
   fetch(cloudServerUrl + '/api/room/heartbeat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ room: me.room, playerId: myPlayerId })
-  }).then(function (r) { return r.json(); }).then(applyRoomState).catch(function () {});
+    body: JSON.stringify({ room: me.room, playerId: myPlayerId, name: me.name })
+  }).then(function (r) { return r.json(); }).then(function (s) {
+    ROOM_NET_FAILS = 0;
+    roomNetBadge(false);
+    applyRoomState(s);
+  }).catch(function () {
+    /* 와이파이가 잠깐 끊겨도 튕기지 않고 계속 다시 시도해요 */
+    ROOM_NET_FAILS++;
+    if (ROOM_NET_FAILS >= 3) roomNetBadge(true);
+  });
 }
+
+var ROOM_NET_FAILS = 0, ROOM_REJOINING = false;
+function roomNetBadge(show) {
+  var el = document.getElementById('net-badge');
+  if (!el) {
+    if (!show) return;
+    el = document.createElement('div');
+    el.id = 'net-badge';
+    el.className = 'net-badge';
+    el.textContent = '📶 서버 연결이 잠깐 끊겼어요… 다시 연결하는 중';
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? '' : 'none';
+}
+/* 잠깐 끊겼다 돌아왔는데 서버 명단에서 빠져 있으면(진짜 추방이 아니면) 조용히 다시 들어가요 */
+function roomSilentRejoin() {
+  if (ROOM_REJOINING || !roomJoined || !cloudServerUrl) return;
+  ROOM_REJOINING = true;
+  fetch(cloudServerUrl + '/api/room/join', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ room: me.room, playerId: myPlayerId, name: me.name, auto: true })
+  }).then(function (r) { return r.json(); }).then(function (s) {
+    ROOM_REJOINING = false;
+    if (s && s.players && s.players.some(function (p) { return p.id === myPlayerId; })) applyRoomState(s);
+    else if (s && s.kicked) roomKickedOut();
+  }).catch(function () { ROOM_REJOINING = false; });
+}
+function roomKickedOut() {
+  clearInterval(roomHeartbeatTimer);
+  roomJoined = false;
+  alert('방장에 의해 추방되었어요.');
+  backToModeSelect();
+}
+document.addEventListener('visibilitychange', function () {
+  /* 휴대폰 화면을 다시 켜거나 탭으로 돌아오면 바로 서버에 '나 여기 있어요' 알리기 */
+  if (document.visibilityState === 'visible' && roomJoined) roomHeartbeat();
+});
+window.addEventListener('pagehide', function () {
+  /* 창을 닫으면 바로 나간 것으로 처리 (명단에 계속 남아 있지 않게) */
+  if (!roomJoined || !cloudServerUrl || !myPlayerId) return;
+  try {
+    navigator.sendBeacon(cloudServerUrl + '/api/room/leave', new Blob([JSON.stringify({ room: me.room, playerId: myPlayerId })], { type: 'text/plain' }));
+  } catch (e) {}
+});
 
 function applyRoomState(state) {
   if (!state || !state.players) return;
   var amInRoom = state.players.some(function (p) { return p.id === myPlayerId; });
   if (!amInRoom) {
-    clearInterval(roomHeartbeatTimer);
-    roomJoined = false;
-    alert('방장에 의해 추방되었어요.');
-    backToModeSelect();
+    if (state.kicked) { roomKickedOut(); return; }
+    roomSilentRejoin();
     return;
   }
   roomHostId = state.hostId;
@@ -208,7 +259,7 @@ function applyRoomState(state) {
      표시해서(클릭해도 hostSelectGame에서 막힘) 채널 라운지는 누구나 항상 쓸 수 있습니다. */
   document.getElementById('card-grid').style.display = '';
   document.querySelectorAll('#card-grid .game-card').forEach(function (card) {
-    if (card.id === 'card-channels') { card.classList.remove('disabled'); return; }
+    if (card.id === 'card-channels' || card.id === 'card-homework') { card.classList.remove('disabled'); return; }
     card.classList.toggle('disabled', !amHost);
   });
   document.getElementById('lobby-hint').textContent = amHost
@@ -227,7 +278,7 @@ function applyRoomState(state) {
        방장이 게임을 아직 안 고른 상태(roomCurrentGame이 비어있음)에서 채널 라운지를
        열어도 하트비트가 돌 때마다(1.5~2초마다) "게임이 선택 안 됨 = 다들 홈으로"로
        착각해서 자꾸 홈으로 튕겨나가는 문제가 있었습니다. */
-    if (activeView && activeView.id !== 'home' && activeView.id !== 'channels') {
+    if (activeView && activeView.id !== 'home' && activeView.id !== 'channels' && activeView.id !== 'homework') {
       clearInterval(pollTimer);
       clearInterval(pixelTickTimer);
       document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
@@ -243,7 +294,7 @@ function renderLobbyPlayers(players) {
     var isHost = p.id === roomHostId;
     var isMe = p.id === myPlayerId;
     var row = '<div class="lobby-player" style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;">';
-    row += '<span>' + (isHost ? '👑 ' : '') + esc(p.name) + (isMe ? ' (나)' : '') + '</span>';
+    row += '<span>' + (isHost ? '👑 ' : '') + esc(p.name) + (isMe ? ' (나)' : '') + (p.away && !isMe ? ' <small style="opacity:.6">💤 잠깐 자리 비움</small>' : '') + '</span>';
     if (amHost && !isMe) {
       row += '<span>' +
         '<button class="btn btn-ghost" onclick="delegateHost(\'' + p.id + '\')">위임</button> ' +
@@ -293,6 +344,8 @@ function delegateHost(targetId) {
 
 function leaveRoomLocal() {
   clearInterval(roomHeartbeatTimer);
+  if (typeof HW_POLL !== 'undefined') { clearInterval(HW_POLL); clearInterval(HW_THREAD_POLL); clearInterval(HW_FOCUS_TICK); }
+  if (typeof ssUnmount === 'function') ssUnmount();
   stopGroupWidget();
   stopGameMembersBar();
   chLeaveCurrentChannel();
@@ -354,7 +407,7 @@ if (document.getElementById('in-server').value) {
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-homework', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
 var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
@@ -409,7 +462,7 @@ function renumberGameCards() {
   var cards = document.querySelectorAll('#card-grid .game-card');
   var n = 1;
   cards.forEach(function (card) {
-    if (card.id === 'card-channels') return;
+    if (card.id === 'card-channels' || card.id === 'card-homework') return;
     if (card.style.display === 'none') return;
     var iconEl = card.querySelector('.game-icon');
     if (iconEl) iconEl.textContent = String(n);
@@ -1064,6 +1117,7 @@ function groupSendChat() {
   var text = input.value.trim();
   if (!text || !roomJoined) return;
   input.value = '';
+  chatAutoGrow(input);
   chatSendText(groupChatKey(), text).then(function () { groupPoll(); });
   groupClearTyping();
 }
@@ -1158,9 +1212,6 @@ function gmbRender(typing) {
   var input = document.getElementById('group-chat-input');
   if (!input) return;
   input.addEventListener('input', groupHandleTyping);
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); groupSendChat(); }
-  });
 })();
 
 

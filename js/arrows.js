@@ -7,11 +7,12 @@
 /* minRay: 머리 앞쪽 길이 이 칸 수 이상인 화살표 위주로 놓아서(나중에 다른 화살표에 막히기 쉬움)
    서로 얽히고 순서가 중요한 어려운 판을 만들어요. */
 var AR_LEVELS = {
-  1: { w: 8, h: 10, minL: 2, maxL: 6, fill: 0.85, minRay: 2, name: '보통' },
-  2: { w: 10, h: 13, minL: 3, maxL: 8, fill: 0.88, minRay: 3, name: '어려움' },
-  3: { w: 12, h: 16, minL: 3, maxL: 11, fill: 0.9, minRay: 4, name: '아주 어려움' },
-  4: { w: 14, h: 19, minL: 4, maxL: 14, fill: 0.92, minRay: 5, name: '지옥' },
-  5: { w: 16, h: 22, minL: 4, maxL: 18, fill: 0.94, minRay: 6, name: '끝판왕' }
+  /* 1단계부터 꽤 복잡하게: 판을 키우고, 빈칸 거의 없이(fill), 꼬불꼬불(turn)하게 */
+  1: { w: 11, h: 14, minL: 3, maxL: 8,  fill: 0.94, minRay: 3, turn: 0.45, name: '복잡' },
+  2: { w: 13, h: 17, minL: 3, maxL: 11, fill: 0.95, minRay: 4, turn: 0.5,  name: '어려움' },
+  3: { w: 15, h: 20, minL: 4, maxL: 14, fill: 0.96, minRay: 5, turn: 0.55, name: '아주 어려움' },
+  4: { w: 17, h: 23, minL: 4, maxL: 18, fill: 0.97, minRay: 6, turn: 0.6,  name: '지옥' },
+  5: { w: 19, h: 26, minL: 5, maxL: 22, fill: 0.975, minRay: 7, turn: 0.65, name: '끝판왕' }
 };
 var AR_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 var AR_CELL = 10;
@@ -41,6 +42,7 @@ function arGenerate(lv) {
   var occ = [];
   for (var r = 0; r < H; r++) { occ.push([]); for (var c = 0; c < W; c++) occ[r].push(-1); }
   var arrows = [];
+  var order = []; /* 빼는 순서(앞에서부터). 풀 수 있는지 보장하는 데 써요 */
   var filled = 0, target = Math.floor(W * H * cfg.fill);
   function inside(r, c) { return r >= 0 && r < H && c >= 0 && c < W; }
   for (var attempt = 0; attempt < W * H * 120 && filled < target; attempt++) {
@@ -60,7 +62,7 @@ function arGenerate(lv) {
       if (!opts.length) break;
       // 대체로 곧게, 가끔 꺾이게
       var straight = opts.filter(function (d) { return d[0] === dir[0] && d[1] === dir[1]; });
-      var nd = (straight.length && Math.random() < 0.62) ? straight[0] : opts[Math.floor(Math.random() * opts.length)];
+      var nd = (straight.length && Math.random() > (cfg.turn || 0.38)) ? straight[0] : opts[Math.floor(Math.random() * opts.length)];
       dir = nd;
       var nr = last[0] + nd[0], nc = last[1] + nd[1];
       cells.push([nr, nc]);
@@ -82,17 +84,35 @@ function arGenerate(lv) {
     var id = arrows.length;
     cells.forEach(function (p) { occ[p[0]][p[1]] = id; });
     arrows.push({ cells: cells, dir: hd, gone: false });
+    order.unshift(id);
     filled += cells.length;
   }
-  /* 2차: 남은 빈칸을 짧은 화살표(2~4칸)로 촘촘하게 채우기 - 모든 빈칸에서 모든 방향을 시도 */
-  for (var pass = 0; pass < 3; pass++) {
-    for (var sr = 0; sr < H; sr++) for (var sc = 0; sc < W; sc++) {
-      if (occ[sr][sc] !== -1) continue;
+  /* 2차: 남은 빈칸을 빽빽하게 채우기.
+     풀 수 있는 판을 유지하는 두 가지 규칙 중 하나만 맞으면 놓을 수 있어요.
+     (가) "맨 먼저 빼는 화살표": 머리 앞 길이 지금 판 끝까지 비어 있음
+     (나) "맨 나중에 빼는 화살표": 내 몸이 다른 어떤 화살표의 앞길(광선) 위에도 없음
+     → 빼는 순서의 맨 앞/맨 뒤에 끼워 넣는 거라 항상 풀 수 있어요. */
+  var ray = [];
+  for (var rr0 = 0; rr0 < H; rr0++) { ray.push([]); for (var cc0 = 0; cc0 < W; cc0++) ray[rr0].push(0); }
+  function markRay(a) {
+    var h = a.cells[a.cells.length - 1], r = h[0] + a.dir[0], c = h[1] + a.dir[1];
+    while (inside(r, c)) { ray[r][c]++; r += a.dir[0]; c += a.dir[1]; }
+  }
+  arrows.forEach(markRay);
+  var fillMax = Math.min(cfg.maxL, 7);
+  for (var pass = 0; pass < 6; pass++) {
+    var cellsOrder = [];
+    for (var sr = 0; sr < H; sr++) for (var sc = 0; sc < W; sc++) if (occ[sr][sc] === -1) cellsOrder.push([sr, sc]);
+    cellsOrder = shuffleArray(cellsOrder);
+    for (var ci = 0; ci < cellsOrder.length; ci++) {
+      var sr2 = cellsOrder[ci][0], sc2 = cellsOrder[ci][1];
+      if (occ[sr2][sc2] !== -1) continue;
       var tries = shuffleArray(AR_DIRS);
-      for (var t = 0; t < tries.length; t++) {
-        var maxLen = 2 + Math.floor(Math.random() * 3);
-        var cs = [[sr, sc]], usd = {}; usd[sr + ',' + sc] = 1;
-        var dd = tries[t];
+      var placed = false;
+      for (var t = 0; t < tries.length * 3 && !placed; t++) {
+        var maxLen = 2 + Math.floor(Math.random() * (fillMax - 1));
+        var cs = [[sr2, sc2]], usd = {}; usd[sr2 + ',' + sc2] = 1;
+        var dd = tries[t % tries.length];
         for (var k2 = 1; k2 < maxLen; k2++) {
           var lst = cs[cs.length - 1];
           var cand = shuffleArray(AR_DIRS).filter(function (d) {
@@ -100,25 +120,65 @@ function arGenerate(lv) {
             return !(d[0] === -dd[0] && d[1] === -dd[1]) && inside(nr2, nc2) && occ[nr2][nc2] === -1 && !usd[nr2 + ',' + nc2];
           });
           if (!cand.length) break;
-          dd = cand[0];
+          var st2 = cand.filter(function (d) { return d[0] === dd[0] && d[1] === dd[1]; });
+          dd = (st2.length && Math.random() > (cfg.turn || 0.4)) ? st2[0] : cand[0];
           var np = [lst[0] + dd[0], lst[1] + dd[1]];
           cs.push(np); usd[np[0] + ',' + np[1]] = 1;
         }
         if (cs.length < 2) continue;
         var hh = cs[cs.length - 1];
         var hdir = [hh[0] - cs[cs.length - 2][0], hh[1] - cs[cs.length - 2][1]];
-        var ok2 = true, r3 = hh[0] + hdir[0], c3 = hh[1] + hdir[1];
-        while (inside(r3, c3)) { if (occ[r3][c3] !== -1 || usd[r3 + ',' + c3]) { ok2 = false; break; } r3 += hdir[0]; c3 += hdir[1]; }
-        if (!ok2) continue;
-        var ray2 = 0, r4 = hh[0] + hdir[0], c4 = hh[1] + hdir[1];
-        while (inside(r4, c4)) { ray2++; r4 += hdir[0]; c4 += hdir[1]; }
-        if (ray2 < 2 && Math.random() > 0.25) continue;
+        /* 자기 몸에 막히면 안 됨 */
+        var selfBlock = false, frontOk = true, r3 = hh[0] + hdir[0], c3 = hh[1] + hdir[1];
+        while (inside(r3, c3)) {
+          if (usd[r3 + ',' + c3]) { selfBlock = true; break; }
+          if (occ[r3][c3] !== -1) frontOk = false;
+          r3 += hdir[0]; c3 += hdir[1];
+        }
+        if (selfBlock) continue;
+        var backOk = cs.every(function (q) { return ray[q[0]][q[1]] === 0; });
+        if (!frontOk && !backOk) continue;
         var id2 = arrows.length;
         cs.forEach(function (p2) { occ[p2[0]][p2[1]] = id2; });
-        arrows.push({ cells: cs, dir: hdir, gone: false });
-        break;
+        var na = { cells: cs, dir: hdir, gone: false };
+        arrows.push(na);
+        markRay(na);
+        if (frontOk) order.unshift(id2); else order.push(id2);
+        placed = true;
       }
     }
+  }
+  /* 3차: 남은 빈칸으로 화살표 꼬리를 늘려서 구멍 메우기.
+     화살표 A의 꼬리를 빈칸 e로 늘려도 되는 조건: A보다 먼저 빠지는 화살표들의 앞길이 e를 지나지 않음 */
+  function rayCells(a) {
+    var out = {}, h = a.cells[a.cells.length - 1], r = h[0] + a.dir[0], c = h[1] + a.dir[1];
+    while (inside(r, c)) { out[r + ',' + c] = 1; r += a.dir[0]; c += a.dir[1]; }
+    return out;
+  }
+  for (var gp = 0; gp < 8; gp++) {
+    var grew = false;
+    var before = {}; /* 지금까지(앞 순서) 화살표들의 광선 칸 */
+    for (var oi = 0; oi < order.length; oi++) {
+      var A = arrows[order[oi]];
+      var own = rayCells(A);
+      for (var ext = 0; ext < 6 && A.cells.length < cfg.maxL + 5; ext++) {
+        var tail = A.cells[0], nxt = A.cells[1];
+        var cands = shuffleArray(AR_DIRS).map(function (d) { return [tail[0] + d[0], tail[1] + d[1]]; }).filter(function (q) {
+          if (!inside(q[0], q[1]) || occ[q[0]][q[1]] !== -1) return false;
+          if (nxt && q[0] === nxt[0] && q[1] === nxt[1]) return false;
+          var k = q[0] + ',' + q[1];
+          return !before[k] && !own[k];
+        });
+        if (!cands.length) break;
+        var q0 = cands[0];
+        A.cells.unshift(q0);
+        occ[q0[0]][q0[1]] = order[oi];
+        grew = true;
+      }
+      var rc = rayCells(A);
+      for (var key in rc) before[key] = 1;
+    }
+    if (!grew) break;
   }
   return { w: W, h: H, arrows: arrows };
 }

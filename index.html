@@ -72,6 +72,13 @@ window.addEventListener('load', function () {
         </div>
         <div class="game-desc" id="desc-channels">디스코드처럼 여러 개의 대화방(채널)을 만들고, 누가 어떤 채널에 들어가있는지 미리 보면서 원하는 채널에 들어가 따로따로 대화할 수 있어요. 아무도 없는 채널은 자동으로 사라져요.</div>
       </button>
+      <button class="game-card" id="card-homework" onclick="openHomework()">
+        <div class="game-card-top">
+          <div class="game-icon">📚</div>
+          <div class="game-name">과제하기</div>
+        </div>
+        <div class="game-desc" id="desc-homework">우리끼리 과제방! 과제 목록을 같이 정리하고, 다 했는지 체크하고, 자료랑 질문을 나눠요.</div>
+      </button>
       <!-- 온라인 게임들 (혼자하기 모드에서는 숨김 - 혼자하기는 영어 낱말 찾기 전용) -->
       <button class="game-card" id="card-sudoku" onclick="cardClicked('sudoku')">
         <div class="game-card-top">
@@ -740,7 +747,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1104-4]</span></p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1104-6]</span></p>
   </div>
 </div>
 
@@ -792,11 +799,11 @@ window.addEventListener('load', function () {
     <div id="ar-difficulty-select">
       <p class="game-sub">화살표를 누르면 머리 방향으로 쭉 빠져나가요. 막히면 하트가 줄어요!</p>
       <div class="diff-grid diff-5">
-        <button class="cat-btn diff-btn" data-lv="1" onclick="arChooseLevel(1)"><span class="diff-lv">1</span><span class="diff-text"><span class="diff-name">쉬움</span><span class="diff-info">6×7 · 짧은 화살표</span></span><span class="diff-stars">★☆☆☆☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="2" onclick="arChooseLevel(2)"><span class="diff-lv">2</span><span class="diff-text"><span class="diff-name">보통</span><span class="diff-info">8×10</span></span><span class="diff-stars">★★☆☆☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="3" onclick="arChooseLevel(3)"><span class="diff-lv">3</span><span class="diff-text"><span class="diff-name">어려움</span><span class="diff-info">10×13</span></span><span class="diff-stars">★★★☆☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="4" onclick="arChooseLevel(4)"><span class="diff-lv">4</span><span class="diff-text"><span class="diff-name">아주 어려움</span><span class="diff-info">12×16 · 긴 화살표</span></span><span class="diff-stars">★★★★☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="5" onclick="arChooseLevel(5)"><span class="diff-lv">5</span><span class="diff-text"><span class="diff-name">끝판왕</span><span class="diff-info">14×19 · 빽빽!</span></span><span class="diff-stars">★★★★★</span></button>
+        <button class="cat-btn diff-btn" data-lv="1" onclick="arChooseLevel(1)"><span class="diff-lv">1</span><span class="diff-text"><span class="diff-name">복잡</span><span class="diff-info">11×14 · 꼬불꼬불</span></span><span class="diff-stars">★☆☆☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="2" onclick="arChooseLevel(2)"><span class="diff-lv">2</span><span class="diff-text"><span class="diff-name">어려움</span><span class="diff-info">13×17</span></span><span class="diff-stars">★★☆☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="3" onclick="arChooseLevel(3)"><span class="diff-lv">3</span><span class="diff-text"><span class="diff-name">아주 어려움</span><span class="diff-info">15×20</span></span><span class="diff-stars">★★★☆☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="4" onclick="arChooseLevel(4)"><span class="diff-lv">4</span><span class="diff-text"><span class="diff-name">지옥</span><span class="diff-info">17×23 · 긴 화살표</span></span><span class="diff-stars">★★★★☆</span></button>
+        <button class="cat-btn diff-btn" data-lv="5" onclick="arChooseLevel(5)"><span class="diff-lv">5</span><span class="diff-text"><span class="diff-name">끝판왕</span><span class="diff-info">19×26 · 빽빽!</span></span><span class="diff-stars">★★★★★</span></button>
       </div>
     </div>
     <div id="ar-game-area" style="display:none">
@@ -980,6 +987,66 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="homework" class="view">
+  <div class="wrap hw-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="closeHomework()">← 홈으로</button>
+      <span class="room-pill" id="hw-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">📚 과제하기</h2>
+    <p class="game-sub">우리끼리 과제방이에요. 같은 방 코드로 들어온 친구들과 과제를 같이 정리하고 서로 도와줘요.</p>
+
+    <div class="ss-bar" id="hw-ss-bar"></div>
+    <div class="hw-focus board-box" id="hw-focus"></div>
+
+    <div class="hw-form board-box" id="hw-form">
+      <div class="hw-sec-title">과제 적기</div>
+      <div class="hw-form-row">
+        <input type="text" id="hw-subject" placeholder="과목 (예: 국어)" maxlength="12" list="hw-subjects" />
+        <input type="text" id="hw-title" placeholder="과제 내용 (예: 독서록 1편 쓰기)" maxlength="80" />
+      </div>
+      <datalist id="hw-subjects"><option value="국어"><option value="수학"><option value="영어"><option value="사회"><option value="과학"><option value="정보"><option value="체육"><option value="음악"><option value="미술"><option value="수행평가"><option value="모둠과제"></datalist>
+      <textarea id="hw-desc" rows="2" placeholder="자세한 설명 (선택) - 범위, 분량, 링크 등" maxlength="600"></textarea>
+      <div class="hw-form-row">
+        <label class="hw-due-label">마감 <input type="date" id="hw-due" /></label>
+        <input type="time" id="hw-due-time" title="마감 시간 (선택)" />
+        <span class="hw-spacer"></span>
+        <button class="btn btn-ghost" id="hw-cancel-edit" style="display:none" onclick="hwResetForm()">취소</button>
+        <button class="btn btn-primary" id="hw-add-btn" onclick="hwSubmitForm()">+ 과제 추가</button>
+      </div>
+      <div class="pixel-err" id="hw-form-err"></div>
+    </div>
+
+    <div class="hw-list-head">
+      <div class="hw-filter">
+        <button data-f="all" class="on" onclick="hwSetFilter('all')">전체</button>
+        <button data-f="todo" onclick="hwSetFilter('todo')">아직 안 한 것</button>
+        <button data-f="done" onclick="hwSetFilter('done')">다 한 것</button>
+      </div>
+      <span class="hw-count" id="hw-count"></span>
+    </div>
+    <div class="hw-list" id="hw-list"></div>
+    <p class="hw-note">💾 과제 목록은 각자 브라우저에도 저장돼서, 서버가 다시 켜져도 들어오면 자동으로 복구돼요. (매번 같은 방 코드로 들어오세요!)</p>
+  </div>
+
+  <div class="hw-thread" id="hw-thread" style="display:none">
+    <div class="hw-thread-card">
+      <div class="hw-thread-head">
+        <span class="hw-thread-title" id="hw-thread-title"></span>
+        <button class="btn btn-ghost" onclick="hwCloseThread()">닫기 ✕</button>
+      </div>
+      <div class="chat-scroll hw-messages" id="hw-messages"></div>
+      <div class="pixel-err" id="hw-upload-err"></div>
+      <div class="chat-composer">
+        <button type="button" class="chat-attach-btn" id="hw-attach-btn" title="사진/파일 올리기">📎</button>
+        <input type="file" id="hw-file-input" multiple style="display:none" />
+        <textarea id="hw-chat-input" class="chat-textarea" rows="1" placeholder="자료나 질문 남기기 (Shift+Enter 줄바꿈)" maxlength="500" autocomplete="off"></textarea>
+        <button type="button" class="btn btn-primary chat-send-btn" onclick="hwSendThread()">전송</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="channels" class="view">
   <div class="wrap">
     <div class="topbar">
@@ -1007,12 +1074,13 @@ window.addEventListener('load', function () {
             <div class="ch-room-sub" id="ch-inside-members"></div>
           </div>
         </div>
+        <div class="ss-bar ss-bar-ch" id="ch-ss-bar"></div>
         <div class="ch-messages chat-scroll" id="ch-messages"></div>
         <div class="chat-upload-err" id="ch-upload-err"></div>
         <div class="chat-composer">
           <button type="button" class="chat-attach-btn" id="ch-attach-btn" title="사진·파일 올리기">📎</button>
           <input type="file" id="ch-file-input" multiple hidden />
-          <input type="text" id="ch-chat-input" placeholder="메시지 입력 (링크도 OK)" maxlength="500" autocomplete="off" oninput="groupHandleTyping()" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();chSendMessage();}" />
+          <textarea id="ch-chat-input" class="chat-textarea" rows="1" placeholder="메시지 입력 (Shift+Enter 줄바꿈)" maxlength="500" autocomplete="off" oninput="groupHandleTyping()"></textarea>
           <button type="button" class="chat-send-btn" onclick="chSendMessage()">전송</button>
         </div>
       </div>
@@ -1062,7 +1130,7 @@ window.addEventListener('load', function () {
       <div class="chat-composer compact">
         <button type="button" class="chat-attach-btn" id="group-attach-btn" title="사진·파일 올리기">📎</button>
         <input type="file" id="group-file-input" multiple hidden />
-        <input type="text" id="group-chat-input" placeholder="메시지 입력..." maxlength="500" autocomplete="off" />
+        <textarea id="group-chat-input" class="chat-textarea" rows="1" placeholder="메시지 입력..." maxlength="500" autocomplete="off"></textarea>
         <button type="button" class="chat-send-btn" onclick="groupSendChat()">전송</button>
       </div>
     </div>
@@ -1103,5 +1171,7 @@ window.addEventListener('load', function () {
 <script src="js/land.js"></script>
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
+<script src="js/screenshare.js"></script>
+<script src="js/homework.js"></script>
 </body>
 </html>
