@@ -37,6 +37,7 @@ window.addEventListener('load', function () {
     <div class="mode-select" id="mode-select">
       <button class="mode-btn" onclick="chooseMode('solo')">혼자 할래요<span>바로 시작, 저장 없음</span></button>
       <button class="mode-btn" onclick="chooseMode('online')">친구랑 온라인으로<span>같은 방 코드로 같이 플레이</span></button>
+      <button class="mode-btn mode-hw" onclick="chooseHomeworkMode()">📚 과제하기<span>채팅하며 같이 PPT 만들기 · 자료 공유</span></button>
     </div>
     <button class="mode-back" id="mode-back" style="display:none" onclick="backToModeSelect()">← 모드 다시 고르기</button>
 
@@ -59,6 +60,7 @@ window.addEventListener('load', function () {
     <div class="lobby-panel" id="lobby-panel" style="display:none;margin-bottom:20px;">
       <div class="lobby-players" id="lobby-players"></div>
       <div class="lobby-hint" id="lobby-hint" style="margin-top:10px;font-weight:700;"></div>
+      <button class="btn btn-primary lobby-hw-btn" id="btn-back-hw" style="display:none" onclick="openHomework()">📚 과제방으로 돌아가기</button>
     </div>
 
     <div class="card-grid" id="card-grid" style="display:none">
@@ -71,13 +73,6 @@ window.addEventListener('load', function () {
           <div class="game-name">채널 라운지</div>
         </div>
         <div class="game-desc" id="desc-channels">디스코드처럼 여러 개의 대화방(채널)을 만들고, 누가 어떤 채널에 들어가있는지 미리 보면서 원하는 채널에 들어가 따로따로 대화할 수 있어요. 아무도 없는 채널은 자동으로 사라져요.</div>
-      </button>
-      <button class="game-card" id="card-homework" onclick="openHomework()">
-        <div class="game-card-top">
-          <div class="game-icon">📚</div>
-          <div class="game-name">과제하기</div>
-        </div>
-        <div class="game-desc" id="desc-homework">우리끼리 과제방! 과제 목록을 같이 정리하고, 다 했는지 체크하고, 자료랑 질문을 나눠요.</div>
       </button>
       <!-- 온라인 게임들 (혼자하기 모드에서는 숨김 - 혼자하기는 영어 낱말 찾기 전용) -->
       <button class="game-card" id="card-sudoku" onclick="cardClicked('sudoku')">
@@ -988,61 +983,114 @@ window.addEventListener('load', function () {
 </div>
 
 <div id="homework" class="view">
-  <div class="wrap hw-wrap">
+  <div class="pj-wrap">
     <div class="topbar">
-      <button class="back-btn" onclick="closeHomework()">← 홈으로</button>
+      <button class="back-btn" onclick="closeHomework()">🎮 게임 화면</button>
+      <span class="pj-head-title">📚 과제방</span>
       <span class="room-pill" id="hw-room-pill">방</span>
     </div>
-    <h2 class="game-heading">📚 과제하기</h2>
-    <p class="game-sub">우리끼리 과제방이에요. 같은 방 코드로 들어온 친구들과 과제를 같이 정리하고 서로 도와줘요.</p>
-
     <div class="ss-bar" id="hw-ss-bar"></div>
-    <div class="hw-focus board-box" id="hw-focus"></div>
-
-    <div class="hw-form board-box" id="hw-form">
-      <div class="hw-sec-title">과제 적기</div>
-      <div class="hw-form-row">
-        <input type="text" id="hw-subject" placeholder="과목 (예: 국어)" maxlength="12" list="hw-subjects" />
-        <input type="text" id="hw-title" placeholder="과제 내용 (예: 독서록 1편 쓰기)" maxlength="80" />
-      </div>
-      <datalist id="hw-subjects"><option value="국어"><option value="수학"><option value="영어"><option value="사회"><option value="과학"><option value="정보"><option value="체육"><option value="음악"><option value="미술"><option value="수행평가"><option value="모둠과제"></datalist>
-      <textarea id="hw-desc" rows="2" placeholder="자세한 설명 (선택) - 범위, 분량, 링크 등" maxlength="600"></textarea>
-      <div class="hw-form-row">
-        <label class="hw-due-label">마감 <input type="date" id="hw-due" /></label>
-        <input type="time" id="hw-due-time" title="마감 시간 (선택)" />
-        <span class="hw-spacer"></span>
-        <button class="btn btn-ghost" id="hw-cancel-edit" style="display:none" onclick="hwResetForm()">취소</button>
-        <button class="btn btn-primary" id="hw-add-btn" onclick="hwSubmitForm()">+ 과제 추가</button>
-      </div>
-      <div class="pixel-err" id="hw-form-err"></div>
+    <div class="pj-tabs" id="pj-tabs">
+      <button data-t="deck" class="on" onclick="pjTab('deck')">🖼 발표 자료</button>
+      <button data-t="files" onclick="pjTab('files')">📁 자료실 <span id="pj-files-n"></span></button>
+      <button data-t="chat" class="pj-tab-chat" onclick="pjTab('chat')">💬 채팅 <span class="pj-badge" id="pj-chat-badge"></span></button>
     </div>
-
-    <div class="hw-list-head">
-      <div class="hw-filter">
-        <button data-f="all" class="on" onclick="hwSetFilter('all')">전체</button>
-        <button data-f="todo" onclick="hwSetFilter('todo')">아직 안 한 것</button>
-        <button data-f="done" onclick="hwSetFilter('done')">다 한 것</button>
+    <div class="pj-body">
+      <div class="pj-main">
+        <!-- 발표 자료 목록 -->
+        <section class="pj-pane" id="pj-pane-decks">
+          <div class="pj-link-box">
+            <div class="pj-link-head">🎨 미리캔버스로 같이 만들기 <span class="pj-link-sub">(캔바 · 구글 슬라이드 링크도 돼요)</span></div>
+            <ol class="pj-howto">
+              <li><a href="https://www.miricanvas.com" target="_blank" rel="noopener noreferrer"><b>미리캔버스 열기 ↗</b></a>에서 한 명이 프레젠테이션 디자인을 새로 만들어요.</li>
+              <li>미리캔버스 오른쪽 위 <b>공유</b>에서 친구들이 <b>같이 편집할 수 있는 링크</b>를 복사해요.</li>
+              <li>아래에 붙여넣고 <b>📌 꽂기</b>! 친구들은 카드를 눌러 각자 로그인하면 같이 만들 수 있어요.</li>
+            </ol>
+            <div class="pj-link-row">
+              <input type="text" id="pj-ext-url" placeholder="공유 링크 붙여넣기 (https://www.miricanvas.com/...)" maxlength="500" />
+              <input type="text" id="pj-ext-name" placeholder="이름 (선택, 예: 3모둠 발표)" maxlength="40" />
+              <button class="btn btn-primary" onclick="pjAddExternal()">📌 꽂기</button>
+            </div>
+            <div class="pixel-err" id="pj-ext-err"></div>
+          </div>
+          <div class="pj-sec-label">✍️ 또는 여기서 직접 만들기 (로그인 필요 없음 · PPT 파일로 내려받기 가능)</div>
+          <div class="pj-deck-new">
+            <input type="text" id="pj-new-deck" placeholder="새 발표 자료 이름 (예: 3모둠 환경 발표)" maxlength="40" />
+            <button class="btn btn-primary" onclick="pjCreateDeck()">+ 새로 만들기</button>
+          </div>
+          <div class="pj-sec-label">📂 우리 방 발표 자료</div>
+          <div class="pj-deck-list" id="pj-deck-list"></div>
+        </section>
+        <!-- 꽂아둔 외부 디자인(미리캔버스 등) -->
+        <section class="pj-pane" id="pj-pane-ext" style="display:none">
+          <div class="pj-ed-top">
+            <button class="btn btn-ghost" onclick="pjCloseDeck()">← 목록</button>
+            <span class="pj-ext-badge" id="pj-ext-badge"></span>
+            <span class="pj-ext-title" id="pj-ext-title"></span>
+            <span class="hw-spacer"></span>
+            <button class="btn btn-ghost" onclick="pjCopyExt()">🔗 링크 복사</button>
+            <a class="btn btn-primary" id="pj-ext-open" target="_blank" rel="noopener noreferrer">✏️ 열어서 같이 편집 ↗</a>
+          </div>
+          <div class="pj-ext-frame-wrap" id="pj-ext-frame-wrap"></div>
+          <p class="pj-ext-tip" id="pj-ext-tip"></p>
+        </section>
+        <!-- 발표 자료 편집 -->
+        <section class="pj-pane" id="pj-pane-editor" style="display:none">
+          <div class="pj-ed-top">
+            <button class="btn btn-ghost" onclick="pjCloseDeck()">← 목록</button>
+            <input type="text" class="pj-deck-title" id="pj-deck-title" maxlength="40" />
+            <div class="pj-themes" id="pj-themes"></div>
+            <span class="hw-spacer"></span>
+            <button class="btn btn-ghost" onclick="pjPresent()">▶ 발표하기</button>
+            <button class="btn btn-ghost" onclick="pjExportPptx()">⬇ PPT 파일</button>
+          </div>
+          <div class="pj-ed">
+            <div class="pj-thumbs" id="pj-thumbs"></div>
+            <div class="pj-stage">
+              <div class="pj-lock" id="pj-lock" style="display:none"></div>
+              <div class="pj-canvas-wrap"><div class="pj-canvas" id="pj-canvas"></div></div>
+              <div class="pj-form" id="pj-form">
+                <div class="pj-layouts" id="pj-layouts"></div>
+                <input type="text" id="pj-s-title" placeholder="제목" maxlength="80" />
+                <textarea id="pj-s-body" rows="4" placeholder="내용 (한 줄에 하나씩 쓰면 글머리표가 돼요)" maxlength="1200"></textarea>
+                <div class="pj-img-row">
+                  <button class="btn btn-ghost" onclick="document.getElementById('pj-img-input').click()">🖼 사진 올리기</button>
+                  <button class="btn btn-ghost" onclick="pjPickFromFiles()">📁 자료실에서 고르기</button>
+                  <button class="btn btn-ghost" id="pj-img-remove" onclick="pjRemoveImage()">사진 빼기</button>
+                  <input type="file" id="pj-img-input" accept="image/*" style="display:none" />
+                  <span class="hw-spacer"></span>
+                  <span class="pj-saved" id="pj-saved"></span>
+                </div>
+                <textarea id="pj-s-note" rows="2" placeholder="발표 메모 (발표할 때 할 말 - 화면엔 안 나와요)" maxlength="600"></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- 자료실 -->
+        <section class="pj-pane" id="pj-pane-files" style="display:none">
+          <div class="pj-file-add">
+            <button class="btn btn-primary" onclick="document.getElementById('pj-file-up').click()">⬆ 사진·파일 올리기</button>
+            <input type="file" id="pj-file-up" multiple style="display:none" />
+            <input type="text" id="pj-link-url" placeholder="링크 주소 (https://...)" maxlength="300" />
+            <input type="text" id="pj-link-memo" placeholder="설명 (선택)" maxlength="60" />
+            <button class="btn btn-ghost" onclick="pjAddLink()">🔗 링크 추가</button>
+          </div>
+          <div class="pixel-err" id="pj-file-err"></div>
+          <div class="pj-file-grid" id="pj-file-grid"></div>
+        </section>
       </div>
-      <span class="hw-count" id="hw-count"></span>
-    </div>
-    <div class="hw-list" id="hw-list"></div>
-    <p class="hw-note">💾 과제 목록은 각자 브라우저에도 저장돼서, 서버가 다시 켜져도 들어오면 자동으로 복구돼요. (매번 같은 방 코드로 들어오세요!)</p>
-  </div>
-
-  <div class="hw-thread" id="hw-thread" style="display:none">
-    <div class="hw-thread-card">
-      <div class="hw-thread-head">
-        <span class="hw-thread-title" id="hw-thread-title"></span>
-        <button class="btn btn-ghost" onclick="hwCloseThread()">닫기 ✕</button>
-      </div>
-      <div class="chat-scroll hw-messages" id="hw-messages"></div>
-      <div class="pixel-err" id="hw-upload-err"></div>
-      <div class="chat-composer">
-        <button type="button" class="chat-attach-btn" id="hw-attach-btn" title="사진/파일 올리기">📎</button>
-        <input type="file" id="hw-file-input" multiple style="display:none" />
-        <textarea id="hw-chat-input" class="chat-textarea" rows="1" placeholder="자료나 질문 남기기 (Shift+Enter 줄바꿈)" maxlength="500" autocomplete="off"></textarea>
-        <button type="button" class="btn btn-primary chat-send-btn" onclick="hwSendThread()">전송</button>
-      </div>
+      <!-- 채팅 (PC에서는 오른쪽에 항상) -->
+      <aside class="pj-chat" id="pj-chat">
+        <div class="pj-chat-head">💬 채팅 <span class="pj-chat-who" id="pj-chat-who"></span></div>
+        <div class="chat-scroll compact pj-messages" id="pj-chat-messages"></div>
+        <div class="chat-upload-err" id="pj-upload-err"></div>
+        <div class="chat-composer compact">
+          <button type="button" class="chat-attach-btn" id="pj-attach-btn" title="사진/파일 올리기">📎</button>
+          <input type="file" id="pj-file-input" multiple style="display:none" />
+          <textarea id="pj-chat-input" class="chat-textarea" rows="1" placeholder="메시지 (Shift+Enter 줄바꿈)" maxlength="500" autocomplete="off"></textarea>
+          <button type="button" class="btn btn-primary chat-send-btn" onclick="pjSendChat()">전송</button>
+        </div>
+      </aside>
     </div>
   </div>
 </div>
@@ -1172,6 +1220,7 @@ window.addEventListener('load', function () {
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 <script src="js/screenshare.js"></script>
+<script src="js/pptx-writer.js"></script>
 <script src="js/homework.js"></script>
 </body>
 </html>

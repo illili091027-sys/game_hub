@@ -171,6 +171,12 @@ function joinRoom() {
     clearInterval(roomHeartbeatTimer);
     roomHeartbeatTimer = setInterval(roomHeartbeat, 1500);
     startGroupWidget();
+    if (typeof ssMount === 'function') ssMount('room'); /* 화면 공유는 방 전체에서 하나 - 홈/게임으로 가도 계속돼요 */
+    if (HW_MODE) {
+      /* 첫 화면에서 '과제하기'로 들어왔으면 입장하자마자 과제방으로 */
+      try { localStorage.setItem('gamehub_hw_room', me.room); localStorage.setItem('gamehub_hw_name', me.name); } catch (e) {}
+      setTimeout(function () { if (roomJoined) openHomework(); }, 50);
+    }
   }).catch(function () {
     alert('방 입장에 실패했어요. 서버 주소가 맞는지 확인해주세요.');
   });
@@ -344,7 +350,7 @@ function delegateHost(targetId) {
 
 function leaveRoomLocal() {
   clearInterval(roomHeartbeatTimer);
-  if (typeof HW_POLL !== 'undefined') { clearInterval(HW_POLL); clearInterval(HW_THREAD_POLL); clearInterval(HW_FOCUS_TICK); }
+  if (typeof pjStopAll === 'function') pjStopAll();
   if (typeof ssUnmount === 'function') ssUnmount();
   stopGroupWidget();
   stopGameMembersBar();
@@ -407,12 +413,30 @@ if (document.getElementById('in-server').value) {
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-homework', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
 var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
 
+/* 첫 화면의 '📚 과제하기': 온라인 입장 화면을 그대로 쓰되, 지난번 과제방 코드/이름을 채워 두고
+   입장하면 바로 과제방이 열려요. (과제방은 매번 같은 방 코드로 들어와야 목록이 이어져요) */
+var HW_MODE = false;
+function chooseHomeworkMode() {
+  chooseMode('online');
+  HW_MODE = true;
+  var room = null, name = null;
+  try { room = localStorage.getItem('gamehub_hw_room'); name = localStorage.getItem('gamehub_hw_name'); } catch (e) {}
+  if (room) { document.getElementById('in-room').value = room; me.room = room; }
+  if (name && !document.getElementById('in-name').value) { document.getElementById('in-name').value = name; me.name = name; }
+  document.getElementById('btn-join-room').textContent = '📚 과제방 입장하기';
+  document.getElementById('home-footer').textContent = '과제방은 친구들과 매번 같은 방 코드로 들어와야 과제 목록이 이어져요. (지난번 방 코드를 기억해 뒀어요)';
+  updateIdStatus();
+}
+
 function chooseMode(mode) {
+  HW_MODE = false;
+  var bbh = document.getElementById('btn-back-hw'); if (bbh) bbh.style.display = 'none';
+  var jb = document.getElementById('btn-join-room'); if (jb) jb.textContent = '입장하기';
   playMode = mode;
   document.body.classList.toggle('is-online', mode === 'online');
   document.getElementById('mode-select').style.display = 'none';

@@ -137,7 +137,7 @@ function enterChannel(chId) {
   document.getElementById('ch-messages').innerHTML = '';
   document.getElementById('ch-upload-err').textContent = '';
   CH_CHAT_TRACKER = { lastSig: null, pending: [] };
-  if (typeof ssMount === 'function') ssMount('ch_' + chId, 'ch-ss-bar');
+  if (typeof ssRenderBar === 'function') setTimeout(ssRenderBar, 0);
   chHeartbeat(chId).then(function () { if (chId === CH_CURRENT_ID) chPollInside(); });
   clearInterval(CH_MEMBER_HEARTBEAT_TIMER);
   CH_MEMBER_HEARTBEAT_TIMER = setInterval(function () { chHeartbeat(CH_CURRENT_ID); }, 2000);
@@ -157,7 +157,6 @@ function backToChannelList() {
 /* 채널을 나갈 때(목록으로 돌아가거나, 라운지를 닫거나, 방을 나갈 때) 내 하트비트를 바로
    지워서 다른 사람 화면에서 즉시 반영되게 합니다(안 지워도 8초 뒤엔 어차피 사라짐). */
 function chLeaveCurrentChannel() {
-  if (typeof ssUnmount === 'function' && SS.scope && SS.scope.indexOf('ch_') === 0) ssUnmount();
   clearInterval(CH_MEMBER_HEARTBEAT_TIMER);
   clearInterval(CH_CHAT_POLL_TIMER);
   if (CH_CURRENT_ID) {
