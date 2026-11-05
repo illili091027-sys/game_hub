@@ -203,7 +203,7 @@ function pjRenderDecks() {
       (pv ? '<div class="pj-deck-ico pj-pv" style="background:' + pv.color + '">' + pv.icon + '</div>' : '<div class="pj-deck-ico">🖼</div>') +
       '<div class="pj-deck-info"><div class="pj-deck-name">' + esc(d.title) + '</div>' +
       '<div class="pj-deck-meta">' + (pv ? pv.name + ' · ' + esc(d.byName || '') + '님이 꽂음' : esc(d.byName || '') + '님이 만듦') + '</div></div>' +
-      (pv ? '<a class="btn btn-primary pj-deck-open" href="' + esc(d.url) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">✏️ 같이 편집 ↗</a>' : '') +
+      (pv ? (pv.id === 'miri' ? '<span class="btn btn-primary pj-deck-open">✏️ 열기</span>' : '<a class="btn btn-primary pj-deck-open" href="' + esc(d.url) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">✏️ 같이 편집 ↗</a>') : '') +
       '<button class="hw-icon-btn" title="삭제" onclick="event.stopPropagation();pjDeleteDeck(\'' + d.id + '\',\'' + esc(d.title).replace(/'/g, '&#39;') + '\')">🗑️</button>' +
     '</div>';
   }).join('');
@@ -226,7 +226,7 @@ function pjEmbedUrl(url) {
   var m;
   if ((m = url.match(/canva\.com\/design\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?/))) return 'https://www.canva.com/design/' + m[1] + '/' + (m[2] && !/^(edit|view|watch)$/.test(m[2]) ? m[2] + '/' : '') + 'view?embed';
   if ((m = url.match(/docs\.google\.com\/presentation\/d\/([A-Za-z0-9_-]+)/))) return 'https://docs.google.com/presentation/d/' + m[1] + '/embed?start=false&loop=false&delayms=3000';
-  if (/miricanvas\.com\/v\//i.test(url)) return url; /* 미리캔버스 '웹으로 보기' 링크 */
+  if (/miricanvas\.com/i.test(url)) return url; /* 미리캔버스: 공유 링크 그대로 왼쪽 화면 안에 띄워요 */
   return null;
 }
 function pjAddExternal() {
@@ -260,8 +260,10 @@ function pjOpenExternal(d) {
   document.getElementById('pj-ext-open').href = d.url;
   var emb = pjEmbedUrl(d.url);
   var wrap = document.getElementById('pj-ext-frame-wrap');
+  wrap.classList.toggle('tall', pv.id === 'miri');
   wrap.innerHTML = emb
-    ? '<iframe src="' + esc(emb) + '" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
+    ? '<iframe src="' + esc(emb) + '" allow="clipboard-read; clipboard-write; fullscreen" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>' +
+      '<div class="pj-ext-fallback">화면이 안 나오거나 로그인이 안 되면 → <a href="' + esc(d.url) + '" target="_blank" rel="noopener noreferrer">✏️ 새 창으로 열기 ↗</a></div>'
     : '<div class="pj-ext-card"><div class="pj-pv big" style="background:' + pv.color + '">' + pv.icon + '</div><div class="pj-ext-card-t">' + esc(d.title) + '</div>' +
       '<div class="pj-ext-card-s">' + pv.name + ' 편집 화면은 여기 안에 바로 띄울 수 없어서 새 창으로 열려요.</div>' +
       '<a class="btn btn-primary" href="' + esc(d.url) + '" target="_blank" rel="noopener noreferrer">✏️ 열어서 같이 편집 ↗</a></div>';

@@ -1,4 +1,4 @@
-/* ---------------- 먼작귀 땅따먹기 (온라인, 2~10명, 실시간) ----------------
+/* ---------------- 땅따먹기 (온라인, 2~10명, 실시간) ----------------
    내 땅(색칠된 칸)에서 밖으로 나가면 꼬리(선)가 생기고, 다시 내 땅으로 돌아오면 꼬리로 둘러싼
    공간이 전부 내 땅이 돼요. 내가 밖에 나가 있을 때 다른 사람이 내 꼬리를 밟거나, 내가 내 꼬리를
    밟으면 탈락(3초 뒤 작은 땅에서 다시 시작). 2분 동안 땅을 가장 넓게 차지한 사람이 승리!
@@ -252,7 +252,7 @@ function ldPublish(force) {
   LD_PUB_BUSY = true;
   DBset(ldMyKey(), {
     gameId: LD.gameId, name: me.name, color: LD.color, char: LD.char,
-    x: LD.x, y: LD.y, dir: LD.dir, alive: LD.alive, t: now,
+    x: LD.x, y: LD.y, fx: Math.round(ldHeadPos()[0] * 100) / 100, fy: Math.round(ldHeadPos()[1] * 100) / 100, dir: LD.dir, alive: LD.alive, t: now,
     mask: ldB64(LD.mask), cap: LD.cap, trail: LD.trail.slice(-400), hits: LD.hits.slice(),
     score: score, kills: LD.kills, deaths: LD.deaths, killedBy: LD.killedBy
   }).then(function () {
@@ -286,6 +286,18 @@ function ldNetTick() {
       d.lerpDur = prev ? Math.max(120, Math.min(450, now - (prev.recvAt || now))) : 200;
       d.recvAt = now;
       d.prevX = prev ? prev.x : d.x; d.prevY = prev ? prev.y : d.y;
+      /* 위치 기록(보낸 시각 + 부드러운 위치)을 모아 두고, 0.2초 전 모습을 이어서 그려요 */
+      d.hist = (prev && prev.hist) ? prev.hist : [];
+      var hx0 = d.fx != null ? d.fx : d.x, hy0 = d.fy != null ? d.fy : d.y;
+      var lastH = d.hist[d.hist.length - 1];
+      if (lastH && (Math.abs(lastH.x - hx0) + Math.abs(lastH.y - hy0) > 4 || d.alive !== (prev && prev.alive))) d.hist = []; /* 다시 시작 등 순간이동 */
+      if (!lastH || d.t > lastH.t) d.hist.push({ t: d.t, x: hx0, y: hy0 });
+      if (d.hist.length > 30) d.hist.splice(0, d.hist.length - 30);
+      var off = now - d.t;
+      d.clockOff = prev && prev.clockOff != null ? Math.min(prev.clockOff + 2, off) : off; /* 서로 시계 차이(가장 빨리 온 값 기준) */
+      /* 인터넷이 느릴수록(늦게 도착할수록) 조금 더 뒤의 모습을 그려서 끊기지 않게 - 자동 조절 */
+      var lag = off - d.clockOff;
+      d.lagMax = Math.max(lag, ((prev && prev.lagMax) || 0) * 0.97);
       /* 그 사람이 나를 끊었다고 확정되면(내 화면 말고 상대 화면이 판정) 내 '꼬리 끊기' 횟수 +1 */
       if (prev && (d.deaths || 0) > (prev.deaths || 0) && d.killedBy === myPlayerId) {
         LD.kills++;
@@ -413,6 +425,43 @@ function ldFrame(ts) {
   ldDraw();
 }
 
+/* 내 머리 위치: '지금 칸 → 다음 칸' 사이를 끊김 없이 이어서 (칸을 넘는 순간에도 위치가 그대로 이어져요) */
+function ldHeadPos() {
+  if (!LD) return [0, 0];
+  var t = LD.alive ? Math.max(0, Math.min(1, LD.stepT)) : 0;
+  var nxp = LD.x + LD.dir[0], nyp = LD.y + LD.dir[1];
+  if (nxp < 0 || nyp < 0 || nxp >= LD_G || nyp >= LD_G) t = 0;
+  return [LD.x + LD.dir[0] * t, LD.y + LD.dir[1] * t];
+}
+/* 친구 위치: 받은 칸에서 그 친구 방향으로 일정한 속도로 미리 움직여 그리고(예측),
+   새 위치를 받으면 화면 위치를 살살 당겨서 맞춰요 → 속도가 들쭉날쭉하지 않게 */
+var LD_INTERP_DELAY = 380;
+var LD_DELAY_S = {};
+function ldOtherDisplay(d, now) {
+  var h = d.hist;
+  if (!h || !h.length) return { x: d.x, y: d.y };
+  var target = Math.max(LD_INTERP_DELAY, Math.min(900, (d.lagMax || 0) + 280));
+  /* 지연 시간은 아주 천천히만 바꿔서(갑자기 바뀌면 화면이 튀어요) */
+  var delay = LD_DELAY_S[d.name || ''] != null ? LD_DELAY_S[d.name || ''] : target;
+  delay += (target - delay) * 0.01;
+  LD_DELAY_S[d.name || ''] = delay;
+  var rt = now - (d.clockOff || 0) - delay;
+  if (rt <= h[0].t) return { x: h[0].x, y: h[0].y };
+  for (var i = h.length - 1; i > 0; i--) {
+    if (h[i - 1].t <= rt) {
+      if (rt <= h[i].t) {
+        var k = (rt - h[i - 1].t) / Math.max(1, h[i].t - h[i - 1].t);
+        return { x: h[i - 1].x + (h[i].x - h[i - 1].x) * k, y: h[i - 1].y + (h[i].y - h[i - 1].y) * k };
+      }
+      break;
+    }
+  }
+  /* 새 기록이 늦게 오면 마지막 방향으로 조금(최대 1칸)만 이어서 */
+  var L = h[h.length - 1], dir = d.dir || [0, 0];
+  var ahead = Math.min(1, Math.max(0, (rt - L.t) / 1000 * LD_SPEED));
+  return { x: Math.max(0, Math.min(LD_G - 1, L.x + dir[0] * ahead)), y: Math.max(0, Math.min(LD_G - 1, L.y + dir[1] * ahead)) };
+}
+
 function ldResize() {
   var rect = LD_CANVAS.getBoundingClientRect();
   LD_DPR = window.devicePixelRatio || 1;
@@ -427,17 +476,14 @@ function ldDraw() {
   var big = LD_BIGMAP;
   var cell = big ? Math.min(W, H) / (LD_G + 1) : Math.max(10, Math.min(W, H) / 22);
   /* 머리는 '지금 칸 → 다음 칸' 사이를 그려서 누르는 즉시 반응하는 느낌 */
-  var t = LD.alive ? Math.min(1, LD.stepT) : 0;
-  var nxp = LD.x + LD.dir[0], nyp = LD.y + LD.dir[1];
-  var blocked = nxp < 0 || nyp < 0 || nxp >= LD_G || nyp >= LD_G;
-  var hx = blocked ? LD.x : LD.x + LD.dir[0] * t * 0.85, hy = blocked ? LD.y : LD.y + LD.dir[1] * t * 0.85;
+  var hp0 = ldHeadPos(), hx = hp0[0], hy = hp0[1];
   var camX, camY;
   if (big) { camX = (LD_G * cell - W) / 2; camY = (LD_G * cell - H) / 2; }
   else {
     var tx = hx * cell + cell / 2 - W / 2, ty = hy * cell + cell / 2 - H / 2;
     var cs = ldDraw.cam;
     if (!cs || Math.abs(cs.x - tx) > W || Math.abs(cs.y - ty) > H || cs.cell !== cell) cs = ldDraw.cam = { x: tx, y: ty, cell: cell };
-    cs.x += (tx - cs.x) * 0.25; cs.y += (ty - cs.y) * 0.25;
+    cs.x += (tx - cs.x) * 0.35; cs.y += (ty - cs.y) * 0.35;
     camX = cs.x; camY = cs.y;
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -498,7 +544,7 @@ function ldDraw() {
   Object.keys(LD_OTHERS).forEach(function (pid) {
     var d = LD_OTHERS[pid];
     if (!d.alive) return;
-    var p = ldOtherPos(d, now);
+    var p = ldOtherDisplay(d, now);
     drawHead(p.x, p.y, d.color, d.char, d.name || '', false);
   });
   if (LD.alive) drawHead(hx, hy, LD.color, LD.char, me.name, true);
@@ -514,18 +560,24 @@ function ldDraw() {
   if (now - LD_MM_AT > 300) { LD_MM_AT = now; ldDrawMinimap(); }
 }
 
+/* 작은 지도: 칸마다 사각형을 그리지 않고 한 번에 픽셀로 찍어서 렉 없이 */
+var LD_MM_IMG = null, LD_MM_CV = null;
+function ldHexRgb(c) { var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c || '') || [0, 'cc', 'cc', 'cc']; return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)]; }
 function ldDrawMinimap() {
   var mm = document.getElementById('ld-minimap');
   var ctx = mm.getContext('2d');
-  var s = mm.width / LD_G;
-  ctx.fillStyle = '#f7f9fc'; ctx.fillRect(0, 0, mm.width, mm.height);
+  if (!LD_MM_CV || LD_MM_CV.width !== LD_G) { LD_MM_CV = document.createElement('canvas'); LD_MM_CV.width = LD_MM_CV.height = LD_G; LD_MM_IMG = LD_MM_CV.getContext('2d').createImageData(LD_G, LD_G); }
+  var d = LD_MM_IMG.data, cols = {};
   for (var id = 0; id < LD_G * LD_G; id++) {
-    var o = LD_OWNER[id];
-    if (o < 0) continue;
-    var x = id % LD_G, y = (id - x) / LD_G;
-    ctx.fillStyle = ldOwnerColor(o);
-    ctx.fillRect(x * s, y * s, s + 0.3, s + 0.3);
+    var o = LD_OWNER[id], q = id * 4;
+    if (o < 0) { d[q] = 247; d[q + 1] = 249; d[q + 2] = 252; d[q + 3] = 255; continue; }
+    var c = cols[o] || (cols[o] = ldHexRgb(ldOwnerColor(o)));
+    d[q] = c[0]; d[q + 1] = c[1]; d[q + 2] = c[2]; d[q + 3] = 255;
   }
+  LD_MM_CV.getContext('2d').putImageData(LD_MM_IMG, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(LD_MM_CV, 0, 0, mm.width, mm.height);
+  var s = mm.width / LD_G;
   ctx.fillStyle = '#263238';
   if (LD.alive) { ctx.beginPath(); ctx.arc(LD.x * s + s / 2, LD.y * s + s / 2, 3, 0, Math.PI * 2); ctx.fill(); }
 }

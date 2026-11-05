@@ -413,7 +413,7 @@ if (document.getElementById('in-server').value) {
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-mafia', 'card-werewolf', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-land'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-land'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
 var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
@@ -482,9 +482,19 @@ function chooseMode(mode) {
    있었습니다("숫자 정렬이 안 맞음"). 그래서 모드를 고를 때마다 지금 실제로 화면에 보이는
    카드만 순서대로 다시 세어서 번호를 새로 매깁니다. 0번 채널 라운지는 게임이 아니라 항상
    0번 고정이라 이 번호 매기기에서 제외합니다. */
+/* 카드 색: 보이는 순서대로 8가지 파스텔 색을 돌려가며 입혀서, 옆 카드끼리 색이 겹치지 않게 */
+var CARD_COLORS = ['#F2C744', '#6FC3DF', '#F2836B', '#B79CE8', '#6FC364', '#E89CC8', '#F2A65A', '#7FD8BE'];
 function renumberGameCards() {
   var cards = document.querySelectorAll('#card-grid .game-card');
   var n = 1;
+  var ci = 0;
+  cards.forEach(function (card) {
+    if (card.style.display === 'none') return;
+    card.style.setProperty('--c', CARD_COLORS[ci % CARD_COLORS.length]);
+    ci++;
+    var nm = card.querySelector('.game-name');
+    if (nm) nm.classList.toggle('long', nm.textContent.trim().length > 7);
+  });
   cards.forEach(function (card) {
     if (card.id === 'card-channels' || card.id === 'card-homework') return;
     if (card.style.display === 'none') return;
@@ -512,7 +522,7 @@ function backToModeSelect() {
   playMode = null;
 }
 
-var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'mafia', 'werewolf', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'land'];
+var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'land'];
 var SOLO_ONLY_GAME_IDS = ['wordsearch', 'stork', 'arrows', 'mermaid'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
@@ -760,7 +770,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', mafia: 'mf-room-pill', werewolf: 'ww-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', land: 'ld-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', land: 'ld-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
@@ -771,8 +781,6 @@ function enterGame(gameId) {
     if (gameId === 'sudoku') startSudokuGame();
     else if (gameId === 'bomb') startBombGame();
     else if (gameId === 'quiz') startQuiz();
-    else if (gameId === 'mafia') startMafiaGame();
-    else if (gameId === 'werewolf') startWerewolfGame();
     else if (gameId === 'hues') startHuesGame();
     else if (gameId === 'tapple') startTappleGame();
     else if (gameId === 'baby') startBabyGame();
@@ -782,6 +790,7 @@ function enterGame(gameId) {
     else if (gameId === 'relay') startRelayGame();
     else if (gameId === 'bingo') startBingoGame();
     else if (gameId === 'tickbomb') startTickBombGame();
+    else if (gameId === 'dobble') startDobbleGame();
     else if (gameId === 'land') startLandGame();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
@@ -809,13 +818,12 @@ function enterGame(gameId) {
 var GAME_ROOM_STATE_KEYS = {
   sudoku: ['sudoku'],
   quiz: ['quiz'],
-  mafia: ['mafia'],
-  werewolf: ['werewolf'],
   hues: ['hues'],
   tapple: ['tapple'],
   relay: ['relay'],
   bingo: ['bingo'],
   tickbomb: ['tickbomb'],
+  dobble: ['dobble'],
   land: ['land'],
   baby: ['baby_round']
 };
@@ -826,6 +834,7 @@ var GAME_PER_PLAYER_STATE_KEYS = {
   relay: 'rl_',
   bingo: 'bg_',
   tickbomb: 'tb_o_',
+  dobble: 'db_',
   land: 'ld_'
 };
 var GAME_VOTE_KEYS = ['sudoku'];
@@ -854,8 +863,6 @@ function goHome() {
   stopBombGame();
   clearInterval(QZ_TIMER_INTERVAL);
   clearTimeout(QZ_ADVANCE_TIMER);
-  stopMafiaGame();
-  stopWerewolfGame();
   stopHuesGame();
   stopTappleGame();
   stopBabyGame();
@@ -865,6 +872,7 @@ function goHome() {
   stopRelayGame();
   stopBingoGame();
   stopTickBombGame();
+  stopDobbleGame();
   stopLandGame();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }

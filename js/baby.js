@@ -65,7 +65,7 @@ function startBabyGame() {
     bbHideResult();
     DBget(bbRoundKey()).then(function (r) {
       BB_ROUND = (r && r.round) || 0;
-      bbSetMine({ name: me.name, status: 'playing', age: 1, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
+      bbSetMine({ name: me.name, status: 'playing', age: 0, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
     });
     clearInterval(BB_OPP_TIMER);
     BB_OPP_TIMER = setInterval(bbRenderOpponents, 1000);
@@ -111,10 +111,11 @@ function bbNewRun(withCountdown) {
     clouds: [ground], balloons: [], sparkles: [], pops: [],
     lastPathY: 40, lastPathX: BB_W / 2, nextBalloonY: 600,
     practice: playMode === 'online' && BB_OFFICIAL !== null,
-    ride: null, lastRainbowY: 0
+    ride: null, lastRainbowY: 0, evolve: null
   };
   bbGenerate();
   document.getElementById('bb-over').style.display = 'none';
+  document.getElementById('bb-over').classList.remove('win');
   var pz = document.getElementById('bb-pause'); if (pz) pz.style.display = 'none';
   var pzb = document.getElementById('bb-pause-btn'); if (pzb) pzb.textContent = '⏸';
   document.getElementById('bb-mode-tag').textContent = BB.practice ? '🎈 연습 중 (기록 안 남아요)' : (playMode === 'online' ? '🏁 기록 도전 중 (첫 판만 인정!)' : '');
@@ -186,8 +187,39 @@ function bbGo() {
 
 /* 나이(AGE)는 천천히: 2400 높이마다 1살 (예전 650의 약 4배 느림).
    난이도(구름 간격·스크롤 속도·하늘색)는 bbLvl()로 따로 계산해서 예전처럼 올라가요. */
-var BB_AGE_UNIT = 2400;
-function bbAge() { return Math.floor(BB.maxH / BB_AGE_UNIT) + 1; }
+var BB_AGE_UNIT = 2400; /* (예전 값, 이제는 아래 bbAgeOf 로 계산) */
+/* 나이: 0살에서 시작해서 100살이 되면 성공!
+   어릴 땐 천천히(0~19살: 900높이에 1살), 어른부터 조금 빠르게(20~59살: 600), 할머니·할아버지는 더 빠르게(60~100살: 450)
+   → 잘하면 7~10분쯤에 100살 */
+var BB_WIN_AGE = 100;
+function bbAgeOf(h) {
+  h = h || 0;
+  if (h < 18000) return Math.floor(h / 900);
+  if (h < 42000) return 20 + Math.floor((h - 18000) / 600);
+  return Math.min(BB_WIN_AGE, 60 + Math.floor((h - 42000) / 450));
+}
+function bbAge() { return bbAgeOf(BB.maxH); }
+/* 나이 단계: 0~7 아기 / 8~13 초등학생 / 14~19 학생 / 20~39 어른 / 40~59 중년 / 60~100 할머니·할아버지 */
+var BB_STAGE_FROM = [0, 8, 14, 20, 40, 60];
+var BB_STAGE_NAMES = ['아기', '초등학생', '중고등학생', '어른', '중년', '할머니·할아버지'];
+var BB_STAGE_POPS = ['👶 아기', '🎒 초등학생이 됐어요!', '🏫 중고등학생이 됐어요!', '💼 어른이 됐어요!', '☕ 중년이 됐어요!', '👵 할머니·할아버지가 됐어요!'];
+function bbStage(age) { var s = 0; for (var i = 0; i < BB_STAGE_FROM.length; i++) if (age >= BB_STAGE_FROM[i]) s = i; return s; }
+var BB_AGE_IMG_CACHE = {};
+/* 나이에 맞는 캐릭터 그림 (나이별 그림이 있는 캐릭터만 바뀌고, 나머지는 원래 그림) */
+function bbCharSrc(id, age) {
+  var set = typeof BB_AGE_CHARS !== 'undefined' && id && BB_AGE_CHARS[id];
+  if (set) return set[bbStage(age || 0)].src;
+  var c = id && charById(id);
+  return c ? c.src : '';
+}
+function bbCharImg(id, age) {
+  var set = typeof BB_AGE_CHARS !== 'undefined' && id && BB_AGE_CHARS[id];
+  if (!set) return charImage(id);
+  var k = id + ':' + bbStage(age || 0);
+  var im = BB_AGE_IMG_CACHE[k];
+  if (!im) { im = new Image(); im.src = set[bbStage(age || 0)].src; BB_AGE_IMG_CACHE[k] = im; }
+  return im;
+}
 function bbLvl() { return Math.floor(BB.maxH / 650) + 1; }
 function bbScore() { return Math.floor(BB.maxH / 4) + BB.bonus; }
 
@@ -257,6 +289,19 @@ function bbTick(ts) {
   if (!BB || !BB.running) return;
   var dt = BB.lastTs ? Math.min(0.033, (ts - BB.lastTs) / 1000) : 0.016;
   BB.lastTs = ts;
+  /* 변신 중: 잠깐 멈추고 깜빡깜빡 (구름·캐릭터 모두 멈춤) */
+  if (BB.evolve) {
+    BB.evolve.el += dt;
+    BB.sparkles.forEach(function (s) { s.life -= dt; s.y += s.vy * dt; });
+    BB.sparkles = BB.sparkles.filter(function (s) { return s.life > 0; });
+    BB.pops.forEach(function (p) { p.life -= dt * 0.5; });
+    if (BB.evolve.el >= BB.evolve.dur) BB.evolve = null;
+    bbDraw();
+    bbUpdateHud();
+    bbPublishView();
+    BB_RAF = requestAnimationFrame(bbTick);
+    return;
+  }
   BB.t += dt;
   var b = BB.baby;
   var age = bbLvl();
@@ -359,7 +404,15 @@ function bbTick(ts) {
   // 높이/나이
   var prevAge = bbAge();
   if (b.y > BB.maxH) BB.maxH = b.y;
-  if (bbAge() > prevAge) BB.pops.push({ x: BB_W / 2, y: BB.camY + BB_H * 0.7, text: '🎂 ' + bbAge() + '살!', life: 1.4, fixed: true });
+  var nowAge = bbAge();
+  if (nowAge > prevAge) {
+    if (bbStage(nowAge) > bbStage(prevAge)) {
+      BB.pops.push({ x: BB_W / 2, y: BB.camY + BB_H * 0.7, text: BB_STAGE_POPS[bbStage(nowAge)], life: 2.2, fixed: true });
+      if (nowAge < BB_WIN_AGE) bbStartEvolve(bbStage(prevAge), bbStage(nowAge));
+      for (var gs = 0; gs < 16; gs++) BB.sparkles.push({ x: b.x + (Math.random() * 60 - 30), y: b.y + Math.random() * 50, life: 1, vy: -40 - Math.random() * 80 });
+    } else BB.pops.push({ x: BB_W / 2, y: BB.camY + BB_H * 0.7, text: '🎂 ' + nowAge + '살!', life: 1.4, fixed: true });
+  }
+  if (nowAge >= BB_WIN_AGE) { bbWin(); return; }
 
   // 카메라: 저절로 올라가지 않고, 내가 올라간 만큼만 따라 올라가요 (내려가지는 않음)
   var want = b.y - BB_H * 0.42;
@@ -387,6 +440,8 @@ function bbTick(ts) {
 function bbUpdateHud() {
   var a = bbAge();
   document.getElementById('bb-age').textContent = (a < 10 ? '0' : '') + a;
+  var st = document.getElementById('bb-stage-name');
+  if (st) st.textContent = BB_STAGE_NAMES[bbStage(a)];
   var sc = String(bbScore());
   document.getElementById('bb-score').textContent = ('0000000' + sc).slice(-Math.max(7, sc.length));
 }
@@ -461,8 +516,10 @@ function bbDrawSpectate() {
   };
   BB_CHAR = v.char;
   try { bbDraw(); } finally { BB = real; BB_CHAR = realChar; }
-  var a = Math.floor((v.maxH || 0) / BB_AGE_UNIT) + 1;
+  var a = bbAgeOf(v.maxH || 0);
   document.getElementById('bb-age').textContent = (a < 10 ? '0' : '') + a;
+  var st = document.getElementById('bb-stage-name');
+  if (st) st.textContent = BB_STAGE_NAMES[bbStage(a)];
   var sc = String(Math.floor((v.maxH || 0) / 4) + (v.bonus || 0));
   document.getElementById('bb-score').textContent = ('0000000' + sc).slice(-Math.max(7, sc.length));
   if (stale) document.getElementById('bb-spec-label').textContent = '👀 ' + BB_SPEC_NAME + ' 님은 지금 쉬는 중 · 화면을 누르면 닫기';
@@ -510,6 +567,54 @@ function bbDie() {
   over.style.display = '';
 }
 
+/* ---- 변신(나이 단계가 바뀔 때): 1.6초 멈춤 + 예전/새 모습이 깜빡깜빡 + 효과음 ---- */
+var BB_EVOLVE_AUDIO = null;
+function bbStartEvolve(from, to) {
+  BB.evolve = { from: from, to: to, el: 0, dur: 1.6 };
+  BB_KEYS.left = BB_KEYS.right = false;
+  try {
+    if (typeof BB_EVOLVE_SOUND !== 'undefined') {
+      if (!BB_EVOLVE_AUDIO) BB_EVOLVE_AUDIO = new Audio(BB_EVOLVE_SOUND);
+      BB_EVOLVE_AUDIO.currentTime = 0;
+      var pr = BB_EVOLVE_AUDIO.play();
+      if (pr && pr.catch) pr.catch(function () {});
+    }
+  } catch (e) {}
+}
+
+/* ---- 100살 달성! 성공 ---- */
+function bbWin() {
+  if (!BB || BB.over) return;
+  BB.running = false;
+  BB.over = true;
+  BB.won = true;
+  BB.bonus += 1000;
+  bbUpdateHud();
+  bbDraw();
+  var age = BB_WIN_AGE, score = bbScore();
+  var over = document.getElementById('bb-over');
+  var pic = BB_CHAR ? '<img class="bb-win-pic" src="' + bbCharSrc(BB_CHAR, age) + '" alt="" />' : '';
+  var html = '<div class="bb-win-burst">🎉</div>' + pic +
+    '<div class="bb-over-title">100살 달성! 성공!</div>' +
+    '<div class="bb-over-rec">아기부터 할머니·할아버지까지 다 컸어요 · <b>' + score + '점</b> (+1000 보너스)</div>';
+  if (playMode === 'online') {
+    if (BB_OFFICIAL === null) {
+      BB_OFFICIAL = { age: age, score: score };
+      bbSetMine({ name: me.name, status: 'dead', age: age, score: score, done: true, success: true, practicing: false, char: BB_CHAR, ts: Date.now() });
+      html += '<div class="bb-over-sub">🏆 공식 기록으로 확정! 친구들이 끝나면 최종 순위가 나와요.</div>';
+    } else html += '<div class="bb-over-sub">(연습 판이라 공식 기록은 그대로예요)</div>';
+    bbRenderOpponents();
+  } else {
+    if (score > BB_BEST_SOLO) BB_BEST_SOLO = score;
+  }
+  html += '<div class="bb-over-btns"><button class="btn btn-primary" onclick="bbRetry()">' + (playMode === 'online' ? '연습 계속하기' : '다시 하기') + '</button>' +
+    '<button class="btn btn-ghost" onclick="bbChangeChar()">캐릭터 바꾸기</button></div>';
+  over.innerHTML = html;
+  over.classList.add('win');
+  over.style.display = '';
+  try { if (typeof mmSound === 'function') mmSound('win'); } catch (e) {}
+}
+
 function bbRetry(mode) {
   if (playMode === 'online' && roomJoined) {
     DBget(bbKey(myPlayerId)).then(function (d) {
@@ -547,7 +652,7 @@ function bbRenderOpponents() {
       var watching = BB_SPECTATE === r.p.id;
       return '<div class="bb-player' + (isMe ? ' me' : '') + (d.done ? ' done' : '') + (canWatch ? ' watchable' : '') + (watching ? ' watching' : '') + '"' +
         (canWatch ? ' onclick="' + (watching ? 'bbStopSpectate(true)' : 'bbSpectate(\'' + r.p.id + '\', \'' + esc(r.p.name).replace(/'/g, '') + '\')') + '"' : '') + '>' +
-        '<div class="bb-player-top"><span class="bb-player-name">' + (d.char && charById(d.char) ? '<img class="bb-player-char" src="' + charById(d.char).src + '" alt="" />' : '') + esc(r.p.name) + (isMe ? ' (나)' : '') + '</span><span class="bb-player-age">AGE ' + (d.age || 1) + '</span></div>' +
+        '<div class="bb-player-top"><span class="bb-player-name">' + (d.char && charById(d.char) ? '<img class="bb-player-char" src="' + bbCharSrc(d.char, d.age || 0) + '" alt="" />' : '') + esc(r.p.name) + (isMe ? ' (나)' : '') + '</span><span class="bb-player-age">AGE ' + (d.age || 0) + '</span></div>' +
         '<div class="bb-player-bottom"><span>' + status + '</span><b>' + (d.score || 0) + '점</b></div>' +
         (canWatch ? '<div class="bb-watch-hint">' + (watching ? '👀 보는 중 (누르면 닫기)' : '👀 눌러서 크게 보기') + '</div>' : '') + '</div>';
     }).join('');
@@ -555,7 +660,7 @@ function bbRenderOpponents() {
     if (allDone) {
       finalEl.style.display = '';
       renderRankBoard('bb-final-rank', sorted.map(function (r) {
-        return { name: r.p.name, isMe: r.p.id === myPlayerId, label: 'AGE ' + ((r.d && r.d.age) || 1) + ' · ' + ((r.d && r.d.score) || 0) + '점' };
+        return { name: r.p.name, isMe: r.p.id === myPlayerId, label: 'AGE ' + ((r.d && r.d.age) || 0) + ' · ' + ((r.d && r.d.score) || 0) + '점' };
       }));
       if (!BB_FINAL_SHOWN) { BB_FINAL_SHOWN = true; bbShowResult(sorted); }
     } else {
@@ -572,9 +677,9 @@ function bbShowResult(sorted) {
   box.innerHTML = '<div class="bb-res-title">🏁 모두 끝! 최종 순위</div>' +
     '<div class="bb-res-list">' + sorted.map(function (r, i) {
       var d = r.d || {};
-      var ch = d.char && charById(d.char) ? '<img src="' + charById(d.char).src + '" alt="" />' : '';
+      var ch = d.char && charById(d.char) ? '<img src="' + bbCharSrc(d.char, d.age || 0) + '" alt="" />' : '';
       return '<div class="bb-res-row' + (r.p.id === myPlayerId ? ' me' : '') + '"><span class="bb-res-rank">' + (medals[i] || (i + 1) + '등') + '</span>' + ch +
-        '<span class="bb-res-name">' + esc(r.p.name) + (r.p.id === myPlayerId ? ' (나)' : '') + '</span><span class="bb-res-score">AGE ' + (d.age || 1) + ' · <b>' + (d.score || 0) + '점</b></span></div>';
+        '<span class="bb-res-name">' + esc(r.p.name) + (r.p.id === myPlayerId ? ' (나)' : '') + '</span><span class="bb-res-score">AGE ' + (d.age || 0) + ' · <b>' + (d.score || 0) + '점</b></span></div>';
     }).join('') + '</div>' +
     '<div class="bb-res-count" id="bb-res-count"></div>' +
     '<button class="btn btn-primary bb-res-btn" onclick="bbRequestNewRound()">🔄 지금 새 게임 시작</button>';
@@ -616,7 +721,7 @@ function bbStartNewRound(n) {
   bbHideResult();
   document.getElementById('bb-final').style.display = 'none';
   if (BB_SPECTATE) bbStopSpectate(false);
-  bbSetMine({ name: me.name, status: 'playing', age: 1, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
+  bbSetMine({ name: me.name, status: 'playing', age: 0, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
   bbNewRun(true);
   bbRenderOpponents();
 }
@@ -731,7 +836,15 @@ function bbDrawCloud(ctx, c) {
 /* 아기 그리기 - 둥근 얼굴, 앞머리 한 줌, 기저귀. 점프 중엔 팔을 번쩍 들어요. */
 function bbDrawBaby(ctx) {
   var b = BB.baby;
-  var img = charImage(BB_CHAR);
+  var img = bbCharImg(BB_CHAR, bbAgeOf(BB.maxH));
+  var ev = BB.evolve;
+  if (ev) {
+    /* 깜빡깜빡: 처음엔 느리게, 끝으로 갈수록 빠르게 예전 모습 ↔ 새 모습 */
+    var k = ev.el / ev.dur;
+    var period = 0.22 - k * 0.15;
+    var showOld = k < 0.85 && Math.floor(ev.el / period) % 2 === 0;
+    img = bbCharImg(BB_CHAR, BB_STAGE_FROM[showOld ? ev.from : ev.to]);
+  }
   var x = b.x, feet = bbSY(b.y) + 4;
   ctx.save();
   ctx.translate(x, feet);
@@ -746,7 +859,25 @@ function bbDrawBaby(ctx) {
     ctx.shadowBlur = 4;
     ctx.shadowOffsetY = 2;
     if (BB.over) ctx.globalAlpha = 0.85;
+    if (ev) {
+      /* 변신 빛: 하얗게 번쩍이는 테두리 */
+      var glow = 0.5 + 0.5 * Math.sin(ev.el * 30);
+      ctx.shadowColor = 'rgba(255,240,150,' + (0.6 + 0.4 * glow) + ')';
+      ctx.shadowBlur = 18 + 14 * glow;
+      ctx.shadowOffsetY = 0;
+      var sc = 1 + 0.12 * Math.sin(ev.el * 18) * (1 - ev.el / ev.dur);
+      ctx.scale(sc, sc);
+    }
     ctx.drawImage(img, -w / 2, -h, w, h);
+    if (ev && Math.floor(ev.el / 0.1) % 2 === 0 && ev.el < ev.dur * 0.8) {
+      /* 캐릭터 부분만 환하게 (같은 그림을 '더하기'로 한 번 더 그려서 배경은 안 바뀌게) */
+      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.7;
+      ctx.drawImage(img, -w / 2, -h, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
   } else {
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(0, -28, 26, 0, Math.PI * 2); ctx.fill();

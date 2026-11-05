@@ -1420,3 +1420,56 @@
 .bb-res-name { flex: 1; text-align: left; font-weight: 800; }
 .bb-res-score { font-size: 13px; }
 .bb-res-count { font-size: 15px; opacity: .9; }
+/* 먼작귀 키우기: 나이 단계 · 100살 성공 */
+.bb-stage-name { font-family: "Noto Sans KR", sans-serif; font-weight: 800; font-size: 12px; color: #fff; background: rgba(90,58,16,0.55); border-radius: 99px; padding: 2px 8px; margin-top: 4px; align-self: flex-start; }
+.bb-over.win { background: radial-gradient(circle, rgba(255,214,90,0.85), rgba(232,80,138,0.8)); }
+.bb-win-pic { width: 120px; height: 120px; object-fit: contain; animation: mmBob 1.2s ease-in-out infinite; filter: drop-shadow(0 4px 8px rgba(0,0,0,.3)); }
+.bb-win-burst { font-size: 44px; animation: mmPulse .7s infinite; }
+.pj-ext-frame-wrap { position: relative; }
+.pj-ext-frame-wrap.tall { aspect-ratio: auto; height: calc(100vh - 210px); min-height: 480px; }
+.pj-ext-fallback { position: absolute; left: 8px; bottom: 8px; background: rgba(20,30,25,.85); color: #fff; font-size: 12px; padding: 5px 10px; border-radius: 99px; }
+.pj-ext-fallback a { color: #ffd76a; font-weight: 800; }
+/* 홈 카드 색 정리: 카드마다 자기 색(--c)으로 테두리 + 연한 바탕 + 숫자 동그라미 */
+.game-card { --c: #F2C744; border-color: color-mix(in srgb, var(--c) 70%, transparent) !important; background: color-mix(in srgb, var(--c) 9%, transparent) !important; }
+.game-card:hover { background: color-mix(in srgb, var(--c) 16%, transparent) !important; }
+.game-card .game-icon { color: var(--c) !important; border-color: var(--c) !important; background: color-mix(in srgb, var(--c) 16%, transparent); }
+#card-hues .game-icon { background: conic-gradient(from 0deg, rgba(242,131,107,0.3), rgba(242,199,68,0.3), rgba(111,195,100,0.3), rgba(111,195,223,0.3), rgba(183,156,232,0.3), rgba(242,131,107,0.3)); }
+.game-card .game-name.long { font-size: 21px; letter-spacing: -0.02em; }
+.game-card .game-name { overflow: hidden; text-overflow: ellipsis; }
+.game-card.disabled { opacity: 0.5; }
+/* ===================== 얼른 버려! ===================== */
+.db-wrap { max-width: 900px; }
+.db-players { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.db-player { display: flex; align-items: center; gap: 8px; background: rgba(245,243,231,0.07); border: 1.5px solid var(--boardLine); border-radius: 99px; padding: 5px 12px; font-size: 14px; transition: transform .2s, border-color .2s; }
+.db-player.me { border-color: var(--yellow); }
+.db-player.got { border-color: #6FC364; transform: scale(1.08); background: rgba(111,195,100,0.2); }
+.db-pname { font-weight: 800; }
+.db-pstack { display: inline-flex; }
+.db-pstack i { width: 12px; height: 12px; border-radius: 50%; background: #F2C744; border: 2px solid #B79CE8; margin-left: -5px; }
+.db-msg { text-align: center; min-height: 28px; font-size: 16px; margin: 6px 0 10px; }
+.db-msg.good { color: #9be08f; } .db-msg.other { color: #ffd76a; }
+.db-msg-sym { font-size: 24px; vertical-align: middle; }
+.db-table { position: relative; display: flex; gap: 22px; justify-content: center; align-items: flex-start; flex-wrap: wrap; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.db-table.shake { animation: mmShakeX .1s 4; }
+.db-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.db-label { font-size: 14px; color: var(--chalkDim); font-weight: 700; }
+.db-card { width: min(380px, 84vw); aspect-ratio: 1; border-radius: 50%; background: #fff; border: 8px solid #B79CE8; box-shadow: 0 10px 0 #8d78bf, 0 14px 28px rgba(0,0,0,.35); position: relative; container-type: inline-size; overflow: hidden; }
+.db-card.mine { border-color: #F2C744; box-shadow: 0 10px 0 #c79c22, 0 14px 28px rgba(0,0,0,.35); }
+.db-card.flip { animation: dbFlip .35s ease-out; }
+@keyframes dbFlip { from { transform: scale(.6) rotate(-40deg); opacity: .2; } }
+.db-card-face { position: absolute; inset: 0; }
+.db-sym { position: absolute; border: none; background: none; padding: 0; line-height: 1; cursor: pointer; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; transition: filter .1s; }
+.db-sym:hover { filter: drop-shadow(0 0 6px rgba(242,199,68,.9)); }
+.db-sym.hit { animation: dbHit .5s; filter: drop-shadow(0 0 10px #6FC364); }
+@keyframes dbHit { 50% { scale: 1.5; } }
+.db-sym.wrong { animation: dbWrong .4s; }
+@keyframes dbWrong { 25% { filter: drop-shadow(0 0 8px #ff4d6a); translate: -4px 0; } 75% { translate: 4px 0; } }
+.db-card-back { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #ffe27a, #F2C744); color: #7c5bbf; font-family: 'Gaegu', cursive; font-weight: 700; font-size: 40cqw; }
+.db-card-done { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: #5a3a46; font-family: 'Gaegu', cursive; font-weight: 700; font-size: 10cqw; line-height: 1.2; }
+.db-count { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Gaegu', cursive; font-size: 120px; font-weight: 700; color: #fff; -webkit-text-stroke: 3px #7c5bbf; text-shadow: 0 6px 0 #7c5bbf; pointer-events: none; z-index: 3; }
+.db-flash { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) scale(.6); opacity: 0; pointer-events: none; z-index: 4; background: #fff; color: #333; border-radius: 99px; padding: 8px 18px; font-weight: 900; font-size: 20px; box-shadow: 0 6px 18px rgba(0,0,0,.3); transition: all .15s; }
+.db-flash.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.db-flash.bad { color: #d0384e; } .db-flash.good { color: #2f9a5b; }
+.db-result { margin-top: 16px; text-align: center; }
+.db-result-title { font-family: 'Gaegu', cursive; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
+@media (min-width: 860px) { .db-card { width: 380px; } }

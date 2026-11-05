@@ -96,20 +96,6 @@ window.addEventListener('load', function () {
         </div>
         <div class="game-desc" id="desc-quiz">한 라운드 20문제 상식 퀴즈! 시간제한, 보기 셔플 같은 방해 요소도 튀어나와요.</div>
       </button>
-      <button class="game-card" id="card-mafia" onclick="cardClicked('mafia')">
-        <div class="game-card-top">
-          <div class="game-icon">4</div>
-          <div class="game-name">마피아 게임</div>
-        </div>
-        <div class="game-desc" id="desc-mafia">4~9명 온라인 전용! 역할을 몰래 나눠 갖고, 밤 행동과 낮 투표를 반복해 마피아를 찾아내세요.</div>
-      </button>
-      <button class="game-card" id="card-werewolf" onclick="cardClicked('werewolf')">
-        <div class="game-card-top">
-          <div class="game-icon">5</div>
-          <div class="game-name">늑대인간 게임</div>
-        </div>
-        <div class="game-desc" id="desc-werewolf">4~9명 온라인 전용! 예언자는 정확한 역할까지 알아내고, 사냥꾼은 죽는 순간 한 명을 함께 데려가요. 밤과 낮을 반복해 늑대인간을 모두 찾아내세요.</div>
-      </button>
       <button class="game-card" id="card-hues" onclick="cardClicked('hues')">
         <div class="game-card-top">
           <div class="game-icon">6</div>
@@ -139,13 +125,19 @@ window.addEventListener('load', function () {
       <button class="game-card" id="card-tickbomb" onclick="cardClicked('tickbomb')">
         <div class="game-card-top">
           <div class="game-icon">11</div>
-          <div class="game-name">째깍째깍 폭탄 돌리기</div>
+          <div class="game-name">폭탄 돌리기</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-dobble" onclick="cardClicked('dobble')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">얼른 버려!</div>
         </div>
       </button>
       <button class="game-card" id="card-land" onclick="cardClicked('land')">
         <div class="game-card-top">
           <div class="game-icon">12</div>
-          <div class="game-name">먼작귀 땅따먹기</div>
+          <div class="game-name">땅따먹기</div>
         </div>
       </button>
       <!-- 혼자하기 전용 -->
@@ -371,148 +363,6 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
-<div id="mafia" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="mf-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">마피아 게임</h2>
-    <p class="game-sub">4~9명 전용! 마피아/경찰/의사/시민 역할을 몰래 나눠 갖고, 밤에는 역할별 행동을, 낮에는 토론과 투표로 마피아를 찾아보세요.</p>
-
-    <div id="mf-error-area" class="mf-phase" style="display:none">
-      <div class="sd-msg over" id="mf-error-msg"></div>
-    </div>
-
-    <div id="mf-role-area" class="mf-phase" style="display:none">
-      <div class="mf-role-badge" id="mf-my-role"></div>
-      <div class="mf-role-desc" id="mf-my-role-desc"></div>
-      <div class="mf-teammates" id="mf-mafia-teammates" style="display:none"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" id="mf-host-start-night-btn" style="display:none" onclick="mfHostStartNight()">🌙 밤 시작하기</button>
-      </div>
-      <div class="mf-wait-box" id="mf-reveal-wait-hint">방장이 밤을 시작하면 진행돼요. 다른 사람에게 내 역할을 보여주지 마세요!</div>
-    </div>
-
-    <div id="mf-night-area" class="mf-phase" style="display:none">
-      <div class="mf-timer" id="mf-night-timer"></div>
-      <div id="mf-night-action-box" style="display:none">
-        <div class="cat-vote-hint" id="mf-night-role-hint"></div>
-        <div class="mf-target-grid" id="mf-night-targets"></div>
-      </div>
-      <div class="mf-wait-box" id="mf-night-wait-box"></div>
-    </div>
-
-    <div id="mf-morning-area" class="mf-phase" style="display:none">
-      <div class="sd-msg" id="mf-morning-msg"></div>
-      <div class="board-box" id="mf-police-result" style="display:none"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" id="mf-host-start-day-btn" style="display:none" onclick="mfHostStartDay()">☀️ 낮(토론) 시작하기</button>
-      </div>
-      <div class="mf-wait-box" id="mf-morning-wait-hint">방장이 낮을 시작하면 토론과 투표가 시작돼요...</div>
-    </div>
-
-    <div id="mf-day-area" class="mf-phase" style="display:none">
-      <div class="mf-timer" id="mf-day-timer"></div>
-      <div class="cat-vote-hint" id="mf-day-hint"></div>
-      <div class="mf-target-grid" id="mf-day-targets"></div>
-      <button class="cat-btn" id="mf-day-skip-btn" style="margin:0 auto 18px; display:block;"></button>
-      <div class="board-box mf-deathlog-box">
-        <div class="board-box-title">지금까지 기록</div>
-        <div id="mf-day-deathlog"></div>
-      </div>
-    </div>
-
-    <div id="mf-end-area" class="mf-phase" style="display:none">
-      <div class="round-summary-title" id="mf-end-banner" style="text-align:center;"></div>
-      <div class="board-box">
-        <div class="board-box-title">전체 역할 공개</div>
-        <div id="mf-end-roles"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="werewolf" class="view">
-  <div class="wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="ww-room-pill">방</span>
-    </div>
-    <h2 class="game-heading">늑대인간 게임</h2>
-    <p class="game-sub">4~9명 전용! 늑대인간/예언자/사냥꾼/주민 역할을 몰래 나눠 갖고, 밤에는 역할별 행동을, 낮에는 토론과 투표로 늑대인간을 찾아보세요. 사냥꾼은 죽는 순간 한 명을 함께 데려갈 수 있어요!</p>
-
-    <div id="ww-error-area" class="ww-phase" style="display:none">
-      <div class="sd-msg over" id="ww-error-msg"></div>
-    </div>
-
-    <div id="ww-role-area" class="ww-phase" style="display:none">
-      <div class="mf-role-badge" id="ww-my-role"></div>
-      <div class="mf-role-desc" id="ww-my-role-desc"></div>
-      <div class="mf-teammates" id="ww-wolf-teammates" style="display:none"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" id="ww-host-start-night-btn" style="display:none" onclick="wwHostStartNight()">🌙 밤 시작하기</button>
-      </div>
-      <div class="mf-wait-box" id="ww-reveal-wait-hint">방장이 밤을 시작하면 진행돼요. 다른 사람에게 내 역할을 보여주지 마세요!</div>
-    </div>
-
-    <div id="ww-night-area" class="ww-phase" style="display:none">
-      <div class="mf-timer" id="ww-night-timer"></div>
-      <div id="ww-night-action-box" style="display:none">
-        <div class="cat-vote-hint" id="ww-night-role-hint"></div>
-        <div class="mf-target-grid" id="ww-night-targets"></div>
-      </div>
-      <div class="mf-wait-box" id="ww-night-wait-box"></div>
-    </div>
-
-    <div id="ww-revenge-area" class="ww-phase" style="display:none">
-      <div class="mf-timer" id="ww-revenge-timer"></div>
-      <div class="sd-msg over" id="ww-revenge-msg"></div>
-      <div id="ww-revenge-action-box" style="display:none">
-        <div class="cat-vote-hint" id="ww-revenge-hint"></div>
-        <div class="mf-target-grid" id="ww-revenge-targets"></div>
-      </div>
-      <div class="mf-wait-box" id="ww-revenge-wait-box"></div>
-    </div>
-
-    <div id="ww-morning-area" class="ww-phase" style="display:none">
-      <div class="sd-msg" id="ww-morning-msg"></div>
-      <div class="sd-msg over" id="ww-morning-revenge" style="display:none"></div>
-      <div class="board-box" id="ww-seer-result" style="display:none"></div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" id="ww-host-start-day-btn" style="display:none" onclick="wwHostStartDay()">☀️ 낮(토론) 시작하기</button>
-      </div>
-      <div class="mf-wait-box" id="ww-morning-wait-hint">방장이 낮을 시작하면 토론과 투표가 시작돼요...</div>
-    </div>
-
-    <div id="ww-day-area" class="ww-phase" style="display:none">
-      <div class="mf-timer" id="ww-day-timer"></div>
-      <div class="cat-vote-hint" id="ww-day-hint"></div>
-      <div class="mf-target-grid" id="ww-day-targets"></div>
-      <button class="cat-btn" id="ww-day-skip-btn" style="margin:0 auto 18px; display:block;"></button>
-      <div class="board-box mf-deathlog-box">
-        <div class="board-box-title">지금까지 기록</div>
-        <div id="ww-day-deathlog"></div>
-      </div>
-    </div>
-
-    <div id="ww-end-area" class="ww-phase" style="display:none">
-      <div class="round-summary-title" id="ww-end-banner" style="text-align:center;"></div>
-      <div class="board-box">
-        <div class="board-box-title">전체 역할 공개</div>
-        <div id="ww-end-roles"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-
-
-
-
-
 <div id="wordsearch" class="view">
   <div class="wrap">
     <div class="topbar">
@@ -721,7 +571,7 @@ window.addEventListener('load', function () {
     <div class="bb-layout">
       <div class="bb-stage">
         <canvas id="bb-canvas"></canvas>
-        <div class="bb-hud-age"><span class="bb-age-label">AGE</span><span class="bb-age" id="bb-age">01</span></div>
+        <div class="bb-hud-age"><span class="bb-age-label">AGE</span><span class="bb-age" id="bb-age">00</span><span class="bb-stage-name" id="bb-stage-name">아기</span></div>
         <div class="bb-hud-score" id="bb-score">0000000</div>
         <div class="bb-countdown" id="bb-countdown" style="display:none">3</div>
         <button type="button" class="bb-pause-btn" id="bb-pause-btn" onmousedown="event.preventDefault()" onclick="bbTogglePause(); this.blur();" title="잠깐 멈춤 (스페이스바)">⏸</button>
@@ -743,7 +593,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1105-1]</span></p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1105-3]</span></p>
   </div>
 </div>
 
@@ -927,7 +777,7 @@ window.addEventListener('load', function () {
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
       <span class="room-pill" id="tb-room-pill">방</span>
     </div>
-    <h2 class="game-heading">째깍째깍 폭탄 돌리기</h2>
+    <h2 class="game-heading">폭탄 돌리기</h2>
     <div class="sd-msg over tb-phase" id="tb-error" style="display:none"></div>
     <div class="tb-topic-card"><small id="tb-round"></small><span id="tb-topic"></span></div>
     <div class="tb-arena">
@@ -957,13 +807,43 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="dobble" class="view">
+  <div class="wrap db-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="db-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">얼른 버려!</h2>
+    <div class="sd-msg over" id="db-error" style="display:none"></div>
+    <div class="db-players" id="db-players"></div>
+    <div class="db-msg" id="db-msg">내 카드와 가운데 카드에서 <b>똑같은 그림</b>을 찾아 눌러요!</div>
+    <div class="db-table" id="db-table">
+      <div class="db-slot">
+        <div class="db-label">가운데 카드</div>
+        <div class="db-card" id="db-center"></div>
+      </div>
+      <div class="db-slot">
+        <div class="db-label">내 카드 · 남은 <b id="db-my-left">0</b>장</div>
+        <div class="db-card mine" id="db-mine"></div>
+      </div>
+      <div class="db-count" id="db-count" style="display:none">3</div>
+      <div class="db-flash" id="db-flash"></div>
+    </div>
+    <div class="db-result board-box" id="db-result" style="display:none">
+      <div class="db-result-title" id="db-result-title"></div>
+      <div id="db-result-rank"></div>
+      <button class="btn btn-primary" id="db-restart" onclick="dbHostRestart()">한 판 더!</button>
+    </div>
+  </div>
+</div>
+
 <div id="land" class="view">
   <div class="wrap ld-wrap">
     <div class="topbar">
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
       <span class="room-pill" id="ld-room-pill">방</span>
     </div>
-    <h2 class="game-heading">먼작귀 땅따먹기</h2>
+    <h2 class="game-heading">땅따먹기</h2>
     <div class="sd-msg over" id="ld-msg"></div>
     <div class="ld-layout">
       <div class="ld-stage">
@@ -1215,6 +1095,8 @@ window.addEventListener('load', function () {
 <script src="data/quiz-data.js"></script>
 <script src="data/wordsearch-data.js"></script>
 <script src="data/baby-chars.js"></script>
+<script src="data/baby-age-chars.js"></script>
+<script src="data/baby-evolve-sound.js"></script>
 <script src="data/baby-pause.js"></script>
 <script src="data/siren-char.js"></script>
 <script src="data/mermaid-chars.js"></script>
@@ -1226,8 +1108,6 @@ window.addEventListener('load', function () {
 <script src="js/sudoku.js"></script>
 <script src="js/bomb.js"></script>
 <script src="js/quiz.js"></script>
-<script src="js/mafia.js"></script>
-<script src="js/wolf.js"></script>
 <script src="js/wordsearch.js"></script>
 <script src="js/hues.js"></script>
 <script src="js/tapple.js"></script>
@@ -1240,6 +1120,7 @@ window.addEventListener('load', function () {
 <script src="js/bingo.js"></script>
 <script src="js/tickbomb.js"></script>
 <script src="js/land.js"></script>
+<script src="js/dobble.js"></script>
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 <script src="js/screenshare.js"></script>

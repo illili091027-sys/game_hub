@@ -95,7 +95,7 @@ function ssRenderBar() {
     html = '<span class="ss-live">● LIVE</span><span class="ss-text">내 화면을 공유하는 중 · 보는 사람 <b>' + n + '</b>명</span>' +
       '<button class="btn ss-stop" onclick="ssStopShare()">공유 끄기</button>' +
       (SS.share.noAudio ? '<span class="ss-note">🔇 소리는 같이 안 가요. 소리도 보내려면 공유 끄기 → 다시 공유할 때 아래쪽 <b>"오디오 공유"</b>를 켜주세요 (탭이나 전체 화면을 고를 때만 있어요)</span>' : '<span class="ss-note">🔊 소리도 같이 가요</span>') +
-      '<span class="ss-note">💡 홈 화면이나 게임으로 가도 공유는 계속돼요</span>';
+      '';
     mini = '<span class="ss-live">● LIVE</span> 내 화면 공유 중 · ' + n + '명 <button class="ss-mini-btn stop" onclick="ssStopShare()">끄기</button>';
   } else if (info && info.by !== myPlayerId) {
     html = '<span class="ss-live">● LIVE</span><span class="ss-text"><b>' + esc(info.name || '친구') + '</b>님이 화면을 공유하는 중</span>' +
@@ -104,7 +104,7 @@ function ssRenderBar() {
   } else {
     var can = ssCanShare();
     html = '<span class="ss-text">📺 화면 공유</span>' +
-      (can ? '<button class="btn btn-ghost" onclick="ssStartShare()">내 화면 공유하기</button><span class="ss-note">공유한 채로 홈 화면·게임으로 가도 계속돼요 (공유할 때 <b>"이 탭"</b>이나 <b>전체 화면</b>을 고르세요)</span>'
+      (can ? '<button class="btn btn-ghost" onclick="ssStartShare()">내 화면 공유하기</button>'
            : '<span class="ss-note">휴대폰은 공유는 못 하고 보기만 할 수 있어요 (PC 크롬·엣지에서 공유 가능)</span>');
   }
   document.querySelectorAll('.ss-bar').forEach(function (bar) {
