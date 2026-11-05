@@ -108,11 +108,6 @@ function ldSetDir(dx, dy) {
   if (cur[0] === dx && cur[1] === dy) return;
   if (cur[0] === -dx && cur[1] === -dy) return; // 바로 뒤로는 못 돌아요
   if (q.length >= 2) q[1] = [dx, dy]; else q.push([dx, dy]);
-  /* 칸에 막 들어온 직후(25% 이내)에 누른 방향은 이번 칸에서 바로 꺾어서 손맛이 빠르게 */
-  if (q.length === 1 && LD.stepT < 0.25 && LD.trail.length === 0 && !(dx === -LD.dir[0] && dy === -LD.dir[1])) {
-    /* 내 땅 안에서는 안전하니 즉시 반영 */
-    LD.dir = q.shift();
-  }
 }
 
 function ldStep() {

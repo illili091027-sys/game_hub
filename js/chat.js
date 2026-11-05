@@ -608,7 +608,9 @@ function gwApplyBtnPos() {
   if (!widget || !btn) return;
   var size = btn.offsetWidth || 48;
   var vw = window.innerWidth, vh = window.innerHeight;
-  var pos = GW_BTN_POS || { x: vw - size - 10, y: Math.round(vh / 2 - size / 2) };
+  /* 휴대폰: 기본 위치를 오른쪽 위(제목 줄 옆 빈 곳)로. 게임판·조작 버튼(화면 가운데·아래)을 안 가려요 */
+  var mobile = vw <= 600;
+  var pos = GW_BTN_POS || (mobile ? { x: vw - size - 10, y: 58 } : { x: vw - size - 10, y: Math.round(vh / 2 - size / 2) });
   var x = gwClamp(pos.x, 4, vw - size - 4);
   var y = gwClamp(pos.y, 4, vh - size - 4);
   widget.style.left = x + 'px';
@@ -626,6 +628,11 @@ function gwPlacePanel() {
   var x, y;
   if (GW_PANEL_POS) {
     x = GW_PANEL_POS.x; y = GW_PANEL_POS.y;
+  } else if (vw <= 600) {
+    /* 휴대폰: 화면 아래쪽에 넓게 (버튼 바로 위) */
+    var rb = btn.getBoundingClientRect();
+    x = (vw - pw) / 2;
+    y = rb.top > vh / 2 ? rb.top - ph - 8 : rb.bottom + 8;
   } else {
     var r = btn.getBoundingClientRect();
     var onRight = (r.left + r.width / 2) > vw / 2;

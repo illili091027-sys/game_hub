@@ -1473,3 +1473,66 @@
 .db-result { margin-top: 16px; text-align: center; }
 .db-result-title { font-family: 'Gaegu', cursive; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
 @media (min-width: 860px) { .db-card { width: 380px; } }
+
+/* ===================== 휴대폰 화면 최적화 ===================== */
+/* 두 번 탭해서 확대되는 것 막기 (게임 버튼 연타할 때 화면이 커지지 않게) */
+html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+button, a, .game-card, .db-sym { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 600px) {
+  /* 아이폰은 글자 16px 미만 입력칸을 누르면 화면을 확대해 버려요 → 입력칸은 16px */
+  input[type="text"], input[type="number"], input:not([type]), textarea, select { font-size: 16px !important; }
+
+  .wrap { max-width: 100%; padding: max(12px, env(safe-area-inset-top)) 12px calc(84px + env(safe-area-inset-bottom)); }
+  .home-title { font-size: 30px; }
+  .home-title span { font-size: 13px; margin-top: 2px; }
+  .chalk-rule { margin: 8px auto 12px; }
+
+  /* 모드 고르기: 큰 버튼 세로로 */
+  .mode-btn { padding: 16px 12px; font-size: 19px; }
+
+  /* 게임 목록: 한 줄에 2개씩 작은 타일 */
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .game-card { padding: 12px 10px !important; transform: none !important; border-radius: 12px; min-height: 64px; display: flex; align-items: center; }
+  .game-card-top { gap: 8px; margin-bottom: 0; width: 100%; justify-content: flex-start !important; }
+  .game-icon { width: 30px !important; height: 30px !important; font-size: 17px !important; border-width: 1.5px; }
+  .game-name, .game-card .game-name.long { font-size: 17px !important; line-height: 1.15; white-space: normal; word-break: keep-all; text-overflow: clip; }
+  .game-desc { display: none; }
+
+  /* 로비 */
+  .id-box { gap: 10px; }
+  .lobby-panel { padding: 12px; }
+
+  /* 게임 화면 윗부분 */
+  .topbar { margin-bottom: 8px; padding-top: 22px; }
+  .game-heading { font-size: 22px; margin-bottom: 4px; }
+  .game-sub { font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+  .back-btn { padding: 7px 12px; font-size: 13px; }
+
+  /* 채팅 버튼: 화면 가운데 오른쪽 → 오른쪽 아래 구석 (게임 화면을 안 가리게) */
+  .group-toggle-btn { width: 42px; height: 42px; font-size: 18px; opacity: .92; }
+  /* 채팅 창: 아래에서 올라오는 큰 창 */
+  .group-panel { width: calc(100vw - 16px) !important; height: min(62vh, 520px); border-radius: 18px; }
+  .group-tab { font-size: 17px; padding: 12px 4px; }
+
+  /* 게임 방법 화면 */
+  .rules-overlay { padding: 12px; }
+  /* 과제방은 안에 '채팅' 탭이 따로 있어서, 휴대폰에선 떠 있는 채팅 버튼을 숨겨 제목을 안 가리게 */
+  body:has(#homework.view.active) .group-widget { display: none !important; }
+
+  /* 얼른 버려!: 카드 두 장이 한 화면에 다 들어오게 */
+  .db-table { gap: 8px; }
+  .db-card { width: min(78vw, 34vh) !important; border-width: 6px; }
+  .db-label { font-size: 12px; }
+  .db-msg { font-size: 14px; margin: 2px 0 6px; }
+  .db-player { padding: 3px 9px; font-size: 12px; }
+
+  /* 땅따먹기 캐릭터 고르기: 한 줄 4칸 */
+  .ld-pick-grid { grid-template-columns: repeat(4, 1fr); }
+  .ld-pick-grid .char-opt-img { width: 38px; height: 38px; }
+  .ld-pick-title { font-size: 20px; }
+
+}
+@media (max-width: 380px) {
+  .game-name, .game-card .game-name.long { font-size: 15px !important; }
+  .game-icon { width: 26px !important; height: 26px !important; font-size: 15px !important; }
+}

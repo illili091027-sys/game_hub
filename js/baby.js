@@ -317,7 +317,9 @@ function bbTick(ts) {
   } else {
     b.vx *= 0.8;
   }
-  if (Math.abs(b.vx) > 8) b.face = b.vx > 0 ? 1 : -1;
+  if (Math.abs(b.vx) > 8) { b.face = b.vx > 0 ? 1 : -1; b.moved = true; }
+  /* 가는 쪽으로 몸을 살짝 돌려 바라보기 (부드럽게) */
+  b.turn = (b.turn || 0) + ((b.moved ? b.face * 0.55 : 0) - (b.turn || 0)) * Math.min(1, dt * 12);
 
   // 움직이는 구름
   BB.clouds.forEach(function (c) {
@@ -460,7 +462,7 @@ function bbPublishView() {
   var top = BB.camY + BB_H + 80, bottom = BB.camY - 80;
   var tc = { normal: 0, holed: 1, rainbow: 2, dark: 3, ground: 4 };
   DBset(roomKey('bbv_' + myPlayerId), {
-    ts: now, x: Math.round(BB.baby.x), y: Math.round(BB.baby.y), vy: Math.round(BB.baby.vy), face: BB.baby.face,
+    ts: now, x: Math.round(BB.baby.x), y: Math.round(BB.baby.y), vy: Math.round(BB.baby.vy), face: BB.baby.face, turn: Math.round((BB.baby.turn || 0) * 100),
     camY: Math.round(BB.camY), maxH: Math.round(BB.maxH), bonus: BB.bonus, char: BB_CHAR, ride: BB.ride ? BB.ride.color : null,
     clouds: BB.clouds.filter(function (c) { return c.y < top && c.y > bottom && !c.gone; }).map(function (c) { return [Math.round(c.x), Math.round(c.y), Math.round(c.w), tc[c.type] || 0]; }),
     balloons: BB.balloons.filter(function (b) { return !b.taken && b.y < top && b.y > bottom; }).map(function (b) { return [Math.round(b.x), Math.round(b.y), b.color]; })
@@ -509,7 +511,7 @@ function bbDrawSpectate() {
   var stale = Date.now() - v.ts > 2500;
   BB = {
     t: performance.now() / 1000, camY: v.camY, maxH: v.maxH, bonus: v.bonus, over: stale,
-    baby: { x: v.x, y: v.y, vx: 0, vy: v.vy, face: v.face || 1, on: null },
+    baby: { x: v.x, y: v.y, vx: 0, vy: v.vy, face: v.face || 1, turn: (v.turn || 0) / 100, on: null },
     clouds: (v.clouds || []).map(function (c) { return { x: c[0], y: c[1], w: c[2], type: types[c[3]] || 'normal' }; }),
     balloons: (v.balloons || []).map(function (b) { return { x: b[0], y: b[1], color: b[2], bob: 0 }; }),
     sparkles: [], pops: [], ride: v.ride ? { color: v.ride } : null
@@ -850,7 +852,8 @@ function bbDrawBaby(ctx) {
   ctx.translate(x, feet);
   ctx.rotate(Math.max(-0.22, Math.min(0.22, b.vx / 1400)));
   var stretch = b.vy > 300 ? 1.07 : (b.vy < -500 ? 0.96 : 1);
-  ctx.scale(b.face < 0 ? -1 : 1, 1);
+  /* 오른쪽으로 가면 그림을 좌우로 뒤집어서 오른쪽을 바라보게 */
+  if (b.face > 0 && (b.moved || (b.turn || 0) > 0.1)) ctx.scale(-1, 1);
   if (img && img.complete && img.naturalWidth) {
     var h = 66 * stretch;
     var w = h * (img.naturalWidth / img.naturalHeight) / stretch;
