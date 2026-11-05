@@ -6,7 +6,9 @@
      → 여러 명이 동시에 제출해도 서로 덮어쓰지 않아요.
    - 체인(이야기 줄) 개수 = 인원수. k단계에서 나는 (앞사람이 k-1단계에 만든 것)을 받아요. */
 var RL_MIN = 3, RL_MAX = 10, RL_MAX_STEPS = 8;
-var RL_SECONDS = { write: 45, draw: 90, guess: 45 };
+var RL_SECONDS = { write: 45, draw: 120, guess: 45 };
+var RL_REVEAL_MS = 2600;   /* 결과 공개 때 한 장씩 자동으로 넘어가는 간격 */
+var RL_REVEAL_TICK = null;
 var RL_POLL = null;
 var RL_STATE = null;
 var RL_MY = { gameId: null, entries: {} };
@@ -21,7 +23,7 @@ function rlKey() { return roomKey('relay'); }
 function rlMyKey() { return roomKey('rl_' + myPlayerId); }
 function rlStepType(step) { return step === 0 ? 'write' : (step % 2 === 1 ? 'draw' : 'guess'); }
 
-function stopRelayGame() { clearInterval(RL_POLL); RL_POLL = null; }
+function stopRelayGame() { clearInterval(RL_POLL); RL_POLL = null; clearInterval(RL_REVEAL_TICK); RL_REVEAL_TICK = null; }
 
 function startRelayGame() {
   stopRelayGame();
@@ -78,7 +80,7 @@ function rlHostCheck(st) {
     if (done < st.order.length && !late) return;
     DBget(rlKey()).then(function (cur) {
       if (!cur || cur.gameId !== st.gameId || cur.step !== st.step || cur.phase !== 'play') return;
-      if (cur.step + 1 >= cur.total) { cur.phase = 'reveal'; cur.revealChain = 0; cur.revealCount = 1; cur.deadline = null; }
+      if (cur.step + 1 >= cur.total) { cur.phase = 'reveal'; cur.revealChain = 0; cur.revealStart = null; cur.deadline = null; }
       else { cur.step++; cur.deadline = Date.now() + RL_SECONDS[rlStepType(cur.step)] * 1000; }
       DBset(rlKey(), cur).then(rlPoll);
     });
@@ -175,31 +177,61 @@ function rlLoadPrev(st, cb) {
   });
 }
 
+/* ---- 결과 공개: 방장이 ▶ 시작을 누르면 한 이야기가 한 장씩 자동으로 넘어가요 ----
+   revealStart(시작 시각)만 저장하고, 몇 장째인지는 각자 시계로 계산해서 모두 똑같이 보여요. */
+function rlRevealCount(st) {
+  if (!st.revealStart) return 0;
+  return Math.min(st.total, 1 + Math.floor((Date.now() - st.revealStart) / RL_REVEAL_MS));
+}
+function rlChainEntries(st, c) {
+  var N = st.order.length, list = [];
+  for (var k = 0; k < st.total; k++) {
+    var pid = st.order[(c + k) % N];
+    var d = RL_ALL && RL_ALL[pid];
+    var e = d && d.gameId === st.gameId && d.entries ? d.entries[k] : null;
+    list.push({ k: k, pid: pid, name: st.names[pid] || '?', e: e, label: k === 0 ? '처음 문장' : (rlStepType(k) === 'draw' ? '의 그림' : '의 추측') });
+  }
+  return list;
+}
 function rlRenderReveal(st, isHost) {
   var N = st.order.length;
+  if (!RL_REVEAL_TICK) RL_REVEAL_TICK = setInterval(function () { if (RL_STATE && RL_STATE.phase === 'reveal') rlRenderReveal(RL_STATE, myPlayerId === roomHostId); }, 300);
   var draw = function () {
     var c = st.revealChain;
     var owner = st.order[c % N];
+    var count = rlRevealCount(st);
+    var done = count >= st.total;
+    var entries = rlChainEntries(st, c);
     var html = '<div class="rl-chain-title">📖 <b>' + esc(st.names[owner] || '?') + '</b>의 문장은 어떻게 변했을까? <small>(' + (c + 1) + '/' + N + ')</small></div>';
-    for (var k = 0; k < Math.min(st.revealCount, st.total); k++) {
-      var pid = st.order[(c + k) % N];
-      var d = RL_ALL && RL_ALL[pid];
-      var e = d && d.gameId === st.gameId && d.entries ? d.entries[k] : null;
-      var who = '<div class="rl-item-who">' + esc(st.names[pid] || '?') + (k === 0 ? ' (처음 문장)' : (rlStepType(k) === 'draw' ? ' 의 그림' : ' 의 추측')) + '</div>';
-      var body = !e ? '<div class="rl-item-text">(제출 안 함)</div>' : (e.t === 'img' ? '<img class="rl-item-img" src="' + e.v + '" alt="" />' : '<div class="rl-item-text">' + esc(e.v) + '</div>');
-      html += '<div class="rl-item' + (k === st.revealCount - 1 ? ' new' : '') + '">' + who + body + '</div>';
+    if (!count) html += '<div class="rl-reveal-ready">' + (isHost ? '준비됐으면 <b>▶ 시작</b>을 눌러요! 한 장씩 자동으로 넘어가요' : '방장이 시작하면 한 장씩 자동으로 넘어가요… 두근두근') + '</div>';
+    entries.slice(0, count).forEach(function (it, k) {
+      var who = '<div class="rl-item-who">' + esc(it.name) + (k === 0 ? ' (처음 문장)' : it.label) + '</div>';
+      var body = !it.e ? '<div class="rl-item-text">(제출 안 함)</div>' : (it.e.t === 'img' ? '<img class="rl-item-img" src="' + it.e.v + '" alt="" />' : '<div class="rl-item-text">' + esc(it.e.v) + '</div>');
+      html += '<div class="rl-item' + (k === count - 1 && !done ? ' new' : '') + '" data-k="' + k + '">' + who + body + '</div>';
+    });
+    if (count && !done) html += '<div class="rl-next-dots"><span></span><span></span><span></span></div>';
+    var album = document.getElementById('rl-album');
+    var sig = st.gameId + ':' + c + ':' + count + ':' + (RL_ALL ? 1 : 0);
+    if (album.getAttribute('data-sig') !== sig) {
+      var grew = album.getAttribute('data-c') === String(c) && count > +(album.getAttribute('data-n') || 0);
+      album.innerHTML = html;
+      album.setAttribute('data-sig', sig); album.setAttribute('data-c', c); album.setAttribute('data-n', count);
+      if (grew) { var last = album.querySelector('.rl-item[data-k="' + (count - 1) + '"]'); if (last) last.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      else if (!count) document.getElementById('relay').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    document.getElementById('rl-album').innerHTML = html;
-    var last = c >= N - 1 && st.revealCount >= st.total;
-    document.getElementById('rl-next-btn').style.display = isHost && !last ? '' : 'none';
-    document.getElementById('rl-next-btn').textContent = st.revealCount >= st.total ? '다음 사람 이야기 ▶' : '다음 장 보기 ▶';
-    document.getElementById('rl-restart-btn').style.display = isHost && last ? '' : 'none';
-    document.getElementById('rl-reveal-wait').textContent = isHost ? '' : (last ? '모든 이야기 끝! 🎉' : '방장이 한 장씩 넘겨요…');
+    var lastChain = c >= N - 1;
+    var nb = document.getElementById('rl-next-btn');
+    nb.style.display = isHost && (!count || (done && !lastChain)) ? '' : 'none';
+    nb.textContent = !count ? '▶ 시작' : '다음 이야기 ▶';
+    document.getElementById('rl-restart-btn').style.display = isHost && done && lastChain ? '' : 'none';
+    document.getElementById('rl-save').style.display = done ? '' : 'none';
+    document.getElementById('rl-reveal-wait').textContent = isHost ? (count && !done ? '자동으로 넘어가는 중…' : '') : (done ? (lastChain ? '모든 이야기 끝! 🎉' : '방장이 다음 이야기를 열어요…') : (count ? '두근두근…' : ''));
   };
   var needed = !RL_ALL || st.order.some(function (pid) { return !RL_ALL[pid] || RL_ALL[pid].gameId !== st.gameId; });
-  if (needed && !rlRenderReveal.loading) {
+  if (needed && !rlRenderReveal.loading && Date.now() - (rlRenderReveal.lastLoad || 0) > 1500) {
     rlRenderReveal.loading = true;
-    DBgetPrefix('rl_', st.order).then(function (all) { RL_ALL = all; rlRenderReveal.loading = false; draw(); });
+    rlRenderReveal.lastLoad = Date.now();
+    DBgetPrefix('rl_', st.order).then(function (all) { RL_ALL = all; rlRenderReveal.loading = false; draw(); }, function () { rlRenderReveal.loading = false; });
   }
   draw();
 }
@@ -208,29 +240,155 @@ function rlHostNext() {
   if (myPlayerId !== roomHostId) return;
   DBget(rlKey()).then(function (st) {
     if (!st || st.phase !== 'reveal') return;
-    if (st.revealCount < st.total) st.revealCount++;
-    else if (st.revealChain < st.order.length - 1) { st.revealChain++; st.revealCount = 1; }
+    if (!st.revealStart) st.revealStart = Date.now();                      /* ▶ 시작 */
+    else if (st.revealChain < st.order.length - 1) { st.revealChain++; st.revealStart = Date.now(); } /* 다음 이야기도 바로 자동 재생 */
     DBset(rlKey(), st).then(rlPoll);
   });
 }
 
+/* ---- 결과 저장: 움짤(GIF) / 동영상 ---- */
+function rlLoadImg(src) {
+  return new Promise(function (res) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = src; });
+}
+function rlWrapText(ctx, text, maxW) {
+  var words = String(text).split(''), lines = [], line = '';
+  words.forEach(function (ch) {
+    if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch.trim() ? ch : ''; }
+    else line += ch;
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+/* 이야기 하나를 그림 여러 장(프레임)으로 만들어요: 표지 + 한 장씩 */
+function rlBuildFrames(st, c) {
+  var W = 540, H = 540;
+  var entries = rlChainEntries(st, c);
+  return Promise.all(entries.map(function (it) { return it.e && it.e.t === 'img' ? rlLoadImg(it.e.v) : Promise.resolve(null); })).then(function (imgs) {
+    var frames = [];
+    var mk = function (fn) { var cv = document.createElement('canvas'); cv.width = W; cv.height = H; var x = cv.getContext('2d'); fn(x); frames.push(cv); };
+    var bg = function (x) { x.fillStyle = '#26402F'; x.fillRect(0, 0, W, H); x.fillStyle = 'rgba(255,255,255,0.06)'; for (var i = 0; i < 12; i++) x.fillRect(0, i * 46, W, 2); };
+    var font = function (sz, bold) { return (bold ? '700 ' : '') + sz + "px 'Gaegu','Noto Sans KR',sans-serif"; };
+    var owner = st.names[st.order[c % st.order.length]] || '?';
+    mk(function (x) {
+      bg(x);
+      x.textAlign = 'center'; x.fillStyle = '#F2C744'; x.font = font(30, true); x.fillText('엉뚱 그림 릴레이', W / 2, 150);
+      x.fillStyle = '#F5F3E7'; x.font = font(40, true);
+      rlWrapText(x, owner + '의 문장은', W - 60).concat(['어떻게 변했을까?']).forEach(function (l, i) { x.fillText(l, W / 2, 250 + i * 54); });
+      x.font = font(60); x.fillText('🎨 → 🤔 → 🎨', W / 2, 440);
+    });
+    entries.forEach(function (it, k) {
+      mk(function (x) {
+        bg(x);
+        x.textAlign = 'left'; x.fillStyle = '#F2C744'; x.font = font(26, true);
+        x.fillText((k + 1) + '. ' + it.name + (k === 0 ? ' (처음 문장)' : it.label), 28, 52);
+        var img = imgs[k];
+        if (img) {
+          var bw = W - 56, bh = H - 110, sc = Math.min(bw / img.width, bh / img.height);
+          var dw = img.width * sc, dh = img.height * sc, dx = (W - dw) / 2, dy = 80 + (bh - dh) / 2;
+          x.fillStyle = '#fff'; x.fillRect(dx - 6, dy - 6, dw + 12, dh + 12);
+          x.drawImage(img, dx, dy, dw, dh);
+        } else {
+          x.fillStyle = '#F5F3E7'; x.font = font(42, true); x.textAlign = 'center';
+          var lines = rlWrapText(x, it.e ? it.e.v : '(제출 안 함)', W - 70);
+          var y0 = H / 2 - (lines.length - 1) * 28;
+          lines.forEach(function (l, i) { x.fillText(l, W / 2, y0 + i * 56); });
+        }
+      });
+    });
+    return frames;
+  });
+}
+function rlDownloadBlob(blob, name) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 8000);
+}
+function rlSaveGif() {
+  var st = RL_STATE; if (!st || st.phase !== 'reveal') return;
+  var msg = document.getElementById('rl-save-msg'); msg.textContent = '⏳ 움짤 만드는 중...';
+  rlBuildFrames(st, st.revealChain).then(function (frames) {
+    var gif = GIFW.create(frames[0].width, frames[0].height);
+    frames.forEach(function (cv, i) { gif.addFrame(cv.getContext('2d'), i === 0 ? 1600 : 2400); });
+    rlDownloadBlob(gif.finish(), '엉뚱그림릴레이_' + (st.names[st.order[st.revealChain % st.order.length]] || '') + '.gif');
+    msg.textContent = '✔ 움짤을 저장했어요!';
+  }).catch(function () { msg.textContent = '움짤을 만들지 못했어요.'; });
+}
+function rlSaveVideo() {
+  var st = RL_STATE; if (!st || st.phase !== 'reveal') return;
+  var msg = document.getElementById('rl-save-msg');
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) { msg.textContent = '이 브라우저는 동영상 저장이 안 돼요. 움짤로 저장해 주세요!'; return; }
+  var mime = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'].filter(function (m) { return MediaRecorder.isTypeSupported(m); })[0];
+  if (!mime) { msg.textContent = '이 브라우저는 동영상 저장이 안 돼요. 움짤로 저장해 주세요!'; return; }
+  msg.textContent = '⏳ 동영상 만드는 중... (끝까지 재생하며 녹화해요)';
+  rlBuildFrames(st, st.revealChain).then(function (frames) {
+    var cv = document.createElement('canvas'); cv.width = frames[0].width; cv.height = frames[0].height;
+    var x = cv.getContext('2d');
+    x.drawImage(frames[0], 0, 0);
+    var stream = cv.captureStream(30);
+    var rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2500000 });
+    var chunks = [];
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = function () {
+      var ext = /mp4/.test(mime) ? 'mp4' : 'webm';
+      rlDownloadBlob(new Blob(chunks, { type: mime.split(';')[0] }), '엉뚱그림릴레이_' + (st.names[st.order[st.revealChain % st.order.length]] || '') + '.' + ext);
+      msg.textContent = '✔ 동영상을 저장했어요!';
+    };
+    rec.start();
+    var i = 0, alpha = 0;
+    /* 장면이 부드럽게 겹쳐지며 넘어가게(페이드) 그려요 */
+    var per = 2400, fade = 400, t0 = performance.now();
+    var tick = function () {
+      var t = performance.now() - t0;
+      var idx = Math.min(frames.length - 1, Math.floor(t / per));
+      var into = t - idx * per;
+      x.drawImage(frames[idx], 0, 0);
+      if (idx > 0 && into < fade) { x.globalAlpha = 1 - into / fade; x.drawImage(frames[idx - 1], 0, 0); x.globalAlpha = 1; }
+      if (t < frames.length * per) requestAnimationFrame(tick);
+      else setTimeout(function () { rec.stop(); }, 200);
+    };
+    requestAnimationFrame(tick);
+  }).catch(function () { msg.textContent = '동영상을 만들지 못했어요.'; });
+}
+
 /* ---- 그림판 ---- */
-var RL_COLORS = ['#1d1d1d', '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#8e24aa', '#8d6e63', '#f48fb1'];
+var RL_COLORS = ['#1d1d1d', '#5f5f5f', '#a8a8a8', '#ffffff', '#e53935', '#ff7a7a', '#fb8c00', '#ffb74d', '#fdd835', '#fff59d', '#7cb342', '#43a047', '#a5d6a7', '#00897b', '#4dd0e1', '#1e88e5', '#90caf9', '#3949ab', '#8e24aa', '#ce93d8', '#f06292', '#f8bbd0', '#8d6e63', '#ffcc80'];
 function rlSetupCanvas() {
   if (RL_DRAW) return;
   var cv = document.getElementById('rl-canvas');
   var ctx = cv.getContext('2d');
-  RL_DRAW = { cv: cv, ctx: ctx, color: RL_COLORS[0], size: 6, eraser: false, drawing: false, last: null, undo: [] };
+  RL_DRAW = { cv: cv, ctx: ctx, color: RL_COLORS[0], size: 6, eraser: false, fill: false, drawing: false, last: null, undo: [] };
   document.getElementById('rl-colors').innerHTML = RL_COLORS.map(function (c, i) {
     return '<button type="button" class="rl-color' + (i === 0 ? ' on' : '') + '" data-c="' + c + '" style="background:' + c + '"></button>';
-  }).join('') + '<button type="button" class="rl-color rl-eraser" data-c="eraser" title="지우개">🧽</button>';
-  document.getElementById('rl-colors').onclick = function (e) {
-    var b = e.target.closest('.rl-color'); if (!b) return;
-    document.querySelectorAll('#rl-colors .rl-color').forEach(function (x) { x.classList.toggle('on', x === b); });
-    var c = b.getAttribute('data-c');
-    RL_DRAW.eraser = c === 'eraser';
-    if (!RL_DRAW.eraser) RL_DRAW.color = c;
+  }).join('') + '<label class="rl-color rl-picker" title="다른 색 고르기"><input type="color" id="rl-color-pick" value="#ff6f00" /></label>';
+  var setColor = function (c) {
+    RL_DRAW.color = c;
+    if (RL_DRAW.eraser) rlSetTool('pen');
+    document.getElementById('rl-cur-color').style.background = c;
   };
+  document.getElementById('rl-colors').onclick = function (e) {
+    var b = e.target.closest('.rl-color'); if (!b || b.classList.contains('rl-picker')) return;
+    document.querySelectorAll('#rl-colors .rl-color').forEach(function (x) { x.classList.toggle('on', x === b); });
+    setColor(b.getAttribute('data-c'));
+  };
+  document.getElementById('rl-color-pick').addEventListener('input', function () {
+    document.querySelectorAll('#rl-colors .rl-color').forEach(function (x) { x.classList.toggle('on', x.classList.contains('rl-picker')); });
+    this.parentNode.style.background = this.value;
+    setColor(this.value);
+  });
+  document.getElementById('rl-tools-mode').onclick = function (e) {
+    var b = e.target.closest('[data-tool]'); if (!b) return;
+    rlSetTool(b.getAttribute('data-tool'));
+  };
+  /* Ctrl+Z (맥은 Cmd+Z): 한 획 되돌리기 */
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || (e.key !== 'z' && e.key !== 'Z')) return;
+    if (!document.getElementById('relay').classList.contains('active')) return;
+    if (document.getElementById('rl-draw-area').style.display === 'none') return;
+    if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'color') return;
+    e.preventDefault();
+    rlUndo();
+  });
   document.getElementById('rl-sizes').onclick = function (e) {
     var b = e.target.closest('.rl-size'); if (!b) return;
     document.querySelectorAll('#rl-sizes .rl-size').forEach(function (x) { x.classList.toggle('on', x === b); });
@@ -242,6 +400,7 @@ function rlSetupCanvas() {
     try { cv.setPointerCapture(e.pointerId); } catch (er) {}
     RL_DRAW.undo.push(ctx.getImageData(0, 0, cv.width, cv.height));
     if (RL_DRAW.undo.length > 25) RL_DRAW.undo.shift();
+    if (RL_DRAW.fill) { var fp = pos(e); rlFloodFill(Math.floor(fp.x), Math.floor(fp.y), RL_DRAW.color); return; }
     RL_DRAW.drawing = true;
     RL_DRAW.last = pos(e);
     rlStroke(RL_DRAW.last, RL_DRAW.last);
@@ -272,5 +431,50 @@ function rlClearCanvas(silent) {
 function rlUndo() {
   if (!RL_DRAW || !RL_DRAW.undo.length) return;
   RL_DRAW.ctx.putImageData(RL_DRAW.undo.pop(), 0, 0);
+}
+function rlSetTool(tool) {
+  RL_DRAW.eraser = tool === 'eraser';
+  RL_DRAW.fill = tool === 'fill';
+  document.querySelectorAll('#rl-tools-mode [data-tool]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tool') === tool); });
+  RL_DRAW.cv.style.cursor = tool === 'fill' ? 'cell' : 'crosshair';
+}
+/* 🪣 색 채우기: 누른 곳과 비슷한 색으로 이어진 영역을 한 번에 칠해요 (선 가장자리 번짐까지 고려) */
+function rlFloodFill(sx, sy, color) {
+  var cv = RL_DRAW.cv, ctx = RL_DRAW.ctx, W = cv.width, H = cv.height;
+  if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+  var img = ctx.getImageData(0, 0, W, H), d = img.data;
+  var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color);
+  if (!m) return;
+  var fr = parseInt(m[1], 16), fg = parseInt(m[2], 16), fb = parseInt(m[3], 16);
+  var p0 = (sy * W + sx) * 4, tr = d[p0], tg = d[p0 + 1], tb = d[p0 + 2];
+  if (Math.abs(tr - fr) + Math.abs(tg - fg) + Math.abs(tb - fb) < 10) return;
+  RL_DRAW.undo.push(ctx.getImageData(0, 0, W, H));
+  if (RL_DRAW.undo.length > 30) RL_DRAW.undo.shift();
+  var TOL = 70;
+  var seen = new Uint8Array(W * H);
+  var match = function (i) { var q = i * 4; return Math.abs(d[q] - tr) + Math.abs(d[q + 1] - tg) + Math.abs(d[q + 2] - tb) <= TOL; };
+  var stack = [sy * W + sx], filled = [];
+  while (stack.length) {
+    var i = stack.pop();
+    var y = (i / W) | 0, x = i - y * W;
+    while (x > 0 && !seen[i - 1] && match(i - 1)) { x--; i--; }
+    var up = false, dn = false;
+    for (; x < W && !seen[i] && match(i); x++, i++) {
+      seen[i] = 1; filled.push(i);
+      if (y > 0) { var u = i - W; if (!seen[u] && match(u)) { if (!up) { stack.push(u); up = true; } } else up = false; }
+      if (y < H - 1) { var dd = i + W; if (!seen[dd] && match(dd)) { if (!dn) { stack.push(dd); dn = true; } } else dn = false; }
+    }
+  }
+  /* 테두리 바로 옆 한 칸도 칠해서 하얀 틈이 안 남게 */
+  var grow = [];
+  filled.forEach(function (i) {
+    var x = i % W;
+    if (x > 0 && !seen[i - 1]) grow.push(i - 1);
+    if (x < W - 1 && !seen[i + 1]) grow.push(i + 1);
+    if (i >= W && !seen[i - W]) grow.push(i - W);
+    if (i < W * (H - 1) && !seen[i + W]) grow.push(i + W);
+  });
+  filled.concat(grow).forEach(function (i) { var q = i * 4; d[q] = fr; d[q + 1] = fg; d[q + 2] = fb; d[q + 3] = 255; });
+  ctx.putImageData(img, 0, 0);
 }
 function rlCanvasData() { return RL_DRAW ? RL_DRAW.cv.toDataURL('image/png') : ''; }

@@ -936,7 +936,7 @@
   .bm-watch-label { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(20,30,60,0.78); color: #fff; font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 99px; white-space: nowrap; z-index: 3; }
   .bm-watch-score { position: absolute; top: 40px; left: 0; right: 0; text-align: center; color: #fff; font-weight: 900; font-size: 16px; text-shadow: 0 1px 3px rgba(0,0,0,0.7); z-index: 3; }
   .bm-watch-layer { position: absolute; inset: 0; }
-  .bm-watch-bomb { position: absolute; width: 34px; height: 34px; font-size: 30px; line-height: 1; display: flex; align-items: center; justify-content: center; transform: translate(-50%, -50%); transition: top 0.2s linear, left 0.2s linear; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.35)); }
+  .bm-watch-bomb { position: absolute; width: 34px; height: 34px; font-size: 30px; line-height: 1; display: flex; align-items: center; justify-content: center; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 2px rgba(0,0,0,0.35)); will-change: top; }
   .bm-watch-bomb img { width: 100%; height: 100%; object-fit: contain; }
   .bm-watch-player { position: absolute; bottom: 10px; width: 64px; height: 64px; object-fit: contain; transform: translateX(-50%); transition: left 0.2s linear; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.35)); z-index: 2; }
 
@@ -1393,3 +1393,30 @@
 .pj-sc-txt b { font-size: 15px; }
 .pj-sc-txt small { font-size: 12px; color: var(--chalkDim); margin-top: 2px; }
 .pj-deck-list .pj-empty { grid-column: 1 / -1; }
+/* 엉뚱 그림 릴레이: 도구/색/결과 저장 */
+.rl-tools-mode { display: flex; gap: 5px; align-items: center; }
+.rl-tool { border: 2px solid var(--boardLine); background: rgba(245,243,231,0.06); color: var(--chalk); border-radius: 10px; padding: 6px 10px; font-family: inherit; font-weight: 800; font-size: 13px; cursor: pointer; }
+.rl-tool.on { border-color: var(--yellow); background: rgba(242,199,68,0.18); }
+.rl-cur-color { width: 26px; height: 26px; border-radius: 8px; background: #1d1d1d; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.3); }
+.rl-colors { max-width: 440px; }
+.rl-color { width: 26px; height: 26px; }
+.rl-picker { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.rl-picker input { position: absolute; inset: -8px; width: 50px; height: 50px; opacity: 0; cursor: pointer; }
+.rl-reveal-ready { text-align: center; padding: 26px 10px; border: 2px dashed var(--boardLine); border-radius: 14px; color: var(--chalk); }
+.rl-next-dots { display: flex; gap: 6px; justify-content: center; padding: 6px; }
+.rl-next-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); animation: rlDot 1s infinite; }
+.rl-next-dots span:nth-child(2) { animation-delay: .15s; } .rl-next-dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes rlDot { 50% { opacity: .2; transform: translateY(-4px); } }
+.rl-save { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+.rl-save-msg { width: 100%; text-align: center; font-size: 13px; color: var(--chalkDim); }
+/* 먼작귀 키우기: 모두 끝 결과 */
+.bb-result { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(20,40,70,0.82); color: #fff; padding: 16px; text-align: center; }
+.bb-res-title { font-family: 'Gaegu', cursive; font-size: 34px; font-weight: 700; -webkit-text-stroke: 1px #e8508a; }
+.bb-res-list { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 6px; max-height: 55%; overflow-y: auto; }
+.bb-res-row { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.12); border-radius: 12px; padding: 6px 10px; }
+.bb-res-row.me { background: rgba(242,199,68,0.3); }
+.bb-res-row img { width: 30px; height: 30px; object-fit: contain; }
+.bb-res-rank { width: 40px; font-size: 20px; }
+.bb-res-name { flex: 1; text-align: left; font-weight: 800; }
+.bb-res-score { font-size: 13px; }
+.bb-res-count { font-size: 15px; opacity: .9; }

@@ -21,6 +21,12 @@ var BB_OFFICIAL = null;   // 온라인: 첫 판 기록 {age, score} (null이면 
 var BB_BEST_SOLO = 0;
 var BB_LAST_POST = 0;
 var BB_FINAL_SHOWN = false;
+/* 온라인 '판' 번호: 모두 첫 판이 끝나면 결과를 보여주고, 10초 뒤(또는 버튼) 다 같이 새 판(round+1)을 시작해요.
+   각자 기록에 판 번호를 같이 적어서, 지난 판 기록이 새 판 결과에 섞이지 않게 해요. */
+var BB_ROUND = 0, BB_RESULT_TIMER = null, BB_RESULT_AT = 0;
+var BB_NEXT_ROUND_SEC = 10;
+function bbRoundKey() { return roomKey('baby_round'); }
+function bbSetMine(obj) { obj.round = BB_ROUND; return DBset(bbKey(myPlayerId), obj); }
 var BB_BG_PUFFS = [];
 var BB_CHAR = null; // 고른 캐릭터 id (charpick.js)
 
@@ -34,6 +40,8 @@ function stopBabyGame() {
   BB_OPP_TIMER = null;
   clearInterval(BB_COUNTDOWN_TIMER);
   BB_COUNTDOWN_TIMER = null;
+  clearInterval(BB_RESULT_TIMER);
+  BB_RESULT_TIMER = null;
   if (BB) BB.running = false;
 }
 
@@ -53,7 +61,12 @@ function startBabyGame() {
     for (var i = 0; i < 9; i++) BB_BG_PUFFS.push({ x: Math.random() * BB_W, y: Math.random() * 900, s: 0.6 + Math.random() * 0.9 });
   }
   if (online) {
-    DBset(bbKey(myPlayerId), { name: me.name, status: 'playing', age: 1, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
+    BB_ROUND = 0;
+    bbHideResult();
+    DBget(bbRoundKey()).then(function (r) {
+      BB_ROUND = (r && r.round) || 0;
+      bbSetMine({ name: me.name, status: 'playing', age: 1, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
+    });
     clearInterval(BB_OPP_TIMER);
     BB_OPP_TIMER = setInterval(bbRenderOpponents, 1000);
     bbRenderOpponents();
@@ -73,7 +86,7 @@ function bbShowPicker(then) {
   document.getElementById('bb-pick-go').onclick = function () {
     box.style.display = 'none';
     if (playMode === 'online' && roomJoined) {
-      DBget(bbKey(myPlayerId)).then(function (d) { d = d || { name: me.name }; d.char = BB_CHAR; DBset(bbKey(myPlayerId), d); });
+      DBget(bbKey(myPlayerId)).then(function (d) { d = d || { name: me.name }; d.char = BB_CHAR; bbSetMine(d); });
     }
     then();
   };
@@ -460,7 +473,7 @@ function bbPostState(force) {
   var now = Date.now();
   if (!force && now - BB_LAST_POST < 450) return;
   BB_LAST_POST = now;
-  DBset(bbKey(myPlayerId), { name: me.name, status: BB.over ? 'dead' : 'playing', age: bbAge(), score: bbScore(), done: BB.over, char: BB_CHAR, ts: now });
+  bbSetMine({ name: me.name, status: BB.over ? 'dead' : 'playing', age: bbAge(), score: bbScore(), done: BB.over, char: BB_CHAR, ts: now });
 }
 
 function bbDie() {
@@ -473,7 +486,7 @@ function bbDie() {
   if (playMode === 'online') {
     if (BB_OFFICIAL === null) {
       BB_OFFICIAL = { age: age, score: score };
-      DBset(bbKey(myPlayerId), { name: me.name, status: 'dead', age: age, score: score, done: true, practicing: false, char: BB_CHAR, ts: Date.now() });
+      bbSetMine({ name: me.name, status: 'dead', age: age, score: score, done: true, practicing: false, char: BB_CHAR, ts: Date.now() });
       html = '<div class="bb-over-title">😢 으앙! 떨어졌어요</div>' +
         '<div class="bb-over-rec">공식 기록 <b>AGE ' + age + '</b> · <b>' + score + '점</b></div>' +
         '<div class="bb-over-sub">기록은 이 첫 판으로 확정! 이제부터는 연습 모드로 계속 놀 수 있어요.</div>';
@@ -503,7 +516,7 @@ function bbRetry(mode) {
       d = d || { name: me.name, status: 'dead', age: 0, score: 0, done: true };
       d.practicing = true;
       d.ts = Date.now();
-      DBset(bbKey(myPlayerId), d);
+      bbSetMine(d);
     });
   }
   bbNewRun(mode === 'hold' ? 'hold' : false);
@@ -513,10 +526,17 @@ function bbRetry(mode) {
 function bbRenderOpponents() {
   if (playMode !== 'online' || !roomJoined) return;
   var list = roomPlayersList || [];
-  Promise.all(list.map(function (p) {
+  Promise.all([DBget(bbRoundKey())].concat(list.map(function (p) {
     return DBget(bbKey(p.id)).then(function (d) { return { p: p, d: d }; });
-  })).then(function (rows) {
+  }))).then(function (res) {
     if (!document.getElementById('baby').classList.contains('active')) return;
+    var srvRound = (res[0] && res[0].round) || 0;
+    if (srvRound > BB_ROUND) { bbStartNewRound(srvRound); return; }
+    var rows = res.slice(1).map(function (r) {
+      /* 다른 판(지난 판) 기록은 아직 이번 판 시작 전으로 봐요 */
+      if (r.d && (r.d.round || 0) !== BB_ROUND) r.d = null;
+      return r;
+    });
     var allDone = rows.length > 0 && rows.every(function (r) { return r.d && r.d.done; });
     var sorted = rows.slice().sort(function (a, b) { return ((b.d && b.d.score) || 0) - ((a.d && a.d.score) || 0); });
     document.getElementById('bb-players').innerHTML = sorted.map(function (r) {
@@ -537,10 +557,68 @@ function bbRenderOpponents() {
       renderRankBoard('bb-final-rank', sorted.map(function (r) {
         return { name: r.p.name, isMe: r.p.id === myPlayerId, label: 'AGE ' + ((r.d && r.d.age) || 1) + ' · ' + ((r.d && r.d.score) || 0) + '점' };
       }));
+      if (!BB_FINAL_SHOWN) { BB_FINAL_SHOWN = true; bbShowResult(sorted); }
     } else {
       finalEl.style.display = 'none';
     }
   });
+}
+
+/* ---- 모두 끝! 결과 + 다 같이 새 판 ---- */
+function bbShowResult(sorted) {
+  if (BB_SPECTATE) bbStopSpectate(false);
+  var box = document.getElementById('bb-result');
+  var medals = ['🥇', '🥈', '🥉'];
+  box.innerHTML = '<div class="bb-res-title">🏁 모두 끝! 최종 순위</div>' +
+    '<div class="bb-res-list">' + sorted.map(function (r, i) {
+      var d = r.d || {};
+      var ch = d.char && charById(d.char) ? '<img src="' + charById(d.char).src + '" alt="" />' : '';
+      return '<div class="bb-res-row' + (r.p.id === myPlayerId ? ' me' : '') + '"><span class="bb-res-rank">' + (medals[i] || (i + 1) + '등') + '</span>' + ch +
+        '<span class="bb-res-name">' + esc(r.p.name) + (r.p.id === myPlayerId ? ' (나)' : '') + '</span><span class="bb-res-score">AGE ' + (d.age || 1) + ' · <b>' + (d.score || 0) + '점</b></span></div>';
+    }).join('') + '</div>' +
+    '<div class="bb-res-count" id="bb-res-count"></div>' +
+    '<button class="btn btn-primary bb-res-btn" onclick="bbRequestNewRound()">🔄 지금 새 게임 시작</button>';
+  box.style.display = '';
+  document.getElementById('bb-over').style.display = 'none';
+  BB_RESULT_AT = Date.now() + BB_NEXT_ROUND_SEC * 1000;
+  clearInterval(BB_RESULT_TIMER);
+  var tick = function () {
+    var left = Math.ceil((BB_RESULT_AT - Date.now()) / 1000);
+    var el = document.getElementById('bb-res-count');
+    if (el) el.textContent = left > 0 ? left + '초 뒤에 다 같이 새 게임을 시작해요' : '새 게임 준비 중…';
+    /* 방장이 새 판을 열어요. 방장이 없거나 응답이 없으면 4초 뒤 다른 사람이 대신 열어요 */
+    if (left <= 0 && (myPlayerId === roomHostId || left <= -4)) bbRequestNewRound();
+  };
+  tick();
+  BB_RESULT_TIMER = setInterval(tick, 500);
+}
+function bbHideResult() {
+  clearInterval(BB_RESULT_TIMER); BB_RESULT_TIMER = null;
+  var box = document.getElementById('bb-result');
+  if (box) box.style.display = 'none';
+}
+var BB_ROUND_REQ = false;
+function bbRequestNewRound() {
+  if (BB_ROUND_REQ) return;
+  BB_ROUND_REQ = true;
+  DBget(bbRoundKey()).then(function (r) {
+    var cur = (r && r.round) || 0;
+    var next = cur > BB_ROUND ? cur : BB_ROUND + 1; /* 누가 먼저 열었으면 그 판으로 */
+    var job = cur > BB_ROUND ? Promise.resolve() : DBset(bbRoundKey(), { round: next, at: Date.now() });
+    return job.then(function () { BB_ROUND_REQ = false; bbStartNewRound(next); });
+  }, function () { BB_ROUND_REQ = false; });
+}
+function bbStartNewRound(n) {
+  if (n <= BB_ROUND && BB_OFFICIAL === null && !BB_FINAL_SHOWN) return;
+  BB_ROUND = n;
+  BB_OFFICIAL = null;
+  BB_FINAL_SHOWN = false;
+  bbHideResult();
+  document.getElementById('bb-final').style.display = 'none';
+  if (BB_SPECTATE) bbStopSpectate(false);
+  bbSetMine({ name: me.name, status: 'playing', age: 1, score: 0, done: false, char: BB_CHAR, ts: Date.now() });
+  bbNewRun(true);
+  bbRenderOpponents();
 }
 
 /* ---- 그리기 ---- */

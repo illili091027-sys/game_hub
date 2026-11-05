@@ -3,6 +3,7 @@ var bmRunning = false;
 var bmStageEl = null;
 var bmPlayerEl = null;
 var bmBombs = [];
+var BM_BOMB_SEQ = 0;
 var bmPlayerX = 0;
 var bmKeyLeft = false;
 var bmKeyRight = false;
@@ -47,7 +48,7 @@ function bmPostState(force) {
   var stageW = bmStageEl.clientWidth || 1;
   var stageH = bmStageEl.clientHeight || 1;
   var bombsData = bmBombs.slice(0, 20).map(function (b) {
-    return [Math.round((b.x / stageW) * 1000) / 1000, Math.round((b.y / stageH) * 1000) / 1000, b.type === 'heal' ? 1 : b.type === 'danger' ? 2 : 0];
+    return [Math.round((b.x / stageW) * 1000) / 1000, Math.round((b.y / stageH) * 1000) / 1000, b.type === 'heal' ? 1 : b.type === 'danger' ? 2 : 0, b.id || 0];
   });
   DBset(bmOpponentKey(myPlayerId), {
     name: me.name,
@@ -122,6 +123,7 @@ function bmShowFinalResults(results) {
 var BM_WATCH = null, BM_WATCH_TIMER = null, BM_WATCH_NAME = '';
 function bmStartWatch(pid, name) {
   BM_WATCH = pid; BM_WATCH_NAME = name || '';
+  BM_WATCH_BOMBS = {};
   var box = document.getElementById('bm-watch');
   box.style.display = '';
   box.innerHTML = '<div class="bm-watch-label">👀 ' + esc(BM_WATCH_NAME) + ' 화면 보는 중 · 누르면 닫기</div><div class="bm-watch-score"></div><div class="bm-watch-layer"></div><img class="bm-watch-player" alt="" />';
@@ -153,28 +155,52 @@ function bmWatchTick() {
       layer.innerHTML = '';
       return;
     }
-    var bombs = d.bombs || [];
-    var els = layer.children;
-    while (els.length < bombs.length) {
-      var el = document.createElement('div');
-      el.className = 'bm-watch-bomb';
-      layer.appendChild(el);
-    }
-    while (els.length > bombs.length) layer.removeChild(layer.lastChild);
-    bombs.forEach(function (b, i) {
-      var el = els[i];
-      var t = b[2] || 0;
-      var kind = t === 1 ? 'heal' : t === 2 ? 'danger' : 'poop';
-      if (el.getAttribute('data-k') !== kind) {
-        el.setAttribute('data-k', kind);
-        if (kind === 'heal') el.innerHTML = '💚';
-        else if (kind === 'danger') el.innerHTML = '☠️';
-        else el.innerHTML = (typeof BOMB_POOP_IMG !== 'undefined' && BOMB_POOP_IMG) ? '<img src="' + BOMB_POOP_IMG + '" alt="" />' : '💩';
+    /* 똥마다 번호(id)로 따로 기억해서, 다른 똥 자리로 순간이동(날아다니는 것처럼 보이던 문제)하지 않게 해요.
+       받은 위치 사이사이는 떨어지는 속도로 이어서 그려서 부드럽게 떨어져요. */
+    var now = performance.now();
+    var seen = {};
+    (d.bombs || []).forEach(function (b) {
+      var id = b.length > 3 ? b[3] : (b[0] + ':' + b[2]);
+      seen[id] = 1;
+      var o = BM_WATCH_BOMBS[id];
+      var kind = (b[2] || 0) === 1 ? 'heal' : (b[2] || 0) === 2 ? 'danger' : 'poop';
+      if (!o) {
+        var el = document.createElement('div');
+        el.className = 'bm-watch-bomb';
+        el.innerHTML = kind === 'heal' ? '💚' : kind === 'danger' ? '☠️' : ((typeof BOMB_POOP_IMG !== 'undefined' && BOMB_POOP_IMG) ? '<img src="' + BOMB_POOP_IMG + '" alt="" />' : '💩');
+        layer.appendChild(el);
+        o = BM_WATCH_BOMBS[id] = { el: el, x: b[0], y: b[1], vy: 0.00035, at: now };
+      } else {
+        var dt = now - o.at;
+        if (dt > 30) {
+          var shownY = o.y + o.vy * dt;
+          var v = (b[1] - o.y) / dt;
+          if (v > 0 && v < 0.01) o.vy = o.vy * 0.5 + v * 0.5;
+          /* 너무 많이 어긋났으면 받은 위치로 맞추고, 조금이면 살짝만 당겨서 튀지 않게 */
+          o.y = Math.abs(shownY - b[1]) > 0.08 ? b[1] : shownY + (b[1] - shownY) * 0.5;
+          o.x = b[0];
+          o.at = now;
+        }
       }
-      el.style.left = (b[0] * 100) + '%';
-      el.style.top = (b[1] * 100) + '%';
     });
+    Object.keys(BM_WATCH_BOMBS).forEach(function (id) {
+      if (!seen[id]) { var o = BM_WATCH_BOMBS[id]; if (o.el.parentNode) o.el.parentNode.removeChild(o.el); delete BM_WATCH_BOMBS[id]; }
+    });
+    if (!BM_WATCH_RAF) BM_WATCH_RAF = requestAnimationFrame(bmWatchAnim);
   });
+}
+var BM_WATCH_BOMBS = {}, BM_WATCH_RAF = 0;
+function bmWatchAnim() {
+  BM_WATCH_RAF = 0;
+  if (!BM_WATCH) return;
+  var now = performance.now();
+  Object.keys(BM_WATCH_BOMBS).forEach(function (id) {
+    var o = BM_WATCH_BOMBS[id];
+    var y = Math.min(1.08, o.y + o.vy * (now - o.at));
+    o.el.style.left = (o.x * 100) + '%';
+    o.el.style.top = (y * 100) + '%';
+  });
+  BM_WATCH_RAF = requestAnimationFrame(bmWatchAnim);
 }
 
 function bmStartOppPoll() {
@@ -328,7 +354,7 @@ function bmSpawnBomb(speed, type) {
   el.style.left = x + 'px';
   el.style.top = '-20px';
   bmStageEl.appendChild(el);
-  bmBombs.push({ el: el, x: x, y: -20, speed: speed, type: type });
+  bmBombs.push({ el: el, x: x, y: -20, speed: speed, type: type, id: (BM_BOMB_SEQ = (BM_BOMB_SEQ + 1) % 100000) });
 }
 
 function bmTick(ts) {
@@ -482,16 +508,25 @@ function stopBombGame() {
   bmStopOppPoll();
 }
 
+/* ←/→ 또는 A/D (한글 입력 상태여도 되게 e.code 로 확인) */
+function bmKeyDir(e) {
+  if (e.key === 'ArrowLeft' || e.code === 'KeyA' || e.key === 'a' || e.key === 'A') return 'L';
+  if (e.key === 'ArrowRight' || e.code === 'KeyD' || e.key === 'd' || e.key === 'D') return 'R';
+  return null;
+}
 document.addEventListener('keydown', function (e) {
-  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  var dir = bmKeyDir(e);
+  if (!dir) return;
   if (!document.getElementById('bomb').classList.contains('active')) return;
+  if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
   e.preventDefault();
-  if (e.key === 'ArrowLeft') bmKeyLeft = true;
+  if (dir === 'L') bmKeyLeft = true;
   else bmKeyRight = true;
 });
 document.addEventListener('keyup', function (e) {
-  if (e.key === 'ArrowLeft') bmKeyLeft = false;
-  else if (e.key === 'ArrowRight') bmKeyRight = false;
+  var dir = bmKeyDir(e);
+  if (dir === 'L') bmKeyLeft = false;
+  else if (dir === 'R') bmKeyRight = false;
 });
 
 (function bmSetupTouchButtons() {

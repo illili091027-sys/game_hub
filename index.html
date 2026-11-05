@@ -87,7 +87,7 @@ window.addEventListener('load', function () {
           <div class="game-icon">2</div>
           <div class="game-name">똥벼락 대탈출</div>
         </div>
-        <div class="game-desc" id="desc-bomb">방향키(←/→)로 캐릭터를 움직여서 하늘에서 떨어지는 똥을 피하세요! 체력 3칸, 초록 아이템은 회복, 해골 아이템은 닿으면 바로 탈락! 시간이 갈수록 더 빠르고 많이 떨어져요.</div>
+        <div class="game-desc" id="desc-bomb">방향키(←/→)나 A/D 키로 캐릭터를 움직여서 하늘에서 떨어지는 똥을 피하세요! 체력 3칸, 초록 아이템은 회복, 해골 아이템은 닿으면 바로 탈락! 시간이 갈수록 더 빠르고 많이 떨어져요.</div>
       </button>
       <button class="game-card" id="card-quiz" onclick="cardClicked('quiz')">
         <div class="game-card-top">
@@ -273,7 +273,7 @@ window.addEventListener('load', function () {
       <span class="room-pill" id="bm-room-pill">방</span>
     </div>
     <h2 class="game-heading">똥벼락 대탈출</h2>
-    <p class="game-sub">방향키(←/→)로 캐릭터를 움직여서 하늘에서 떨어지는 똥을 피하세요! 체력은 3칸, 초록 아이템은 회복, 해골 아이템은 닿으면 즉시 탈락이에요. 시간이 지날수록 점점 빨라지고 한 번에 여러 개가 떨어져요.</p>
+    <p class="game-sub">방향키(←/→)나 A/D 키로 캐릭터를 움직여서 하늘에서 떨어지는 똥을 피하세요! 체력은 3칸, 초록 아이템은 회복, 해골 아이템은 닿으면 즉시 탈락이에요. 시간이 지날수록 점점 빨라지고 한 번에 여러 개가 떨어져요.</p>
 
     <div id="bm-intro">
       <div class="board-box">
@@ -300,7 +300,7 @@ window.addEventListener('load', function () {
           <img class="bm-ufo" id="bm-ufo" src="" alt="" />
           <div class="bm-watch" id="bm-watch" style="display:none"></div>
           <div class="bm-overlay" id="bm-ready-overlay">
-            <div style="font-family:'Gaegu',cursive; font-size:22px;">방향키(←/→)를 눌러서<br/>똥을 피해보세요!</div>
+            <div style="font-family:'Gaegu',cursive; font-size:22px;">방향키(←/→)나 A/D 를 눌러서<br/>똥을 피해보세요!</div>
           </div>
         </div>
           <div class="bm-touch-row">
@@ -727,6 +727,7 @@ window.addEventListener('load', function () {
         <button type="button" class="bb-pause-btn" id="bb-pause-btn" onmousedown="event.preventDefault()" onclick="bbTogglePause(); this.blur();" title="잠깐 멈춤 (스페이스바)">⏸</button>
         <div class="bb-pause" id="bb-pause" style="display:none" onclick="bbResume()"></div>
         <div class="bb-over" id="bb-over" style="display:none"></div>
+        <div class="bb-result" id="bb-result" style="display:none"></div>
         <div class="bb-spec-label" id="bb-spec-label" style="display:none"></div>
         <div class="bb-pick" id="bb-pick" style="display:none">
           <div class="bb-pick-title">캐릭터를 골라요!</div>
@@ -742,7 +743,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1104-6]</span></p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1105-1]</span></p>
   </div>
 </div>
 
@@ -847,13 +848,19 @@ window.addEventListener('load', function () {
       <div class="rl-draw-prompt" id="rl-draw-prompt"></div>
       <canvas id="rl-canvas" width="480" height="360"></canvas>
       <div class="rl-tools">
+        <div class="rl-tools-mode" id="rl-tools-mode">
+          <span class="rl-cur-color" id="rl-cur-color" title="지금 색"></span>
+          <button type="button" class="rl-tool on" data-tool="pen">✏️ 펜</button>
+          <button type="button" class="rl-tool" data-tool="fill">🪣 채우기</button>
+          <button type="button" class="rl-tool" data-tool="eraser">🧽 지우개</button>
+        </div>
         <div class="rl-colors" id="rl-colors"></div>
         <div class="rl-sizes" id="rl-sizes">
           <button type="button" class="rl-size" data-s="3"><i style="width:4px;height:4px"></i></button>
           <button type="button" class="rl-size on" data-s="6"><i style="width:8px;height:8px"></i></button>
           <button type="button" class="rl-size" data-s="14"><i style="width:14px;height:14px"></i></button>
         </div>
-        <button type="button" class="btn btn-ghost rl-tool-btn" onclick="rlUndo()">↩️ 되돌리기</button>
+        <button type="button" class="btn btn-ghost rl-tool-btn" onclick="rlUndo()" title="Ctrl+Z">↩️ 되돌리기 <small>(Ctrl+Z)</small></button>
         <button type="button" class="btn btn-ghost rl-tool-btn" onclick="rlClearCanvas()">🗑️ 다 지우기</button>
       </div>
       <button class="btn btn-primary rl-submit-draw" onclick="rlSubmitDrawing()">그림 제출!</button>
@@ -867,6 +874,11 @@ window.addEventListener('load', function () {
       <div class="rl-album" id="rl-album"></div>
       <button class="btn btn-primary" id="rl-next-btn" onclick="rlHostNext()">다음 장 보기 ▶</button>
       <button class="btn btn-primary" id="rl-restart-btn" onclick="rlHostRestart()">한 판 더!</button>
+      <div class="rl-save" id="rl-save" style="display:none">
+        <button class="btn btn-ghost" onclick="rlSaveGif()">💾 움짤(GIF)로 저장</button>
+        <button class="btn btn-ghost" onclick="rlSaveVideo()">🎬 동영상으로 저장</button>
+        <div class="rl-save-msg" id="rl-save-msg"></div>
+      </div>
       <div class="rl-reveal-wait" id="rl-reveal-wait"></div>
     </div>
   </div>
@@ -1223,6 +1235,7 @@ window.addEventListener('load', function () {
 <script src="js/stork.js"></script>
 <script src="js/arrows.js"></script>
 <script src="js/mermaid.js"></script>
+<script src="js/gif-writer.js"></script>
 <script src="js/relay.js"></script>
 <script src="js/bingo.js"></script>
 <script src="js/tickbomb.js"></script>

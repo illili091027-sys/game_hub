@@ -816,7 +816,8 @@ var GAME_ROOM_STATE_KEYS = {
   relay: ['relay'],
   bingo: ['bingo'],
   tickbomb: ['tickbomb'],
-  land: ['land']
+  land: ['land'],
+  baby: ['baby_round']
 };
 var GAME_PER_PLAYER_STATE_KEYS = {
   bomb: 'bomb_p_',
