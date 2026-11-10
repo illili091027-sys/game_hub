@@ -64,7 +64,6 @@ window.addEventListener('load', function () {
       <div class="host-free-bar" id="host-free-bar" style="display:none"></div>
       <div class="lobby-players" id="lobby-players"></div>
       <div class="lobby-hint" id="lobby-hint" style="margin-top:10px;font-weight:700;"></div>
-      <div class="lobby-wallet">내 코인 🪙 <b class="coin-balance">0</b> <small>(게임 등수대로 받아요 · 이 기기에 저장)</small> <button class="btn btn-ghost lobby-donate" onclick="donateOpen()">💸 후원하기</button></div>
       <button class="btn btn-primary lobby-hw-btn" id="btn-back-hw" style="display:none" onclick="openHomework()">📚 과제방으로 돌아가기</button>
     </div>
 
@@ -634,7 +633,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1110-7]</span></p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1110-8]</span></p>
   </div>
 </div>
 
@@ -1339,7 +1338,6 @@ window.addEventListener('load', function () {
     <div class="group-tabs">
       <button class="group-tab active" id="group-tab-chat" onclick="switchGroupTab('chat')">💬 전체</button>
       <button class="group-tab" id="group-tab-table" onclick="switchGroupTab('table')">🎮 테이블</button>
-      <button class="group-coin-btn" onclick="donateOpen()" title="코인으로 친구에게 후원">🪙 <b class="coin-balance">0</b> · 💸</button>
       <button class="group-panel-close" onclick="toggleGroupPanel()">✕</button>
     </div>
     <div id="group-chat-tab">

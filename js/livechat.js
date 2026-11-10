@@ -75,6 +75,8 @@ function sayText(text) {
 /* ---------- 후원 ---------- */
 function donateOpen(toPid) {
   if (!roomJoined) { alert('방에 들어가야 후원할 수 있어요!'); return; }
+  /* 후원은 화면공유 채팅에서만 */
+  if (!LC.mode) { coinToast('후원은 화면공유 채팅에서 할 수 있어요'); return; }
   var others = (roomPlayersList || []).filter(function (p) { return p.id !== myPlayerId; });
   if (!others.length) { coinToast('후원할 친구가 아직 없어요'); return; }
   var have = walletCoins();
@@ -251,11 +253,24 @@ function lcSync() {
 }
 
 /* 방에 있는 동안: 화면공유 채팅을 보고 있으면 1초마다, 아니면 2.5초마다 (후원 확인용) */
+/* 내 코인: 화면 위쪽에 항상 (온라인 방에 있을 때) */
+function coinPillSync() {
+  var el = document.getElementById('coin-pill');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'coin-pill'; el.className = 'coin-pill'; el.title = '게임 등수대로 받아요 · 이 기기에 저장 · 화면공유 채팅에서 후원할 수 있어요';
+    el.innerHTML = '🪙 <b class="coin-balance">0</b>';
+    document.body.appendChild(el);
+    walletRender();
+  }
+  el.style.display = roomJoined && playMode === 'online' ? '' : 'none';
+}
 (function lcLoop() {
   var n = 0, wasJoined = false;
   setInterval(function () {
     if (roomJoined && !wasJoined) { DON_WATCH.joinedAt = Date.now(); }
     wasJoined = roomJoined;
+    coinPillSync();
     if (!roomJoined) { if (LC.el) { LC.el.remove(); LC.el = null; LC.mode = null; } return; }
     lcSync();
     n++;

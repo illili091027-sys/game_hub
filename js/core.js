@@ -281,6 +281,8 @@ function applyRoomState(state) {
      이제는 카드 목록 자체는 항상 보여주고, 방장만 고를 수 있는 "진짜 게임" 카드들만 흐리게
      표시해서(클릭해도 hostSelectGame에서 막힘) 채널 라운지는 누구나 항상 쓸 수 있습니다. */
   document.getElementById('card-grid').style.display = '';
+  /* 혼자 하기 전용 게임(블록·피자·도시락 등)은 온라인에서 절대 안 보이게 한 번 더 */
+  SOLO_ONLY_CARD_IDS.forEach(function (id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
   document.querySelectorAll('#card-grid .game-card').forEach(function (card) {
     if (card.id === 'card-channels' || card.id === 'card-homework') { card.classList.remove('disabled'); return; }
     card.classList.toggle('disabled', !amHost);
