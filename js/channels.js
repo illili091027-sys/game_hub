@@ -5,11 +5,11 @@
    있게 합니다. 다른 게임 카드들과 달리 방장이 골라서 다같이 들어가는 방식이 아니라, 각자
    원할 때 자유롭게 열고 닫는 개인용 화면이라서 rules-overlay(동시 시작 절차)를 거치지
    않고 카드를 누르면 바로 열립니다(core.js의 openChannelLounge 참고).
-   - 채널 목록: roomKey('lchannels')에 { channels: [{id, name, createdAt}, ...] } 로 저장.
-   - 채널별 멤버(누가 들어가있는지): roomKey('lchan_m_'+채널id)에 { [플레이어id]: {name, ts} }.
+   - 채널 목록: roomKeyBase('lchannels')에 { channels: [{id, name, createdAt}, ...] } 로 저장.
+   - 채널별 멤버(누가 들어가있는지): roomKeyBase('lchan_m_'+채널id)에 { [플레이어id]: {name, ts} }.
      ts가 8초 이상 오래되면 접속이 끊긴 것으로 보고 목록에서 제외합니다(하트비트 방식이라
      탭을 그냥 닫아도 알아서 정리됨).
-   - 채널별 채팅: roomKey('lchan_c_'+채널id)에 { messages: [...] } (최근 50개 유지).
+   - 채널별 채팅: roomKeyBase('lchan_c_'+채널id)에 { messages: [...] } (최근 50개 유지).
    - 아무도 없는 채널(활성 멤버 0명, 만들어진 지 5초 이상 지남)은 채널 목록 화면을 보고 있는
      누군가에 의해 자동으로 삭제됩니다. */
 var CH_MAX_CHANNELS = 12;
@@ -20,9 +20,9 @@ var CH_CHAT_POLL_TIMER = null;
 var CH_MEMBER_HEARTBEAT_TIMER = null;
 var CH_CHAT_TRACKER = { lastSig: null, pending: [] };
 
-function channelsKey() { return roomKey('lchannels'); }
-function chMembersKey(chId) { return roomKey('lchan_m_' + chId); }
-function chChatKey(chId) { return roomKey('lchan_c_' + chId); }
+function channelsKey() { return roomKeyBase('lchannels'); }
+function chMembersKey(chId) { return roomKeyBase('lchan_m_' + chId); }
+function chChatKey(chId) { return roomKeyBase('lchan_c_' + chId); }
 
 function openChannelLounge() {
   if (playMode !== 'online' || !roomJoined) return;

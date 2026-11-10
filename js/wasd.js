@@ -7,7 +7,6 @@
    - 다른 사람은 키를 누르면 roomKey('wd_k_'+내id)에 올리고, 방장이 모아서 적용해요. */
 var WD_MIN = 1, WD_MAX = 4, WD_STAGES = 6;
 var WD_W = 22, WD_H = 14;
-var WD_START = { x: 2, y: 7 };
 var WD_KEYS = { W: [0, -1], A: [-1, 0], S: [0, 1], D: [1, 0] };
 var WD_KEY_NAME = { W: '위', A: '왼쪽', S: '아래', D: '오른쪽' };
 
@@ -21,6 +20,8 @@ var WD_RECV_AT = 0;
 var WD_SHEET = null;
 var WD_FLASH = {};        // 키 버튼 반짝임 {W: 시각}
 var WD_PUB_BUSY = false, WD_LAST_PUB = 0;
+var WD_OFF = 0, WD_OFF_SAMPLES = [];   /* 방장 시계와의 차이(ms) */
+var WD_LOCAL_PEND = null;             /* 내가 방금 누른 키(방장에게 닿기 전까지 내 화면에 미리 반영) */
 
 function wdKey() { return roomKey('wasd'); }
 function wdMyKey() { return roomKey('wd_k_' + myPlayerId); }
@@ -57,66 +58,15 @@ function startWasdGame() {
   });
 }
 
-/* ---- 맵 만들기 (같은 번호면 항상 같은 맵) ---- */
-function wdRng(seed) {
-  var a = seed >>> 0;
-  return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-}
-/* 칸: '.' 풀밭  'T' 나무(벽)  'R' 돌  'c' 코인  'G' 깃발 */
-function wdMakeMap(stage, seed) {
-  for (var tryN = 0; tryN < 200; tryN++) {
-    var rnd = wdRng(seed * 31 + stage * 977 + tryN * 7919);
-    var g = [];
-    for (var y = 0; y < WD_H; y++) for (var x = 0; x < WD_W; x++) g.push(x === 0 || y === 0 || x === WD_W - 1 || y === WD_H - 1 ? 'T' : '.');
-    var at = function (x, y) { return g[y * WD_W + x]; };
-    var set = function (x, y, v) { g[y * WD_W + x] = v; };
-    var safe = function (x, y) { return y >= WD_START.y - 1 && y <= WD_START.y + 1 && x <= WD_START.x + 5; };
-    /* 나무 울타리 (스테이지가 올라갈수록 많이) */
-    var hedges = 1 + stage;
-    for (var h = 0; h < hedges; h++) {
-      var horiz = rnd() < 0.5, len = 3 + Math.floor(rnd() * 5);
-      var hx = 2 + Math.floor(rnd() * (WD_W - 4)), hy = 2 + Math.floor(rnd() * (WD_H - 4));
-      for (var k = 0; k < len; k++) {
-        var px = hx + (horiz ? k : 0), py = hy + (horiz ? 0 : k);
-        if (px > 0 && py > 0 && px < WD_W - 1 && py < WD_H - 1 && !safe(px, py)) set(px, py, 'T');
-      }
-    }
-    var free = function () {
-      for (var t = 0; t < 300; t++) {
-        var fx = 1 + Math.floor(rnd() * (WD_W - 2)), fy = 1 + Math.floor(rnd() * (WD_H - 2));
-        if (at(fx, fy) === '.' && !safe(fx, fy)) return [fx, fy];
-      }
-      return null;
-    };
-    var rocks = 3 + stage * 4;
-    for (var r = 0; r < rocks; r++) { var p = free(); if (p) set(p[0], p[1], 'R'); }
-    var coins = 2 + stage, cl = [];
-    for (var c = 0; c < coins; c++) { var q = free(); if (q) { set(q[0], q[1], 'c'); cl.push(q); } }
-    /* 깃발: 출발점에서 먼 오른쪽 */
-    var goal = null;
-    for (var t2 = 0; t2 < 300 && !goal; t2++) {
-      var gx = WD_W - 2 - Math.floor(rnd() * 5), gy = 1 + Math.floor(rnd() * (WD_H - 2));
-      if (at(gx, gy) === '.') goal = [gx, gy];
-    }
-    if (!goal || cl.length < coins) continue;
-    set(goal[0], goal[1], 'G');
-    /* 모든 코인과 깃발에 갈 수 있는지 확인 + 막다른 곳(이웃 1칸뿐)인 코인은 피하기 */
-    var seen = {}, queue = [[WD_START.x, WD_START.y]];
-    seen[WD_START.y * WD_W + WD_START.x] = 1;
-    while (queue.length) {
-      var cur = queue.shift();
-      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
-        var nx = cur[0] + d[0], ny = cur[1] + d[1], id = ny * WD_W + nx, v = at(nx, ny);
-        if (v === 'T' || v === 'R' || seen[id]) return;
-        seen[id] = 1; queue.push([nx, ny]);
-      });
-    }
-    var openN = function (x, y) { var n = 0; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var v = at(x + d[0], y + d[1]); if (v !== 'T' && v !== 'R') n++; }); return n; };
-    var ok = cl.concat([goal]).every(function (pt) { return seen[pt[1] * WD_W + pt[0]] && openN(pt[0], pt[1]) >= 2; });
-    if (ok) return g.join('');
-  }
-  return null;
-}
+/* ---- 맵 6개 (흙길을 따라가는 통로형) ----
+   '#' 울타리(벽) · '.' 흙길 · 'c' 코인 · 'R' 길 위의 돌 · 'G' 깃발. 22×14칸, 한 줄씩 이어 붙인 문자열 */
+var WD_MAPS = [
+  {"map": "#####################################################..........############.c........############..######..############..######..#####....c....######.c#####.........######..####################..####################..##############........##############G.......###############################################", "sx": 2, "sy": 6, "dir": "D"},
+  {"map": "##############################################..................####........c.........####################..####################..#####.................#####..............c..#####.c####################..####################.................#####.........c......G##############################################", "sx": 2, "sy": 2, "dir": "D"},
+  {"map": "##############################################.........c.........###...................####################..###...............##..###..........c....##..###.c###########..##.c###..###..........##..###..###G.........##..###..###############..###...................###.......c...........#######################", "sx": 2, "sy": 2, "dir": "D"},
+  {"map": "##############################################..###...c...###....###..###.......###...G###..###.c###..###..#####..###..###R.###..#####..###..###..###.c#####Rc###.R###..###..#####..###..###..###..#####..###..###.c###.R#####..###..###..###..#####.......###.......#####.......###.......#########################", "sx": 2, "sy": 2, "dir": "S"},
+  {"map": "##############################################.........###.......###.........###.......###.R#####c.###..###..###..#####..###c.###..###c.#####..###..###..###..#......###..###..###..#.###..###.R###c.###..#.########..###..###..#c########..###..###..#.....c.....###.G###..#..R........###..#######################", "sx": 2, "sy": 11, "dir": "W"},
+  {"map": "##################################################..R.....##.....#######.c......##.c...#######..####..##R.#..#######..####..##..#..###......####......#R.###......####...c..#..###.........#..#####..###G.......c#..#####..#####..###..#c.#####.c#####.c###............#####..###.....R......#######################", "sx": 2, "sy": 6, "dir": "D"}];
 
 /* ---- 방장: 시작 ---- */
 function wdHostInit() {
@@ -134,23 +84,25 @@ function wdHostInit() {
 }
 function wdHostRestart() { if (wdIsHost()) { stopWasdGame(); startWasdGame(); } }
 
-function wdStageSpeed(stage) { return 3.1 + stage * 0.18; }   /* 칸/초 */
+function wdStageSpeed(stage) { return 2.75 + stage * 0.15; }   /* 칸/초 (길이 좁아서 조금 천천히) */
 
 function wdSimStage(stage) {
   var S = WD_SIM;
   S.stage = stage;
-  S.map = wdMakeMap(stage, S.gameId % 100000);
+  var M = WD_MAPS[stage - 1];
+  S.map = M.map; S.sx = M.sx; S.sy = M.sy; S.sdir = M.dir;
   S.coinsTotal = (S.map.match(/c/g) || []).length;
   wdSimRespawn(3000);
 }
 function wdSimRespawn(wait) {
   var S = WD_SIM;
   S.got = {};                      /* 이번 시도에서 먹은 코인 칸 */
-  S.x = WD_START.x; S.y = WD_START.y; S.dir = 'D'; S.prog = 0; S.pending = null;
+  S.x = S.sx; S.y = S.sy; S.dir = S.sdir; S.prog = 0; S.pending = null;
   S.phase = 'ready';
   S.phaseUntil = Date.now() + wait;
 }
-function wdTile(map, x, y) { if (x < 0 || y < 0 || x >= WD_W || y >= WD_H) return 'T'; return map[y * WD_W + x]; }
+function wdTile(map, x, y) { if (x < 0 || y < 0 || x >= WD_W || y >= WD_H) return '#'; return map[y * WD_W + x]; }
+function wdBlocked(v) { return v === '#' || v === 'R' || v === 'T'; }
 
 /* 방장: 한 프레임 움직이기 */
 function wdSimStep(dt) {
@@ -170,32 +122,31 @@ function wdSimStep(dt) {
     return;
   }
   if (S.phase !== 'run') return;
-  var speed = wdStageSpeed(S.stage);
-  var left = dt * speed;
-  while (left > 0 && S.phase === 'run') {
-    if (S.prog === 0 && S.pending) { S.dir = S.pending; S.pending = null; }
-    var d = WD_KEYS[S.dir], nt = wdTile(S.map, S.x + d[0], S.y + d[1]);
-    var blocked = nt === 'T' || nt === 'R';
-    var room = (blocked ? 0.32 : 1) - S.prog;
+  var ev = wdAdvance(S, dt, S.coinsTotal);
+  if (ev === 'coin') { S.coinAt = now; wdHostPublish(true); }
+  else if (ev === 'bonk') { S.deaths++; S.phase = 'dead'; S.phaseUntil = now + 1300; S.hitAt = now; wdHostPublish(true); }
+  else if (ev === 'clear') { S.phase = 'clear'; S.phaseUntil = now + 2800; S.clearAt = now; wdHostPublish(true); }
+}
+
+/* 움직이기 (방장 계산 · 다른 사람 화면 예측 둘 다 이걸로 똑같이)
+   P = {x, y, dir, prog, pending, map, got}. 결과: 'coin' / 'bonk'(부딪힘) / 'clear' / null */
+function wdAdvance(P, dt, coinsTotal) {
+  var left = dt * wdStageSpeed(P.stage), ev = null;
+  while (left > 1e-9) {
+    if (P.prog === 0 && P.pending) { P.dir = P.pending; P.pending = null; }
+    var d = WD_KEYS[P.dir], blocked = wdBlocked(wdTile(P.map, P.x + d[0], P.y + d[1]));
+    var room = (blocked ? 0.32 : 1) - P.prog;
     var mv = Math.min(left, room);
-    S.prog += mv; left -= mv;
-    if (blocked && S.prog >= 0.32 - 1e-6) {
-      /* 쿵! 부딪힘 */
-      S.deaths++; S.phase = 'dead'; S.phaseUntil = now + 1300; S.hitAt = now; S.hitWhat = nt;
-      wdHostPublish(true);
-      return;
-    }
-    if (S.prog >= 1 - 1e-6) {
-      S.x += d[0]; S.y += d[1]; S.prog = 0;
-      var id = S.y * WD_W + S.x, v = S.map[id];
-      if (v === 'c' && !S.got[id]) { S.got[id] = 1; S.coinAt = now; wdHostPublish(true); }
-      if (v === 'G' && Object.keys(S.got).length >= S.coinsTotal) {
-        S.phase = 'clear'; S.phaseUntil = now + 2800; S.clearAt = now;
-        wdHostPublish(true);
-        return;
-      }
+    P.prog += mv; left -= mv;
+    if (blocked && P.prog >= 0.32 - 1e-6) { P.prog = 0.32; return 'bonk'; }
+    if (P.prog >= 1 - 1e-6) {
+      P.x += d[0]; P.y += d[1]; P.prog = 0;
+      var id = P.y * WD_W + P.x, v = P.map[id];
+      if (v === 'c' && !P.got[id]) { P.got[id] = 1; ev = 'coin'; }
+      if (v === 'G' && Object.keys(P.got).length >= coinsTotal) return 'clear';
     }
   }
+  return ev;
 }
 
 /* 키 누름 적용 (방장) */
@@ -221,7 +172,7 @@ function wdSnapshot() {
   var S = WD_SIM, now = Date.now();
   return {
     gameId: S.gameId, order: S.order, names: S.names, assign: S.assign, stage: S.stage, map: S.map,
-    coinsTotal: S.coinsTotal, got: Object.keys(S.got).map(Number), deaths: S.deaths,
+    coinsTotal: S.coinsTotal, got: Object.keys(S.got).map(Number), deaths: S.deaths, sx: S.sx, sy: S.sy,
     x: S.x, y: S.y, dir: S.dir, prog: Math.round(S.prog * 1000) / 1000, pending: S.pending,
     phase: S.phase, left: Math.max(0, (S.phaseUntil || now) - now), t: now,
     elapsed: S.startedAt ? ((S.endedAt || now) - S.startedAt) : 0,
@@ -263,6 +214,11 @@ function wdPoll() {
     if (WD_STATE && (st.stage !== WD_STATE.stage || st.phase !== WD_STATE.phase)) wdPhaseSound(WD_STATE, st);
     if (WD_STATE && st.coinAt !== WD_STATE.coinAt && st.coinAt) wdSound('coin');
     WD_STATE = st; WD_RECV_AT = Date.now();
+    /* 시계 차이 추정: (받은 시각 - 방장이 보낸 시각) 중 가장 작은 값 = 시계 차이 + 가장 빠른 전송 시간 */
+    var sample = WD_RECV_AT - st.t;
+    WD_OFF_SAMPLES.push(sample); if (WD_OFF_SAMPLES.length > 30) WD_OFF_SAMPLES.shift();
+    WD_OFF = Math.min.apply(null, WD_OFF_SAMPLES);
+    if (WD_LOCAL_PEND && (st.pending === WD_LOCAL_PEND.k || (st.lastPress && st.lastPress.pid === myPlayerId && st.lastPress.k === WD_LOCAL_PEND.k && st.lastPress.t > WD_LOCAL_PEND.ht))) WD_LOCAL_PEND = null;
     wdRenderHud();
   }, function () { wdPoll.busy = false; });
 }
@@ -275,6 +231,7 @@ function wdPress(k) {
   WD_FLASH[k] = Date.now();
   wdSound('tap');
   if (wdIsHost()) { wdSimPress(myPlayerId, k); wdHostPublish(true); return; }
+  WD_LOCAL_PEND = { k: k, at: Date.now(), ht: Date.now() - WD_OFF - 200 };
   WD_MY_SEQ++;
   wdPressList.push({ s: WD_MY_SEQ, k: k });
   if (wdPressList.length > 12) wdPressList.shift();
@@ -303,19 +260,26 @@ function wdPhaseSound(a, b) {
   else if (b.phase === 'end') wdSound('clear');
 }
 
-/* 그릴 위치: 받은 위치에서 가던 방향으로 이어서(최대 다음 칸까지) → 부드럽게 따라가기 */
+/* 그릴 위치
+   - 방장: 진짜 위치 그대로
+   - 다른 사람: 받은 상태는 조금 옛날 거라서, 지금쯤 방장 화면에서 어디 있을지 같은 규칙으로 앞질러 계산(예측)해서 그려요.
+     → 모두의 화면에서 캐릭터 위치가 거의 같아져서 타이밍이 맞아요. 부딪힘/코인은 방장이 확정하면 반영돼요. */
 function wdTargetPos(st) {
   var d = WD_KEYS[st.dir] || [1, 0];
-  var prog = st.prog;
-  if (st.phase === 'run') {
-    var e = (Date.now() - WD_RECV_AT) / 1000;
-    if (!wdIsHost()) e += 0.05;
-    prog = Math.min(1, prog + e * wdStageSpeed(st.stage));
-    var nt = wdTile(st.map, st.x + d[0], st.y + d[1]);
-    if ((nt === 'T' || nt === 'R') && prog > 0.32) prog = 0.32;
-  }
-  return { x: st.x + d[0] * prog, y: st.y + d[1] * prog };
+  if (wdIsHost() || st.phase !== 'run') return { x: st.x + d[0] * st.prog, y: st.y + d[1] * st.prog };
+  var e = (Date.now() - st.t - WD_OFF + 60) / 1000;
+  e = Math.max(0, Math.min(0.8, e));
+  var got = {};
+  (st.got || []).forEach(function (id) { got[id] = 1; });
+  var pend = st.pending;
+  if (WD_LOCAL_PEND) { if (Date.now() - WD_LOCAL_PEND.at < 900) pend = WD_LOCAL_PEND.k; else WD_LOCAL_PEND = null; }
+  var P = { x: st.x, y: st.y, dir: st.dir, prog: st.prog, pending: pend, map: st.map, got: got, stage: st.stage };
+  wdAdvance(P, e, st.coinsTotal);
+  WD_PRED = P;
+  var pd = WD_KEYS[P.dir];
+  return { x: P.x + pd[0] * P.prog, y: P.y + pd[1] * P.prog, dir: P.dir, got: P.got };
 }
+var WD_PRED = null;
 
 function wdResize() {
   var r = WD_CANVAS.getBoundingClientRect();
@@ -335,26 +299,44 @@ function wdDraw(dt) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#4f8a3c'; ctx.fillRect(0, 0, W, H);
   ctx.translate(ox, oy);
+  var tp = wdTargetPos(st);
   var got = {};
   (st.got || []).forEach(function (id) { got[id] = 1; });
-  var allGot = (st.got || []).length >= st.coinsTotal;
-  /* 바닥: 풀밭 체크무늬 */
+  if (tp.got) Object.keys(tp.got).forEach(function (id) { got[id] = 1; });   /* 예측으로 먹은 코인도 바로 사라지게 */
+  var allGot = Object.keys(got).length >= st.coinsTotal;
+  var walk = function (x, y) { return !wdBlocked(wdTile(st.map, x, y)) || wdTile(st.map, x, y) === 'R'; };
+  var nearPath = function (x, y) { for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) if ((dx || dy) && walk(x + dx, y + dy) && wdTile(st.map, x + dx, y + dy) !== '#') return true; return false; };
+  /* 바닥: 풀밭 + 흙길 */
   for (var y = 0; y < WD_H; y++) for (var x = 0; x < WD_W; x++) {
-    ctx.fillStyle = (x + y) % 2 ? '#8cc56b' : '#95cc73';
+    var v0 = st.map[y * WD_W + x];
+    if (v0 === '#') ctx.fillStyle = (x + y) % 2 ? '#7fbf5e' : '#88c766';
+    else ctx.fillStyle = (x * 3 + y * 5) % 4 ? '#d9b27c' : '#d2a972';
     ctx.fillRect(x * ts, y * ts, ts + 0.5, ts + 0.5);
   }
-  /* 흙길 느낌: 출발점 */
-  ctx.fillStyle = 'rgba(196,160,104,0.55)';
-  ctx.beginPath(); ctx.arc((WD_START.x + 0.5) * ts, (WD_START.y + 0.5) * ts, ts * 0.48, 0, Math.PI * 2); ctx.fill();
+  /* 흙길 가장자리 그림자 */
+  ctx.fillStyle = 'rgba(120,80,40,0.18)';
+  for (var y1 = 0; y1 < WD_H; y1++) for (var x1 = 0; x1 < WD_W; x1++) {
+    if (st.map[y1 * WD_W + x1] === '#' || wdTile(st.map, x1, y1 - 1) !== '#') continue;
+    ctx.fillRect(x1 * ts, y1 * ts, ts + 0.5, ts * 0.18);
+  }
+  /* 출발점 */
+  if (st.sx != null) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = Math.max(2, ts * 0.06); ctx.setLineDash([ts * 0.12, ts * 0.1]);
+    ctx.strokeRect(st.sx * ts + ts * 0.12, st.sy * ts + ts * 0.12, ts * 0.76, ts * 0.76); ctx.setLineDash([]);
+  }
   for (var y2 = 0; y2 < WD_H; y2++) for (var x2 = 0; x2 < WD_W; x2++) {
-    var v = st.map[y2 * WD_W + x2], cx = (x2 + 0.5) * ts, cy = (y2 + 0.5) * ts;
-    if (v === 'T') wdDrawTree(ctx, cx, cy, ts, x2 * 7 + y2 * 13);
+    var v = st.map[y2 * WD_W + x2], cx = (x2 + 0.5) * ts, cy = (y2 + 0.5) * ts, sd = x2 * 7 + y2 * 13;
+    if (v === '#') {
+      /* 길 바로 옆은 돌 울타리, 먼 곳은 가끔 나무·풀 */
+      if (nearPath(x2, y2)) wdDrawFence(ctx, cx, cy, ts, sd);
+      else if (sd % 5 === 0) wdDrawTree(ctx, cx, cy, ts, sd);
+      else if (sd % 7 === 1) wdDrawTuft(ctx, cx, cy, ts);
+    }
     else if (v === 'R') wdDrawRock(ctx, cx, cy, ts, x2 * 5 + y2 * 3);
     else if (v === 'c' && !got[y2 * WD_W + x2]) wdDrawCoin(ctx, cx, cy, ts, now + x2 * 120);
     else if (v === 'G') wdDrawFlag(ctx, cx, cy, ts, allGot, now);
   }
   /* 캐릭터 */
-  var tp = wdTargetPos(st);
   if (!WD_DISP || Math.abs(WD_DISP.x - tp.x) + Math.abs(WD_DISP.y - tp.y) > 2.5 || st.phase === 'ready') WD_DISP = { x: tp.x, y: tp.y };
   var k = Math.min(1, (dt || 0.016) * (wdIsHost() ? 60 : 14));
   WD_DISP.x += (tp.x - WD_DISP.x) * k; WD_DISP.y += (tp.y - WD_DISP.y) * k;
@@ -366,7 +348,7 @@ function wdDraw(dt) {
     var hop = st.phase === 'run' ? Math.abs(Math.sin(now / 90)) * ts * 0.08 : 0;
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.beginPath(); ctx.ellipse(px, py + ts * 0.42, ts * 0.38, ts * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-    wdDrawChar(ctx, row, st.dir, px, py - hop, ts * 1.25, dead);
+    wdDrawChar(ctx, row, tp.dir || st.dir, px, py - hop, ts * 1.25, dead);
   }
   if (dead) {
     ctx.font = 'bold ' + Math.round(ts * 0.9) + 'px sans-serif'; ctx.textAlign = 'center';
@@ -426,6 +408,24 @@ function wdDrawTree(ctx, cx, cy, ts, s) {
   ctx.beginPath(); ctx.arc(cx - ts * 0.14, cy - ts * 0.06, ts * 0.32, 0, Math.PI * 2); ctx.arc(cx + ts * 0.16, cy - ts * 0.02, ts * 0.3, 0, Math.PI * 2); ctx.arc(cx, cy - ts * 0.22, ts * 0.28, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.beginPath(); ctx.arc(cx - ts * 0.1, cy - ts * 0.24, ts * 0.1, 0, Math.PI * 2); ctx.fill();
+}
+function wdDrawFence(ctx, cx, cy, ts, s) {
+  /* 회색 돌 울타리 (돌 2~3개 뭉친 모양) */
+  var o = [[-0.22, 0.08, 0.27], [0.2, 0.1, 0.26], [0, -0.16, 0.25]];
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.3, ts * 0.46, ts * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  o.forEach(function (q, i) {
+    ctx.fillStyle = (s + i) % 3 ? '#8d939b' : '#7c828a';
+    ctx.beginPath(); ctx.arc(cx + q[0] * ts, cy + q[1] * ts, q[2] * ts, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.beginPath(); ctx.arc(cx + q[0] * ts - q[2] * ts * 0.3, cy + q[1] * ts - q[2] * ts * 0.35, q[2] * ts * 0.35, 0, Math.PI * 2); ctx.fill();
+  });
+}
+function wdDrawTuft(ctx, cx, cy, ts) {
+  ctx.strokeStyle = '#5f9e45'; ctx.lineWidth = Math.max(1.5, ts * 0.05); ctx.lineCap = 'round';
+  ctx.beginPath();
+  [-0.12, 0, 0.12].forEach(function (dx) { ctx.moveTo(cx + dx * ts, cy + ts * 0.15); ctx.lineTo(cx + dx * ts * 1.6, cy - ts * 0.12); });
+  ctx.stroke();
 }
 function wdDrawRock(ctx, cx, cy, ts, s) {
   ctx.fillStyle = 'rgba(0,0,0,0.18)';

@@ -16,7 +16,7 @@ var CHAT_FILE_LOADING = {};
 var CHAT_AVATAR_COLORS = ['#F2C744', '#6FC3DF', '#F2836B', '#B79CE8', '#6FC364', '#E89CC8', '#F2A65A', '#7FD8BE'];
 var CHAT_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
-function chatFileKey(fid) { return roomKey('cfile_' + fid); }
+function chatFileKey(fid) { return roomKeyBase('cfile_' + fid); }
 function chatNewId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
 function chatAvatarColor(pid) {
@@ -725,12 +725,12 @@ var GROUP_CHAT_TRACKER = { lastSig: null, pending: [] };
   var el = document.getElementById('group-chat-messages');
   var onFiles = function (files) {
     if (!roomJoined) return;
-    chatSendFiles(groupChatKey(), files, GROUP_CHAT_TRACKER, function () { groupPoll(); }, function (msg) {
+    chatSendFiles(groupActiveChatKey(), files, GROUP_CHAT_TRACKER, function () { groupPoll(); }, function (msg) {
       var errEl = document.getElementById('group-upload-err');
       if (errEl) errEl.textContent = msg;
     });
   };
-  chatBindMessageArea(el, onFiles, function () { return groupChatKey(); }, function () { groupPoll(); });
+  chatBindMessageArea(el, onFiles, function () { return groupActiveChatKey(); }, function () { groupPoll(); });
   chatSetupMultiline(document.getElementById('group-chat-input'), groupSendChat); /* 오른쪽 채팅창: Shift+Enter 줄바꿈 */
   chatBindComposer({ inputId: 'group-chat-input', attachBtnId: 'group-attach-btn', fileInputId: 'group-file-input', onFiles: onFiles });
 })();

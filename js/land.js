@@ -26,6 +26,9 @@ var LD_PICK = null;
 var LD_KILL_AT = {};
 
 function ldKey() { return roomKey('land'); }
+/* 팀전: 같은 팀이면 true (팀전이 아니면 항상 false) */
+function ldMate(pid) { var T = LD_MAIN && LD_MAIN.teams; return !!(T && pid !== myPlayerId && T[pid] != null && T[pid] === T[myPlayerId]); }
+var LD_TEAM_MASK = null;   /* 팀원들 땅을 합친 것 */
 function ldMyKey() { return roomKey('ld_' + myPlayerId); }
 function ldIdx(x, y) { return y * LD_G + x; }
 
@@ -63,12 +66,21 @@ function ldHostInit() {
   var order = shuffleArray((roomPlayersList || []).map(function (p) { return p.id; }));
   var names = {}, spawns = {};
   (roomPlayersList || []).forEach(function (p) { names[p.id] = p.name; });
+  /* 팀전(게임 테이블에서 켰을 때): 같은 팀은 같은 색, 가까이에서 시작 */
+  var tc = typeof tblTeamConfig === 'function' ? tblTeamConfig() : null;
+  var teams = null;
+  if (tc) { teams = {}; order.forEach(function (pid) { teams[pid] = tc.assign[pid] || 0; }); }
   order.forEach(function (pid, i) {
-    var a = (i / order.length) * Math.PI * 2;
-    spawns[pid] = { x: Math.round(LD_G / 2 + Math.cos(a) * LD_G * 0.3), y: Math.round(LD_G / 2 + Math.sin(a) * LD_G * 0.3), color: LD_COLORS[i % LD_COLORS.length], a: a + Math.PI / 2 };
+    var a, color;
+    if (teams) {
+      var t = teams[pid], mates = order.filter(function (q) { return teams[q] === t; }), k = mates.indexOf(pid);
+      a = (t / tc.n) * Math.PI * 2 + (k - (mates.length - 1) / 2) * 0.32;
+      color = TEAM_COLORS[t % TEAM_COLORS.length];
+    } else { a = (i / order.length) * Math.PI * 2; color = LD_COLORS[i % LD_COLORS.length]; }
+    spawns[pid] = { x: Math.round(LD_G / 2 + Math.cos(a) * LD_G * 0.3), y: Math.round(LD_G / 2 + Math.sin(a) * LD_G * 0.3), color: color, a: a + Math.PI / 2 };
   });
   var startAt = Date.now() + 9000; // 캐릭터 고를 시간
-  return DBset(ldKey(), { gameId: Date.now(), order: order, names: names, spawns: spawns, startAt: startAt, endAt: startAt + LD_ROUND_MS, phase: 'play' });
+  return DBset(ldKey(), { gameId: Date.now(), order: order, names: names, spawns: spawns, startAt: startAt, endAt: startAt + LD_ROUND_MS, phase: 'play', teams: teams, teamN: tc ? tc.n : 0 });
 }
 function ldHostRestart() { if (myPlayerId === roomHostId) ldHostInit().then(ldPollMain); }
 
@@ -165,7 +177,7 @@ function ldEnterCell(id) {
   var ti = LD.trailIdx[id];
   if (ti >= 0 && ti < LD.trail.length - 3) { ldDie(null, '내 꼬리를 밟았어요'); return; }
   ldCheckHit(id);
-  if (LD.mask[id]) {
+  if (LD.mask[id] || (LD_TEAM_MASK && LD_TEAM_MASK[id])) {   /* 팀원 땅에 돌아와도 둘러싸기 완성 */
     if (LD.trail.length) ldCapture();
   } else if (ti < 0) {
     if (!LD.trail.length) LD.pts = [[LD.x, LD.y]];
@@ -179,7 +191,7 @@ function ldEnterCell(id) {
 function ldCheckHit(id) {
   Object.keys(LD_OTHERS).forEach(function (pid) {
     var d = LD_OTHERS[pid];
-    if (!d.alive || !d.trailSet || !d.trailSet[id]) return;
+    if (!d.alive || !d.trailSet || !d.trailSet[id] || ldMate(pid)) return;   /* 팀원 꼬리는 밟아도 안 끊겨요 */
     if (Date.now() - (LD_KILL_AT[pid] || 0) < 1500) return;
     LD_KILL_AT[pid] = Date.now();
     LD.hits.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), to: pid, cell: id });
@@ -193,21 +205,24 @@ function ldCapture() {
   var G = LD_G, mask = LD.mask;
   var tm = new Uint8Array(G * G);
   LD.trail.forEach(function (id) { tm[id] = 1; mask[id] = 1; });
+  /* 팀전: 팀원 땅도 벽으로 같이 써요 */
+  var wall = mask;
+  if (LD_TEAM_MASK) { wall = new Uint8Array(G * G); for (var w = 0; w < G * G; w++) wall[w] = mask[w] || LD_TEAM_MASK[w]; }
   LD.recentTrail = { mask: tm, until: Date.now() + 450 }; /* 방금 닫은 꼬리: 0.45초 안에 끊긴 건 인정 */
   var outside = new Uint8Array(G * G);
   var stack = [];
   for (var i = 0; i < G; i++) {
     [ldIdx(i, 0), ldIdx(i, G - 1), ldIdx(0, i), ldIdx(G - 1, i)].forEach(function (id) {
-      if (!mask[id] && !outside[id]) { outside[id] = 1; stack.push(id); }
+      if (!wall[id] && !outside[id]) { outside[id] = 1; stack.push(id); }
     });
   }
   while (stack.length) {
     var id = stack.pop();
     var x = id % G, y = (id - x) / G;
-    if (x > 0 && !mask[id - 1] && !outside[id - 1]) { outside[id - 1] = 1; stack.push(id - 1); }
-    if (x < G - 1 && !mask[id + 1] && !outside[id + 1]) { outside[id + 1] = 1; stack.push(id + 1); }
-    if (y > 0 && !mask[id - G] && !outside[id - G]) { outside[id - G] = 1; stack.push(id - G); }
-    if (y < G - 1 && !mask[id + G] && !outside[id + G]) { outside[id + G] = 1; stack.push(id + G); }
+    if (x > 0 && !wall[id - 1] && !outside[id - 1]) { outside[id - 1] = 1; stack.push(id - 1); }
+    if (x < G - 1 && !wall[id + 1] && !outside[id + 1]) { outside[id + 1] = 1; stack.push(id + 1); }
+    if (y > 0 && !wall[id - G] && !outside[id - G]) { outside[id - G] = 1; stack.push(id - G); }
+    if (y < G - 1 && !wall[id + G] && !outside[id + G]) { outside[id + G] = 1; stack.push(id + G); }
   }
   for (var j = 0; j < G * G; j++) if (!outside[j]) mask[j] = 1;
   ldClearTrail();
@@ -306,7 +321,7 @@ function ldPublish(force) {
 
 function ldNetTick() {
   if (!LD_MAIN || !LD) return;
-  ldPublish(false);
+  if (!(typeof TBL !== 'undefined' && TBL.spectate)) ldPublish(false);
   if (LD_FETCH_BUSY) return;
   LD_FETCH_BUSY = true;
   var others = LD_MAIN.order.filter(function (p) { return p !== myPlayerId; });
@@ -368,7 +383,7 @@ function ldResolveConflicts() {
       if (LD.alive && onMine) ldDie(pid, (d.name || '누군가') + '님이 내 꼬리를 끊었어요!');
     });
     // 2) 그 사람이 나보다 나중에 땅을 차지했으면 겹친 칸은 그 사람 것
-    if (LD.alive && d.alive !== false && d.cap > LD.cap && d.maskArr) {
+    if (LD.alive && d.alive !== false && d.cap > LD.cap && d.maskArr && !ldMate(pid)) {   /* 팀원끼리는 땅을 안 빼앗아요 */
       var changed = false;
       for (var i = 0; i < LD.mask.length; i++) if (LD.mask[i] && d.maskArr[i]) { LD.mask[i] = 0; changed = true; }
       if (changed) {
@@ -398,6 +413,16 @@ function ldRebuildOwners() {
     for (var i = 0; i < m.length; i++) if (m[i]) LD_OWNER[i] = k + 1;
   });
   if (!mineDone) paintMine();
+  /* 팀원 땅 합치기 */
+  LD_TEAM_MASK = null;
+  if (LD_MAIN && LD_MAIN.teams) {
+    LD_TEAM_MASK = new Uint8Array(LD_G * LD_G);
+    Object.keys(LD_OTHERS).forEach(function (pid) {
+      var m = LD_OTHERS[pid].maskArr;
+      if (!ldMate(pid) || !m || LD_OTHERS[pid].alive === false) return;
+      for (var i = 0; i < m.length; i++) if (m[i]) LD_TEAM_MASK[i] = 1;
+    });
+  }
   LD_MM_AT = 0;
 }
 function ldOwnerColor(o) {
@@ -426,7 +451,8 @@ function ldFrame(ts) {
   document.getElementById('ld-pick-box').style.display = started ? 'none' : '';
   if (!started) document.getElementById('ld-count').textContent = Math.ceil((LD_MAIN.startAt - now) / 1000);
   if (started && !ended) {
-    if (LD.alive) ldMove(dt);
+    if (typeof TBL !== 'undefined' && TBL.spectate) { /* 구경: 안 움직여요 */ }
+    else if (LD.alive) ldMove(dt);
     else if (now >= LD.deadUntil) ldRespawn();
   }
   if (LD_OWNER_DIRTY) ldRebuildOwners();
@@ -453,6 +479,12 @@ function ldDraw(dt) {
   var now = Date.now();
   var cell = Math.min(W, H) / LD_VIEW;
   var hx = LD.x, hy = LD.y;
+  /* 구경 중: 1등(가장 땅이 넓은) 친구를 따라가요 */
+  if (typeof TBL !== 'undefined' && TBL.spectate) {
+    var best = null;
+    Object.keys(LD_OTHERS).forEach(function (pid) { var d = LD_OTHERS[pid]; if (d.alive && (!best || (d.score || 0) > (best.score || 0))) best = d; });
+    if (best) { var bp = ldOtherPredict(best, now); hx = bp.x; hy = bp.y; }
+  }
   /* 카메라: 캐릭터를 부드럽게 따라가요 */
   var tx = hx * cell - W / 2, ty = hy * cell - H / 2;
   var cs = ldDraw.cam;
@@ -514,7 +546,7 @@ function ldDraw(dt) {
     var p = disp[pid] = ldOtherDisplay(pid, d, now, dt || 0.016);
     if (d.trail && d.trail.length && d.pts && d.pts.length) drawTrail(d.pts, true, d.color, p.x, p.y);
   });
-  if (LD.alive && LD.trail.length) drawTrail(LD.pts, false, LD.color, hx, hy);
+  if (LD.alive && LD.trail.length && !(typeof TBL !== 'undefined' && TBL.spectate)) drawTrail(LD.pts, false, LD.color, hx, hy);
   ctx.strokeStyle = '#8796ab'; ctx.lineWidth = 4;
   ctx.strokeRect(0, 0, LD_G * cell, LD_G * cell);
   // 캐릭터
@@ -555,7 +587,8 @@ function ldDraw(dt) {
     if (!d.alive || !p) return;
     drawHead(p.x, p.y, p.a, d.color, d.char, d.name || '', false);
   });
-  if (LD.alive) drawHead(hx, hy, LD.a, LD.color, LD.char, me.name, true);
+  var spec = typeof TBL !== 'undefined' && TBL.spectate;
+  if (LD.alive && !spec) drawHead(hx, hy, LD.a, LD.color, LD.char, me.name, true);
   ldDraw.head = { x: hx * cell - camX, y: hy * cell - camY };
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (!LD.alive) {
@@ -594,12 +627,35 @@ function ldDrawMinimap() {
 function ldUpdateBoard() {
   if (!LD_MAIN) return;
   var total = LD_G * LD_G;
-  var rows = [{ pid: myPlayerId, name: me.name, color: LD.color, score: LD.score || 0 }];
+  var rows = (typeof TBL !== 'undefined' && TBL.spectate) ? [] : [{ pid: myPlayerId, name: me.name, color: LD.color, score: LD.score || 0 }];
   Object.keys(LD_OTHERS).forEach(function (pid) { var d = LD_OTHERS[pid]; rows.push({ pid: pid, name: d.name, color: d.color, score: d.score || 0 }); });
   rows.sort(function (a, b) { return b.score - a.score; });
+  if (LD_MAIN.teams) {
+    /* 팀전: 팀별로 합친 땅 (겹친 칸은 한 번만) */
+    var trows = ldTeamScores();
+    document.getElementById('ld-board').innerHTML = trows.map(function (r, i) {
+      return '<div class="ld-row' + (r.mine ? ' me' : '') + '"><span class="ld-dot" style="background:' + r.color + '"></span><span class="ld-name">' + (i + 1) + '. ' + r.name + '</span><b>' + (r.score / total * 100).toFixed(1) + '%</b></div>';
+    }).join('');
+    return;
+  }
   document.getElementById('ld-board').innerHTML = rows.map(function (r, i) {
     return '<div class="ld-row' + (r.pid === myPlayerId ? ' me' : '') + '"><span class="ld-dot" style="background:' + r.color + '"></span><span class="ld-name">' + (i + 1) + '. ' + esc(r.name || '?') + '</span><b>' + (r.score / total * 100).toFixed(1) + '%</b></div>';
   }).join('');
+}
+
+function ldTeamScores(masksByPid) {
+  var T = LD_MAIN.teams, n = LD_MAIN.teamN || 2, out = [];
+  var masks = masksByPid || {};
+  if (!masksByPid) {
+    masks[myPlayerId] = LD.mask;
+    Object.keys(LD_OTHERS).forEach(function (pid) { if (LD_OTHERS[pid].maskArr && LD_OTHERS[pid].alive !== false) masks[pid] = LD_OTHERS[pid].maskArr; });
+  }
+  for (var t = 0; t < n; t++) {
+    var u = new Uint8Array(LD_G * LD_G), sc = 0;
+    Object.keys(masks).forEach(function (pid) { if (T[pid] !== t) return; var m = masks[pid]; for (var i = 0; i < m.length; i++) if (m[i] && !u[i]) { u[i] = 1; sc++; } });
+    out.push({ team: t, name: TEAM_NAMES[t], color: TEAM_COLORS[t], score: sc, mine: T[myPlayerId] === t, members: Object.keys(T).filter(function (p) { return T[p] === t; }) });
+  }
+  return out.sort(function (a, b) { return b.score - a.score; });
 }
 
 /* 방장: 시간이 끝나면 모두의 최종 땅을 모아서 결과 확정 */
@@ -609,9 +665,15 @@ function ldHostFinish(st) {
       var d = all[pid];
       return { pid: pid, name: st.names[pid], score: d && d.gameId === st.gameId ? (d.score || 0) : 0, kills: d ? d.kills || 0 : 0, color: d ? d.color : '#ccc' };
     }).sort(function (a, b) { return b.score - a.score; });
+    var teamRes = null;
+    if (st.teams) {
+      var masks = {};
+      st.order.forEach(function (pid) { var d = all[pid]; if (d && d.gameId === st.gameId && d.mask) masks[pid] = ldUnB64(d.mask); });
+      teamRes = ldTeamScores(masks).map(function (r) { return { team: r.team, name: r.name, score: r.score, members: r.members }; });
+    }
     DBget(ldKey()).then(function (cur) {
       if (!cur || cur.gameId !== st.gameId || cur.phase !== 'play') return;
-      cur.phase = 'end'; cur.results = res;
+      cur.phase = 'end'; cur.results = res; cur.teamResults = teamRes;
       DBset(ldKey(), cur).then(ldPollMain);
     });
   });
@@ -624,6 +686,14 @@ function ldShowResult(st) {
   box.style.display = '';
   var total = LD_G * LD_G;
   var r = st.results || [];
+  if (st.teamResults && st.teamResults.length) {
+    var tr = st.teamResults, top = tr[0];
+    document.getElementById('ld-result-banner').textContent = '🏆 ' + top.name + ' 승리! (' + (top.score / total * 100).toFixed(1) + '%)';
+    renderRankBoard('ld-result-rank', tr.map(function (x) { return { name: x.name + ' (' + x.members.map(function (p) { return st.names[p] || '?'; }).join(', ') + ')', isMe: x.members.indexOf(myPlayerId) >= 0, label: (x.score / total * 100).toFixed(1) + '%' }; }));
+    typeof celebrateWin === 'function' && celebrateWin('land:' + st.gameId, top.members.map(function (p) { return st.names[p]; }), '땅따먹기 팀전 · ' + top.name);
+    document.getElementById('ld-restart-btn').style.display = myPlayerId === roomHostId ? '' : 'none';
+    return;
+  }
   document.getElementById('ld-result-banner').textContent = r.length ? ('🏆 ' + r[0].name + ' 승리! (' + (r[0].score / total * 100).toFixed(1) + '%)') : '게임 끝!';
   if (r.length) typeof celebrateWin === 'function' && celebrateWin('land:' + st.gameId, [r[0].name], '땅따먹기 · ' + (r[0].score / total * 100).toFixed(1) + '%');
   renderRankBoard('ld-result-rank', r.map(function (x) { return { name: x.name, isMe: x.pid === myPlayerId, label: (x.score / total * 100).toFixed(1) + '% · 꼬리 끊기 ' + x.kills + '번' }; }));

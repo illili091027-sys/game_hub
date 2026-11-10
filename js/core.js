@@ -77,17 +77,18 @@ function DBset(key, obj) {
 /* 여러 사람 상태를 한 번에 읽기: roomKey(prefix + 플레이어id) 들을 { 플레이어id: data } 로 돌려줍니다.
    서버에 일괄조회(/api/states)가 있으면 요청 1번으로, 없으면(예전 서버) 한 명씩 읽어서 똑같이 동작해요. */
 var BATCH_SUPPORTED = null; // null: 아직 모름, true/false
-function DBgetPrefix(prefix, pids) {
+function DBgetPrefix(prefix, pids) { return DBgetPrefixIn(effRoom(), prefix, pids); }
+function DBgetPrefixIn(room, prefix, pids) {
   pids = pids || (roomPlayersList || []).map(function (p) { return p.id; });
   function oneByOne() {
-    return Promise.all(pids.map(function (pid) { return DBget(roomKey(prefix + pid)); })).then(function (arr) {
+    return Promise.all(pids.map(function (pid) { return DBget('room:' + room + ':' + prefix + pid); })).then(function (arr) {
       var out = {};
       pids.forEach(function (pid, i) { if (arr[i]) out[pid] = arr[i]; });
       return out;
     });
   }
   if (playMode === 'solo' || cloudStatus !== 'connected' || !cloudServerUrl || BATCH_SUPPORTED === false) return oneByOne();
-  return fetch(cloudServerUrl + '/api/states?room=' + encodeURIComponent(me.room) + '&prefix=' + encodeURIComponent(prefix), { cache: 'no-store' })
+  return fetch(cloudServerUrl + '/api/states?room=' + encodeURIComponent(room) + '&prefix=' + encodeURIComponent(prefix), { cache: 'no-store' })
     .then(function (r) { if (!r.ok) throw new Error('nobatch'); return r.json(); })
     .then(function (j) {
       BATCH_SUPPORTED = true;
@@ -138,6 +139,7 @@ var roomJoined = false;
 var roomHeartbeatTimer = null;
 var lastAutoEnteredGame = null;
 var ROOM_KNOWN_IDS = { room: null, ids: null };
+var ROOM_SERVER_HOST = null, ROOM_ALL_PLAYERS = [];
 var roomPlayersList = []; // [{id, name}, ...] 방 참가 순서(입장 순서) - 이어쓰기 순서 등에 사용
 
 function getPlayerId() {
@@ -172,7 +174,8 @@ function joinRoom() {
     clearInterval(roomHeartbeatTimer);
     roomHeartbeatTimer = setInterval(roomHeartbeat, 1500);
     startGroupWidget();
-    if (typeof ssMount === 'function') ssMount('room'); /* 화면 공유는 방 전체에서 하나 - 홈/게임으로 가도 계속돼요 */
+    if (typeof ssMount === 'function') ssMount('room');
+    if (typeof tblStart === 'function') tblStart(); /* 게임 테이블 */ /* 화면 공유는 방 전체에서 하나 - 홈/게임으로 가도 계속돼요 */
     if (HW_MODE) {
       /* 첫 화면에서 '과제하기'로 들어왔으면 입장하자마자 과제방으로 */
       try { localStorage.setItem('gamehub_hw_room', me.room); localStorage.setItem('gamehub_hw_name', me.name); } catch (e) {}
@@ -253,7 +256,9 @@ function applyRoomState(state) {
     roomSilentRejoin();
     return;
   }
-  roomHostId = state.hostId;
+  ROOM_SERVER_HOST = state.hostId;
+  ROOM_ALL_PLAYERS = state.players;
+  roomHostId = (typeof tblEffectiveHost === 'function') ? tblEffectiveHost(state.hostId) : state.hostId;
   roomCurrentGame = state.currentGame;
   /* 새 친구가 들어오면 띠링! (처음 입장했을 때 이미 있던 사람은 소리 없이) */
   var joinRoomId = me.room;
@@ -265,7 +270,8 @@ function applyRoomState(state) {
     if (newcomer && typeof playJoinSound === 'function') playJoinSound();
   }
   ROOM_KNOWN_IDS.ids = nowIds;
-  roomPlayersList = state.players;
+  /* 게임에 같이 참여하는 명단: 테이블 안이면 그 테이블 사람들, 아니면 테이블에 안 간 사람들 */
+  roomPlayersList = (typeof tblRoster === 'function') ? tblRoster(state.players) : state.players;
   var amHost = (myPlayerId === roomHostId);
   renderLobbyPlayers(state.players);
   /* 예전엔 방장이 아니면 카드 목록(#card-grid) 전체를 통째로 숨겼는데, 그 안에는 방장만
@@ -284,6 +290,8 @@ function applyRoomState(state) {
     : '방장이 게임을 고르면 같이 시작해요.';
   var activeView = document.querySelector('.view.active');
   var activeIsHome = activeView && activeView.id === 'home';
+  /* 테이블에 있는 사람은 방장이 고른 게임 준비 화면이 안 떠요 (테이블 게임만) */
+  if (typeof TBL !== 'undefined' && TBL.tid) return;
   if (roomCurrentGame) {
     if (activeIsHome && roomCurrentGame !== lastAutoEnteredGame) {
       enterGame(roomCurrentGame);
@@ -295,7 +303,7 @@ function applyRoomState(state) {
        방장이 게임을 아직 안 고른 상태(roomCurrentGame이 비어있음)에서 채널 라운지를
        열어도 하트비트가 돌 때마다(1.5~2초마다) "게임이 선택 안 됨 = 다들 홈으로"로
        착각해서 자꾸 홈으로 튕겨나가는 문제가 있었습니다. */
-    if (activeView && activeView.id !== 'home' && activeView.id !== 'channels' && activeView.id !== 'homework') {
+    if (activeView && activeView.id !== 'home' && activeView.id !== 'channels' && activeView.id !== 'homework' && activeView.id !== 'tables') {
       clearInterval(pollTimer);
       clearInterval(pixelTickTimer);
       document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
@@ -306,12 +314,13 @@ function applyRoomState(state) {
 
 function renderLobbyPlayers(players) {
   var el = document.getElementById('lobby-players');
-  var amHost = (myPlayerId === roomHostId);
+  var amHost = (myPlayerId === ROOM_SERVER_HOST) && !(typeof HOST_FREE !== 'undefined' && HOST_FREE);
   var html = players.map(function (p) {
-    var isHost = p.id === roomHostId;
+    var isHost = p.id === ROOM_SERVER_HOST && !(typeof HOST_FREE !== 'undefined' && HOST_FREE);
     var isMe = p.id === myPlayerId;
+    var tb = typeof tblBadge === 'function' ? tblBadge(p.id) : '';
     var row = '<div class="lobby-player" style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;">';
-    row += '<span>' + (isHost ? '👑 ' : '') + esc(p.name) + (isMe ? ' (나)' : '') + (p.away && !isMe ? ' <small style="opacity:.6">💤 잠깐 자리 비움</small>' : '') + '</span>';
+    row += '<span>' + (isHost ? '👑 ' : '') + esc(p.name) + (isMe ? ' (나)' : '') + tb + (p.away && !isMe ? ' <small style="opacity:.6">💤 잠깐 자리 비움</small>' : '') + '</span>';
     if (amHost && !isMe) {
       row += '<span>' +
         '<button class="btn btn-ghost" onclick="delegateHost(\'' + p.id + '\')">위임</button> ' +
@@ -325,6 +334,7 @@ function renderLobbyPlayers(players) {
 }
 
 function hostSelectGame(gameId) {
+  if (typeof TBL !== 'undefined' && TBL.tid) { if (typeof tblOwnerStart === 'function') tblOwnerStart(gameId); return; }
   if (myPlayerId !== roomHostId || !cloudServerUrl) return;
   fetch(cloudServerUrl + '/api/room/select-game', {
     method: 'POST',
@@ -362,6 +372,7 @@ function delegateHost(targetId) {
 function leaveRoomLocal() {
   clearInterval(roomHeartbeatTimer);
   if (typeof pjStopAll === 'function') pjStopAll();
+  if (typeof tblStop === 'function') tblStop();
   if (typeof ssUnmount === 'function') ssUnmount();
   stopGroupWidget();
   stopGameMembersBar();
@@ -443,7 +454,7 @@ if (document.getElementById('in-server').value) {
 var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-catch', 'card-wasd', 'card-yang', 'card-land'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
-var SOLO_ONLY_CARD_IDS = ['card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
+var SOLO_ONLY_CARD_IDS = ['card-blockpop', 'card-pizza', 'card-bento', 'card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
 
 /* 첫 화면의 '📚 과제하기': 온라인 입장 화면을 그대로 쓰되, 지난번 과제방 코드/이름을 채워 두고
    입장하면 바로 과제방이 열려요. (과제방은 매번 같은 방 코드로 들어와야 목록이 이어져요) */
@@ -550,7 +561,7 @@ function backToModeSelect() {
 }
 
 var ONLINE_ONLY_GAME_IDS = ['bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'catch', 'wasd', 'yang', 'land'];
-var SOLO_ONLY_GAME_IDS = ['sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
+var SOLO_ONLY_GAME_IDS = ['blockpop', 'pizza', 'bento', 'sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -805,7 +816,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pizza: 'pz-room-pill', blockpop: 'bp-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
@@ -830,6 +841,9 @@ function enterGame(gameId) {
     else if (gameId === 'wasd') startWasdGame();
     else if (gameId === 'yang') startYangGame();
     else if (gameId === 'land') startLandGame();
+    else if (gameId === 'bento') startBentoGame();
+    else if (gameId === 'pizza') startPizzaGame();
+    else if (gameId === 'blockpop') startBlockPop();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
@@ -921,6 +935,9 @@ function goHome() {
   stopWasdGame();
   stopYangGame();
   stopLandGame();
+  if (typeof stopBentoGame === 'function') stopBentoGame();
+  if (typeof stopPizzaGame === 'function') stopPizzaGame();
+  if (typeof stopBlockPop === 'function') stopBlockPop();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';
@@ -935,6 +952,7 @@ function goHome() {
      다른 사람들 게임을 망치지 않도록 초기화하지 않아요. */
   if (leavingGameId && leavingGameId !== 'channels' && myPlayerId === roomHostId) resetGameRoomState(leavingGameId);
   if (playMode === 'online' && me.room) DBset(rulesReadyKey(), null);
+  if (typeof TBL !== 'undefined' && TBL.tid) { if (typeof tblAfterGameHome === 'function') tblAfterGameHome(); return; }
   if (playMode === 'online' && roomJoined && myPlayerId === roomHostId && roomCurrentGame) {
     hostSelectGame(null);
   }
@@ -947,7 +965,11 @@ function flashField(id) {
   setTimeout(function(){ el.style.borderBottomColor = ''; }, 900);
 }
 
-function roomKey(game) { return 'room:' + me.room + ':' + game; }
+/* 게임 테이블 안에서는 그 테이블만의 작은 방(방코드_T테이블id)에 저장돼요 → 같은 게임을 여러 테이블에서 따로 해도 안 섞여요.
+   채팅·화면공유·채널·과제방처럼 방 전체가 같이 쓰는 건 roomKeyBase(언제나 큰 방)를 써요. */
+function effRoom() { return (typeof TBL !== 'undefined' && TBL.tid) ? me.room + '_T' + TBL.tid : me.room; }
+function roomKey(game) { return 'room:' + effRoom() + ':' + game; }
+function roomKeyBase(game) { return 'room:' + me.room + ':' + game; }
 
 /* ---------------- 공용: 순위(1등/2등/3등) 리더보드 렌더링 ---------------- */
 var RANK_MEDALS = ['🥇', '🥈', '🥉'];
@@ -956,6 +978,8 @@ var RANK_MEDALS = ['🥇', '🥈', '🥉'];
 function renderRankBoard(panelId, entries) {
   var panel = document.getElementById(panelId);
   if (!panel) return;
+  /* 내 등수 기억 (게임 끝 코인 보상에 써요) */
+  (entries || []).forEach(function (e, i) { if (e.isMe && typeof LAST_RANK_BOARD !== 'undefined') LAST_RANK_BOARD = { rank: i + 1, n: entries.length, at: Date.now() }; });
   if (!entries || !entries.length) { panel.innerHTML = '<div class="lobby-hint">아직 참가자가 없어요.</div>'; return; }
   var html = entries.map(function (e, i) {
     var rankLabel = i < 3 ? RANK_MEDALS[i] : (i + 1) + '등';
@@ -1117,8 +1141,10 @@ var GROUP_LAST_SEEN_COUNT = 0;
 var GROUP_LAST_RENDERED_COUNT = -1;
 var GROUP_TYPING_THROTTLE = 0;
 
-function groupChatKey() { return roomKey('chat'); }
-function groupTypingKey() { return roomKey('typing'); }
+function groupChatKey() { return roomKeyBase('chat'); }           /* 방 전체 채팅 (언제나 큰 방) */
+function groupTableChatKey() { return roomKey('chat'); }         /* 테이블 채팅 (테이블 안에서만) */
+function groupActiveChatKey() { return GROUP_ACTIVE_TAB === 'table' && typeof TBL !== 'undefined' && TBL.tid ? groupTableChatKey() : groupChatKey(); }
+function groupTypingKey() { return roomKeyBase('typing'); }
 
 function startGroupWidget() {
   document.getElementById('group-widget').style.display = '';
@@ -1152,18 +1178,27 @@ function toggleGroupPanel() {
   }
 }
 
+/* 채팅 탭: [전체] 방 모두 / [테이블] 같은 테이블 사람들끼리 */
 function switchGroupTab(tab) {
+  if (tab === 'table' && !(typeof TBL !== 'undefined' && TBL.tid)) { coinToast && coinToast('테이블에 들어가면 테이블 채팅을 쓸 수 있어요'); return; }
   GROUP_ACTIVE_TAB = tab;
   document.getElementById('group-tab-chat').classList.toggle('active', tab === 'chat');
-  document.getElementById('group-tab-members').classList.toggle('active', tab === 'members');
-  document.getElementById('group-chat-tab').style.display = tab === 'chat' ? '' : 'none';
-  document.getElementById('group-members-tab').style.display = tab === 'members' ? '' : 'none';
-  if (tab === 'chat') document.getElementById('group-unread-badge').style.display = 'none';
+  document.getElementById('group-tab-table').classList.toggle('active', tab === 'table');
+  document.getElementById('group-chat-messages').innerHTML = '';
+  GROUP_LAST_RENDERED_COUNT = -1; GROUP_LAST_SEEN_COUNT = 0;
+  document.getElementById('group-chat-input').placeholder = tab === 'table' ? '테이블 사람들에게만 보여요...' : '방 모두에게 보여요...';
+  document.getElementById('group-unread-badge').style.display = 'none';
+  groupPoll();
 }
 
 function groupPoll() {
   if (playMode !== 'online' || !roomJoined) return;
-  DBget(groupChatKey()).then(function (state) {
+  if (GROUP_ACTIVE_TAB === 'table' && !(typeof TBL !== 'undefined' && TBL.tid)) { GROUP_ACTIVE_TAB = 'chat'; switchGroupTab('chat'); return; }
+  var tabEl = document.getElementById('group-tab-table');
+  if (tabEl) { var inT = typeof TBL !== 'undefined' && TBL.tid; tabEl.classList.toggle('off', !inT); }
+  var pollKey = groupActiveChatKey();
+  DBget(pollKey).then(function (state) {
+    if (pollKey !== groupActiveChatKey()) return;
     var messages = (state && state.messages) || [];
     groupRenderChat(messages);
     var viewingChat = GROUP_PANEL_OPEN && GROUP_ACTIVE_TAB === 'chat';
@@ -1181,9 +1216,6 @@ function groupPoll() {
       badge.style.display = '';
     }
   });
-  DBget(groupTypingKey()).then(function (typing) {
-    groupRenderMembers(typing || {});
-  });
 }
 
 function groupRenderChat(messages) {
@@ -1198,7 +1230,7 @@ function groupSendChat() {
   if (!text || !roomJoined) return;
   input.value = '';
   chatAutoGrow(input);
-  chatSendText(groupChatKey(), text).then(function () { groupPoll(); });
+  chatSendText(groupActiveChatKey(), text).then(function () { groupPoll(); });
   groupClearTyping();
 }
 

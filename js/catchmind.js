@@ -65,11 +65,19 @@ function startCatchGame() {
 }
 
 /* ---- 방장: 진행 ---- */
+/* 어려운 단어: 그리기 복잡하거나 장면을 그려야 하는 것 (3개 중 1개는 꼭 섞여요, 출제자 보너스) */
+var CM_HARD = ['롤러코스터', '회전목마', '관람차', '에스컬레이터', '엘리베이터', '횡단보도', '신호등', '불꽃놀이', '눈싸움', '숨바꼭질', '줄다리기', '김장', '세배', '졸업식', '생일파티', '소풍', '캠핑', '낚시', '마라톤', '방탈출',
+  '피라미드', '에펠탑', '자유의 여신상', '첨성대', '거북선', '만리장성', '블랙홀', '우주정거장', '타임머신', '도깨비', '인어공주', '백설공주', '흥부와 놀부', '토끼와 거북이', '견우와 직녀', '해와 달이 된 오누이',
+  '지구온난화', '꿈', '그림자', '메아리', '무지개다리', '번지점프', '스카이다이빙', '서핑', '스노보드', '가위바위보', '팔씨름', '하품', '재채기', '딸꾹질', '잠꼬대', '지각', '시험', '방학', '월요병', '사춘기',
+  '와이파이', '배터리 부족', '유튜브', '셀카', '택배', '배달', '편의점 도시락', '분리수거', '대청소', '이사', '산책', '다이어트', '헬스장', '노래방', 'PC방', '찜질방', '목욕탕', '놀이공원', '수족관', '동물원'];
 function cmPickWords(used) {
   var pool = CM_WORDS.filter(function (w) { return used.indexOf(w) < 0; });
   if (pool.length < 3) pool = CM_WORDS.slice();
-  return shuffleArray(pool).slice(0, 3);
+  var hard = CM_HARD.filter(function (w) { return used.indexOf(w) < 0; });
+  if (!hard.length) hard = CM_HARD.slice();
+  return shuffleArray(shuffleArray(pool).slice(0, 2).concat([shuffleArray(hard)[0]]));
 }
+function cmIsHard(w) { return CM_HARD.indexOf(w) >= 0; }
 function cmHostInit() {
   var order = shuffleArray((roomPlayersList || []).map(function (p) { return p.id; }));
   var names = {}, scores = {};
@@ -131,10 +139,13 @@ function cmHostTick() {
             st.correct[pid] = now;
             var left = Math.max(0, st.deadline - now) / (CM_DRAW_S * 1000);
             var first = Object.keys(st.correct).length === 1;
-            var pts = Math.max(30, Math.round(100 * left)) + (first ? 20 : 0);
+            var hardW = cmIsHard(st.word);
+            /* 어려운 단어: 맞힌 사람 +20, 출제자 40 → 70 */
+            var pts = Math.max(30, Math.round(100 * left)) + (first ? 20 : 0) + (hardW ? 20 : 0);
             st.scores[pid] = (st.scores[pid] || 0) + pts;
-            st.scores[st.drawer] = (st.scores[st.drawer] || 0) + 40;
-            st.gain[pid] = pts; st.gain[st.drawer] = (st.gain[st.drawer] || 0) + 40;
+            var dPts = hardW ? 70 : 40;
+            st.scores[st.drawer] = (st.scores[st.drawer] || 0) + dPts;
+            st.gain[pid] = pts; st.gain[st.drawer] = (st.gain[st.drawer] || 0) + dPts;
             st.feed.push({ pid: pid, ok: 1 });
           } else {
             st.feed.push({ pid: pid, v: String(it.v).slice(0, 30) });
@@ -277,7 +288,7 @@ function cmRender() {
   var showChoose = st.phase === 'choose' && isDrawer;
   if (showChoose && choose.getAttribute('data-t') !== st.turnId) {
     choose.setAttribute('data-t', st.turnId);
-    choose.innerHTML = '<div class="cm-choose-title">그릴 단어를 골라요!</div>' + st.choices.map(function (w) { return '<button class="cm-choice" onclick="cmChoose(\'' + w + '\')">' + esc(w) + '</button>'; }).join('');
+    choose.innerHTML = '<div class="cm-choose-title">그릴 단어를 골라요!</div>' + st.choices.map(function (w) { return '<button class="cm-choice' + (cmIsHard(w) ? ' hard' : '') + '" onclick="cmChoose(\'' + w + '\')">' + esc(w) + (cmIsHard(w) ? '<small>🔥 어려움 · 점수 UP</small>' : '') + '</button>'; }).join('');
   }
   choose.style.display = showChoose ? '' : 'none';
   var ov = document.getElementById('cm-overlay');

@@ -36,7 +36,7 @@ var PJ_LAYOUTS = [
   { id: 'img', name: '사진 크게' }, { id: 'section', name: '소제목' }
 ];
 
-function pjK(s) { return roomKey(s); }
+function pjK(s) { return roomKeyBase(s); }
 function pjLocalKey() { return 'gamehub_pj_' + String(me.room || '').toUpperCase(); }
 function pjLocal() { try { return JSON.parse(localStorage.getItem(pjLocalKey()) || 'null') || {}; } catch (e) { return {}; } }
 function pjSaveLocal(fn) { try { var l = pjLocal(); fn(l); localStorage.setItem(pjLocalKey(), JSON.stringify(l)); } catch (e) {} }

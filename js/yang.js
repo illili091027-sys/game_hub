@@ -18,6 +18,7 @@ var YG_STATE = null;
 var YG_MY = { gameId: null, msgs: [], s: 0 };
 var YG_GUESS_MODE = false;
 var YG_HOST_BUSY = false;
+var YG_TOPIC_SHOWN = null;
 
 function ygKey() { return roomKey('yang'); }
 function ygMyKey() { return roomKey('yg_' + myPlayerId); }
@@ -66,6 +67,8 @@ function ygPickCat(cat) {
   if (!ygIsHost() || !YG_STATE || YG_STATE.phase !== 'setup') return;
   var st = YG_STATE;
   st.cat = cat;
+  st.catName = cat === 'custom' ? '✍️ 서로 정해주기' : (cat === 'mix' ? '🎲 다 섞어서' : YG_CATS[cat].name);
+  st.feed.push({ k: 's', v: '📢 주제는 「' + st.catName + '」 이에요!' });
   if (cat === 'custom') {
     /* 서로 정해주기: 각자 '내 다음 사람' 단어를 정해요 (그 사람만 못 봐요) */
     st.phase = 'write';
@@ -260,6 +263,19 @@ function ygRender() {
   var me_ = myPlayerId, isHost = ygIsHost(), q = st.order[st.turn];
   var here = {};
   (roomPlayersList || []).forEach(function (p) { here[p.id] = 1; });
+  /* 주제: 위에 계속 보여주고, 정해진 순간엔 모두에게 크게 한 번 알려줘요 */
+  var tp = document.getElementById('yg-topic');
+  if (st.catName) { tp.style.display = ''; tp.innerHTML = '주제 <b>' + esc(st.catName) + '</b>'; } else tp.style.display = 'none';
+  if (st.catName && YG_TOPIC_SHOWN !== st.gameId) {
+    YG_TOPIC_SHOWN = st.gameId;
+    var pop = document.getElementById('yg-topic-pop');
+    pop.innerHTML = '<small>이번 주제는</small><b>' + esc(st.catName) + '</b>';
+    pop.style.display = '';
+    pop.classList.remove('show'); void pop.offsetWidth; pop.classList.add('show');
+    if (typeof playJoinSound === 'function') playJoinSound();
+    if (typeof sayText === 'function') sayText('주제는 ' + st.catName.replace(/^[^가-힣a-zA-Z]+/, '') + '입니다');
+    clearTimeout(ygRender.popT); ygRender.popT = setTimeout(function () { pop.style.display = 'none'; }, 2600);
+  }
   /* 위: 친구들 + 이마 포스트잇 */
   var av = st.order.map(function (pid, i) {
     var mine = pid === me_, solved = st.solved[pid], w = st.words[pid];

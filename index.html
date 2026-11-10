@@ -61,8 +61,10 @@ window.addEventListener('load', function () {
     <div class="id-status" id="id-status" style="display:none"></div>
     <button class="btn btn-primary" id="btn-join-room" onclick="joinRoom()" style="display:none;margin-bottom:20px;">입장하기</button>
     <div class="lobby-panel" id="lobby-panel" style="display:none;margin-bottom:20px;">
+      <div class="host-free-bar" id="host-free-bar" style="display:none"></div>
       <div class="lobby-players" id="lobby-players"></div>
       <div class="lobby-hint" id="lobby-hint" style="margin-top:10px;font-weight:700;"></div>
+      <div class="lobby-wallet">내 코인 🪙 <b class="coin-balance">0</b> <small>(게임 등수대로 받아요 · 이 기기에 저장)</small> <button class="btn btn-ghost lobby-donate" onclick="donateOpen()">💸 후원하기</button></div>
       <button class="btn btn-primary lobby-hw-btn" id="btn-back-hw" style="display:none" onclick="openHomework()">📚 과제방으로 돌아가기</button>
     </div>
 
@@ -153,6 +155,24 @@ window.addEventListener('load', function () {
         <div class="game-card-top">
           <div class="game-icon">12</div>
           <div class="game-name">양세찬 게임</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-bento" onclick="cardClicked('bento')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">도시락 칼질</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-pizza" onclick="cardClicked('pizza')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">모락모락 피자가게</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-blockpop" onclick="cardClicked('blockpop')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">블록 팡</div>
         </div>
       </button>
       <button class="game-card" id="card-land" onclick="cardClicked('land')">
@@ -614,7 +634,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1110-3]</span></p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1110-7]</span></p>
   </div>
 </div>
 
@@ -950,7 +970,9 @@ window.addEventListener('load', function () {
     <h2 class="game-heading">양세찬 게임</h2>
     <div class="sd-msg over" id="yg-error" style="display:none"></div>
     <div id="yg-main">
+      <div class="yg-topic" id="yg-topic" style="display:none"></div>
       <div class="yg-avatars" id="yg-avatars"></div>
+      <div class="yg-topic-pop" id="yg-topic-pop" style="display:none"></div>
       <div class="yg-timebar"><div class="yg-bar" id="yg-bar"></div><span id="yg-bar-num"></span></div>
       <div class="yg-infobar">
         <div class="yg-side">현재<br>라운드<b id="yg-round">-</b></div>
@@ -979,6 +1001,7 @@ window.addEventListener('load', function () {
           <button class="btn yg-quick yes" onclick="ygQuick('⭕ 예')">⭕ 예</button>
           <button class="btn yg-quick no" onclick="ygQuick('❌ 아니오')">❌ 아니오</button>
           <button class="btn yg-quick" onclick="ygQuick('🤔 애매해요')">🤔 애매해요</button>
+          <button class="btn yg-quick" onclick="ygQuick('🤷 모르겠어요')">🤷 모르겠어요</button>
         </div>
         <div class="yg-inputrow">
           <input type="text" id="yg-input" maxlength="80" autocomplete="off" placeholder="채팅을 입력하세요" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();ygSubmit();}" />
@@ -989,6 +1012,93 @@ window.addEventListener('load', function () {
         <div class="db-result-title">🏆 결과</div>
         <div id="yg-result-rank"></div>
         <button class="btn btn-primary" id="yg-restart" onclick="ygHostRestart()">한 판 더!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tables" class="view">
+  <div class="wrap tbl-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="closeTables()">← 홈으로</button>
+    </div>
+    <h2 class="game-heading">🎮 게임 테이블</h2>
+    <p class="game-sub">방 안에서 따로 모여 놀아요. 원하는 게임 테이블을 열거나 참가하세요!</p>
+    <div id="tbl-body"></div>
+  </div>
+</div>
+<div class="donate-modal" id="tbl-create"></div>
+
+<div id="bento" class="view">
+  <div class="wrap bt-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="bt-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">🍱 도시락 칼질</h2>
+    <div id="bt-levels">
+      <p class="game-sub">재료를 잘라서 도시락 통을 빈틈없이 채워요 · 모은 별 ⭐ <b id="bt-total">0</b></p>
+      <div class="bt-lv-grid" id="bt-lv-grid"></div>
+    </div>
+    <div id="bt-play" style="display:none">
+      <div class="bt-hud"><button class="btn btn-ghost bt-small" onclick="btShowLevels()">☰ 단계</button><span id="bt-lvname"></span><span class="bt-cuts" id="bt-cuts"></span></div>
+      <div class="bt-stage">
+        <canvas id="bt-canvas"></canvas>
+        <div class="bt-toast" id="bt-toast"></div>
+        <div class="bt-done" id="bt-done" style="display:none">
+          <div class="bt-done-title">도시락 완성!</div>
+          <div class="bt-done-stars" id="bt-done-stars"></div>
+          <div id="bt-done-msg"></div>
+          <div class="bt-done-btns"><button class="btn btn-ghost" onclick="btRestart()">🔄 다시</button><button class="btn btn-primary" id="bt-done-next" onclick="btNext()">다음 단계 ▶</button></div>
+        </div>
+      </div>
+      <div class="bt-tools">
+        <button class="btn bt-tool on" data-t="knife" onclick="btSetTool('knife')">🔪 자르기</button>
+        <button class="btn bt-tool" data-t="hand" onclick="btSetTool('hand')">✋ 옮기기</button>
+        <button class="btn btn-ghost" onclick="btUndo()">↩ 되돌리기</button>
+        <button class="btn btn-ghost" onclick="btRestart()">🔄 처음부터</button>
+        <button class="btn btn-ghost" onclick="btHint()">💡 힌트</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pizza" class="view">
+  <div class="wrap pz-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="pz-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">🍕 모락모락 피자가게</h2>
+    <div class="pz-hud"><span id="pz-day"></span><span id="pz-cust"></span><b id="pz-money"></b><button class="btn btn-ghost bt-small" onclick="pzResetSave()">처음부터</button></div>
+    <div class="pz-counter" id="pz-counter"></div>
+    <div class="pz-kitchen">
+      <div class="pz-tools" id="pz-tools"></div>
+      <div class="pz-stage"><canvas id="pz-canvas" width="400" height="400"></canvas><div class="bt-toast" id="pz-toast"></div></div>
+      <div class="pz-actions">
+        <button class="btn pz-act" onclick="pzBake()">🔥<span>굽기</span></button>
+        <button class="btn pz-act" onclick="pzCut()">🔪<span>자르기</span></button>
+        <button class="btn pz-act" onclick="pzTrash()">🗑<span>버리기</span></button>
+        <button class="btn btn-primary pz-act" onclick="pzServe()">📦<span>드리기</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="blockpop" class="view">
+  <div class="wrap bp-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="bp-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">🧱 블록 팡</h2>
+    <div class="bp-stage">
+      <canvas id="bp-canvas" width="400" height="600"></canvas>
+      <div class="bp-over" id="bp-over" style="display:none">
+        <div class="bt-done-title">더 놓을 곳이 없어요!</div>
+        <div>점수 <b id="bp-over-score">0</b></div>
+        <div>👑 최고 <b id="bp-over-best">0</b></div>
+        <button class="btn btn-primary" onclick="startBlockPop()">다시 하기</button>
       </div>
     </div>
   </div>
@@ -1227,8 +1337,9 @@ window.addEventListener('load', function () {
   <div class="group-panel" id="group-panel" style="display:none;">
     <div class="group-drag-handle" id="group-drag-handle" title="끌어서 옮기기 · 두 번 누르면 원래 자리"><span class="group-grip"></span></div>
     <div class="group-tabs">
-      <button class="group-tab active" id="group-tab-chat" onclick="switchGroupTab('chat')">채팅</button>
-      <button class="group-tab" id="group-tab-members" onclick="switchGroupTab('members')">멤버 <span id="group-member-count"></span></button>
+      <button class="group-tab active" id="group-tab-chat" onclick="switchGroupTab('chat')">💬 전체</button>
+      <button class="group-tab" id="group-tab-table" onclick="switchGroupTab('table')">🎮 테이블</button>
+      <button class="group-coin-btn" onclick="donateOpen()" title="코인으로 친구에게 후원">🪙 <b class="coin-balance">0</b> · 💸</button>
       <button class="group-panel-close" onclick="toggleGroupPanel()">✕</button>
     </div>
     <div id="group-chat-tab">
@@ -1286,6 +1397,13 @@ window.addEventListener('load', function () {
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 <script src="js/screenshare.js"></script>
+<script src="js/livechat.js"></script>
+<script src="js/tables.js"></script>
+<script src="data/bento-levels.js"></script>
+<script src="js/bento.js"></script>
+<script src="js/pizza.js"></script>
+<script src="data/block-tiles.js"></script>
+<script src="js/blockpop.js"></script>
 <script src="js/pptx-writer.js"></script>
 <script src="js/homework.js"></script>
 </body>

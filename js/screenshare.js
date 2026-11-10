@@ -14,7 +14,7 @@
 var SS_ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }, { urls: 'stun:stun.cloudflare.com:3478' }];
 var SS = { scope: null, bar: null, timer: null, info: null, share: null, view: null };
 
-function ssKey(s) { return roomKey('ss_' + SS.scope + '_' + s); }
+function ssKey(s) { return roomKeyBase('ss_' + SS.scope + '_' + s); }
 function ssCanShare() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
 
 /* ss_<scope>_<kind>_ 로 시작하는 키 전부 읽기 → { 보는사람id: data } */
