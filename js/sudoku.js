@@ -521,6 +521,7 @@ function checkSudokuComplete() {
   msgEl.textContent = '정답이에요! 스도쿠 완성 🎉';
   msgEl.classList.add('win');
   SD_GAME_OVER = true;
+  if (playMode === 'solo') typeof soloCoin === 'function' && soloCoin({ easy: 15, medium: 30, hard: 50 }[SD_CURRENT_DIFF] || 15, '스도쿠 완성!');
   stopSudokuTimer();
   updateSudokuStatsUI();
   return true;

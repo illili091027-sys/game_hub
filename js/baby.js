@@ -537,6 +537,7 @@ function bbPostState(force) {
 
 function bbDie() {
   if (typeof playFart === 'function') playFart();
+  if (playMode === 'solo') typeof soloCoin === 'function' && soloCoin(Math.floor(bbAge() / 10) * 2, bbAge() + '살까지 키웠어요');
   BB.running = false;
   BB.over = true;
   bbDraw();
@@ -592,6 +593,7 @@ function bbWin() {
   BB.over = true;
   BB.won = true;
   BB.bonus += 1000;
+  if (playMode === 'solo') typeof soloCoin === 'function' && soloCoin(50, '100살 성공!');
   bbUpdateHud();
   bbDraw();
   var age = BB_WIN_AGE, score = bbScore();

@@ -398,6 +398,7 @@ function arAnimTick(ts) {
 
 function arWin() {
   AR.done = true;
+  typeof soloCoin === 'function' && (soloCoin(AR.level * 5 + (AR.hearts >= 3 ? 5 : 0), AR.level + '단계 첫 클리어!', 'ar_lv_' + AR.level) || soloCoin(2, '화살표 탈출'));
   arUpdateHud();
   var msg = document.getElementById('ar-msg');
   msg.className = 'sd-msg win';

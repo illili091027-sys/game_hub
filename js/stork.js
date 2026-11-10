@@ -106,6 +106,7 @@ function skGameOver() {
   SK.over = true;
   var m = Math.floor(SK.dist);
   var isBest = m > SK_BEST;
+  typeof soloCoin === 'function' && soloCoin(Math.min(30, Math.floor(m / 50)) + (isBest && m >= 100 ? 10 : 0), isBest ? '최고 기록!' : m + 'm');
   if (isBest) SK_BEST = m;
   document.getElementById('sk-best').textContent = SK_BEST;
   skDraw();

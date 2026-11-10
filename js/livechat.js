@@ -32,6 +32,7 @@ function walletAdd(n, reason) {
 function walletRender() {
   var c = walletCoins();
   document.querySelectorAll('.coin-balance').forEach(function (el) { el.textContent = c; });
+  if (typeof LC !== 'undefined' && LC.pip && !LC.pip.closed) LC.pip.document.querySelectorAll('.coin-balance').forEach(function (el) { el.textContent = c; });
 }
 
 /* 게임이 끝났을 때 등수대로 코인 (한 판에 한 번만) */
@@ -50,10 +51,35 @@ function coinAwardRank(key, rank, total) {
   coinToast('+' + n + ' 🪙 ' + (rank <= 3 ? rank + '등 보상!' : '참가 보상!'));
 }
 
+/* 알림을 띄울 곳: 전체화면이면 그 안, 화면공유 보는 중이면 그 위, 아니면 페이지 */
+function overlayHost() {
+  if (LC.pip && !LC.pip.closed) return LC.pip.document.body;   /* 채팅을 따로 띄웠으면 그 창에 */
+  if (document.fullscreenElement) return document.fullscreenElement;
+  var v = document.getElementById('ss-viewer');
+  if (v && v.style.display !== 'none' && v.style.display !== '') return v;
+  return document.body;
+}
+/* 혼자 하기 코인: 같은 걸로 여러 번 못 받게(onceKey), 하루 최대 300코인 */
+var SOLO_DAILY_CAP = 300;
+function soloCoin(amount, reason, onceKey) {
+  amount = Math.max(0, Math.round(amount || 0));
+  if (!amount) return 0;
+  var w = walletLoad();
+  if (onceKey) { if (w.awarded[onceKey]) return 0; w.awarded[onceKey] = Date.now(); }
+  var today = new Date().toDateString();
+  if (!w.daily || w.daily.d !== today) w.daily = { d: today, n: 0 };
+  var give = Math.min(amount, SOLO_DAILY_CAP - w.daily.n);
+  if (give <= 0) { walletSave(w); coinToast('오늘 혼자 하기 코인은 다 받았어요 (하루 ' + SOLO_DAILY_CAP + ')'); return 0; }
+  w.daily.n += give; w.coins += give;
+  walletSave(w);
+  coinToast('+' + give + ' 🪙 ' + (reason || ''));
+  return give;
+}
 var COIN_TOAST_T = null;
 function coinToast(text) {
   var el = document.getElementById('coin-toast');
-  if (!el) { el = document.createElement('div'); el.id = 'coin-toast'; el.className = 'coin-toast'; document.body.appendChild(el); }
+  if (!el) { el = document.createElement('div'); el.id = 'coin-toast'; el.className = 'coin-toast'; }
+  var host = overlayHost(); if (el.parentNode !== host) host.appendChild(el);
   el.textContent = text;
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   clearTimeout(COIN_TOAST_T);
@@ -138,7 +164,8 @@ function donateNext() {
   if (!d) { DON_BUSY = false; return; }
   DON_BUSY = true;
   var el = document.getElementById('donate-alert');
-  if (!el) { el = document.createElement('div'); el.id = 'donate-alert'; el.className = 'donate-alert'; document.body.appendChild(el); }
+  if (!el) { el = document.createElement('div'); el.id = 'donate-alert'; el.className = 'donate-alert'; }
+  var host = overlayHost(); if (el.parentNode !== host) host.appendChild(el);
   el.innerHTML = '<div class="da-coins">🪙🪙🪙</div><div class="da-head"><b>' + esc(d.name) + '</b>님이 <b>' + esc(d.toName) + '</b>님에게<br><span class="da-amt">' + d.amount + '코인</span> 후원!</div>' + (d.msg ? '<div class="da-msg">“' + esc(d.msg) + '”</div>' : '');
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   if (typeof mmSound === 'function') mmSound('catch');
@@ -191,19 +218,57 @@ function lcRender(msgs, force) {
 }
 function lcSend() {
   var inp = LC.el.querySelector('.lc-input'), v = inp.value.trim();
+  if (LC.don) { lcDonate(v); return; }
   if (!v) return;
   inp.value = '';
   chatSendText(groupChatKey(), v).then(function () { lcPoll(true); if (typeof groupPoll === 'function') groupPoll(); });
 }
+/* 후원 채팅: 화면을 공유하는 사람에게 코인 + 메시지 (모두에게 알림, 목소리로 읽어줘요) */
+function lcSetDon(on) {
+  LC.don = !!on;
+  var el = LC.el; if (!el) return;
+  el.classList.toggle('don-on', LC.don);
+  el.querySelector('.lc-donbar').style.display = LC.don ? '' : 'none';
+  el.querySelector('.lc-input').placeholder = LC.don ? '후원 메시지 (목소리로 읽어줘요)' : '채팅 입력 (엔터)';
+  el.querySelector('.lc-don').textContent = LC.don ? '✕ 후원 닫기' : '💸 후원';
+  walletRender();
+  if (LC.don) el.querySelector('.lc-input').focus();
+}
+function lcDonate(msg) {
+  var el = LC.el, info = (SS && SS.info) || {};
+  var to = info.by, toName = info.name || (SS.view && SS.view.name) || '친구';
+  if (!to || to === myPlayerId) { coinToast('지금 화면을 공유하는 친구에게만 후원할 수 있어요'); return; }
+  var on = el.querySelector('.lc-amt.on'), custom = Math.floor(+el.querySelector('.lc-amt-custom').value || 0);
+  var amt = custom > 0 ? custom : (on ? +on.getAttribute('data-a') : 0);
+  if (!(amt > 0)) { coinToast('후원할 코인을 골라요'); return; }
+  if (amt > walletCoins()) { coinToast('코인이 모자라요 😢 (게임에서 이기면 받아요)'); return; }
+  msg = String(msg || '').slice(0, 60);
+  walletAdd(-amt);
+  var id = chatNewId(), w = walletLoad(); w.got[id] = Date.now(); walletSave(w);
+  chatPushMessage(groupChatKey(), {
+    id: id, pid: myPlayerId, name: me.name, ts: Date.now(),
+    text: '💸 ' + toName + '님에게 🪙' + amt + ' 후원!' + (msg ? ' “' + msg + '”' : ''),
+    don: { to: to, toName: toName, amount: amt, msg: msg }
+  }).then(function () { lcPoll(true); if (typeof groupPoll === 'function') groupPoll(); });
+  donateAlert({ name: me.name, toName: toName, amount: amt, msg: msg });
+  el.querySelector('.lc-input').value = ''; el.querySelector('.lc-amt-custom').value = '';
+  lcSetDon(false);
+}
 function lcBuild() {
   var el = document.createElement('div');
   el.className = 'lc-box';
-  el.innerHTML = '<div class="lc-head"><span class="lc-grip">⠿</span> 💬 실시간 채팅 <span class="hw-spacer"></span><button type="button" class="lc-don" title="후원하기">💸 후원</button><button type="button" class="lc-min" title="접기">—</button></div>' +
+  el.innerHTML = '<div class="lc-head"><span class="lc-grip">⠿</span> 💬 실시간 채팅 <span class="hw-spacer"></span><button type="button" class="lc-don" title="화면 공유하는 친구에게 후원">💸 후원</button><button type="button" class="lc-pop" title="사이트 밖 작은 창으로 따로 띄우기 (다른 화면을 보면서도 채팅)">⧉ 따로</button><button type="button" class="lc-min" title="접기">—</button></div>' +
     '<div class="lc-list"></div>' +
+    '<div class="lc-donbar" style="display:none"><div class="lc-amts">' + [10, 30, 50, 100].map(function (a, i) { return '<button type="button" class="lc-amt' + (i === 0 ? ' on' : '') + '" data-a="' + a + '">🪙' + a + '</button>'; }).join('') +
+    '<input type="number" class="lc-amt-custom" min="1" placeholder="직접" /></div><div class="lc-have">내 코인 🪙 <b class="coin-balance">0</b></div></div>' +
     '<div class="lc-row"><input type="text" class="lc-input" maxlength="300" placeholder="채팅 입력 (엔터)" autocomplete="off" /><button type="button" class="lc-send">➤</button></div>';
   el.querySelector('.lc-send').onclick = lcSend;
   el.querySelector('.lc-input').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); lcSend(); } e.stopPropagation(); });
-  el.querySelector('.lc-don').onclick = function () { donateOpen(); };
+  el.querySelector('.lc-don').onclick = function () { lcSetDon(!LC.don); };
+  el.querySelectorAll('.lc-amt').forEach(function (b) { b.onclick = function () { el.querySelectorAll('.lc-amt').forEach(function (x) { x.classList.toggle('on', x === b); }); el.querySelector('.lc-amt-custom').value = ''; }; });
+  el.querySelector('.lc-amt-custom').addEventListener('input', function () { el.querySelectorAll('.lc-amt').forEach(function (x) { x.classList.remove('on'); }); });
+  el.querySelector('.lc-amt-custom').addEventListener('keydown', function (e) { e.stopPropagation(); });
+  el.querySelector('.lc-pop').onclick = function () { if (LC.pip && !LC.pip.closed) lcPopIn(); else lcPopOut(); };
   el.querySelector('.lc-min').onclick = function () { el.classList.toggle('folded'); this.textContent = el.classList.contains('folded') ? '+' : '—'; };
   return el;
 }
@@ -227,6 +292,57 @@ function lcMakeFloatDraggable(el) {
     try { localStorage.setItem('gamehub_lc_pos', JSON.stringify({ x: parseInt(el.style.left, 10), y: parseInt(el.style.top, 10) })); } catch (e) {}
   });
 }
+/* ---- 채팅을 사이트 밖 작은 창으로 ----
+   크롬: 항상 맨 위에 떠 있는 작은 창(문서 PiP) → 다른 탭·프로그램을 공유하면서도 채팅이 보여요.
+   안 되는 브라우저: 새 창(팝업)으로 열어요. 창을 닫으면 다시 사이트 안으로 돌아와요. */
+function lcPopOut() {
+  if (!LC.el) return;
+  var setup = function (win) {
+    if (!win) { coinToast('팝업이 막혔어요. 주소창 오른쪽에서 팝업 허용을 눌러 주세요'); return; }
+    var d = win.document;
+    d.title = '💬 실시간 채팅';
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach(function (n) { d.head.appendChild(n.cloneNode(true)); });
+    d.body.style.margin = '0'; d.body.style.background = '#16201b';
+    LC.pip = win;
+    LC.el.classList.add('in-pip');
+    LC.el.querySelector('.lc-pop').textContent = '⤓ 돌아가기';
+    d.body.appendChild(LC.el);
+    var back = function () { if (LC.pip === win) lcPopIn(true); };
+    win.addEventListener('pagehide', back);
+    win.addEventListener('unload', back);
+    walletRender();
+    lcPoll(true);
+  };
+  try {
+    if (window.documentPictureInPicture && documentPictureInPicture.requestWindow) {
+      documentPictureInPicture.requestWindow({ width: 340, height: 500 }).then(setup, function () { setup(lcOpenPopup()); });
+      return;
+    }
+  } catch (e) {}
+  setup(lcOpenPopup());
+}
+function lcOpenPopup() {
+  var w = window.open('', 'gamehub_livechat', 'width=360,height=540,menubar=no,toolbar=no,location=no,status=no');
+  if (!w) return null;
+  try { w.document.open(); w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>실시간 채팅</title></head><body></body></html>'); w.document.close(); } catch (e) { return null; }
+  return w;
+}
+/* 다시 사이트 안으로 */
+function lcPopIn(fromClose) {
+  var win = LC.pip;
+  LC.pip = null;
+  if (LC.el) {
+    LC.el.classList.remove('in-pip');
+    var pb = LC.el.querySelector('.lc-pop'); if (pb) pb.textContent = '⧉ 따로';
+    var viewer = document.getElementById('ss-viewer');
+    if (LC.mode === 'view' && viewer) viewer.querySelector('.ss-video-wrap').appendChild(LC.el);
+    else if (LC.mode === 'share') document.body.appendChild(LC.el);
+    else { LC.el.remove(); LC.el = null; }
+  }
+  ['donate-alert', 'coin-toast'].forEach(function (id) { var e = win && !win.closed && win.document.getElementById(id); if (e) document.body.appendChild(e); });
+  if (!fromClose && win && !win.closed) try { win.close(); } catch (e) {}
+}
+
 /* 지금 상황에 맞게 채팅창을 붙였다 뗐다 */
 function lcSync() {
   var viewer = document.getElementById('ss-viewer');
@@ -234,10 +350,17 @@ function lcSync() {
   var sharing = !!(SS && SS.share);
   var mode = viewing ? 'view' : (sharing ? 'share' : null);
   if (mode === LC.mode) return;
+  /* 따로 띄운 창은 공유 중인 동안 그대로 두고, 공유가 끝나면 닫아요 */
+  if (LC.pip && !LC.pip.closed) {
+    if (mode) { LC.mode = mode; return; }
+    LC.mode = null; lcPopIn(); return;
+  }
   if (LC.el) { LC.el.remove(); LC.el = null; }
   LC.mode = mode; LC.last = '';
   if (!mode) return;
   LC.el = lcBuild();
+  LC.don = false;
+  if (mode === 'share') LC.el.querySelector('.lc-don').style.display = 'none';   /* 공유하는 사람은 후원을 받아요 */
   if (mode === 'view') {
     LC.el.classList.add('in-view');
     viewer.querySelector('.ss-video-wrap').appendChild(LC.el);
@@ -263,7 +386,8 @@ function coinPillSync() {
     document.body.appendChild(el);
     walletRender();
   }
-  el.style.display = roomJoined && playMode === 'online' ? '' : 'none';
+  el.style.display = (roomJoined && playMode === 'online') || playMode === 'solo' ? '' : 'none';
+  el.classList.toggle('solo', playMode === 'solo');
 }
 (function lcLoop() {
   var n = 0, wasJoined = false;

@@ -246,6 +246,7 @@ function pzEndDay() {
     '<div class="pz-bubble-btns"><button class="btn btn-primary" onclick="pzNextDay()">다음 날 ☀️</button></div></div>';
   if (PZ.dayEarn > PZ.best) PZ.best = PZ.dayEarn;
   pzSaveProg();
+  typeof soloCoin === 'function' && soloCoin(Math.min(25, Math.round(PZ.dayEarn / 4)), PZ.day + '일째 영업 끝!');
 }
 function pzNextDay() {
   PZ.day++; PZ.cust = 0; PZ.dayEarn = 0; PZ.dayLog = [];

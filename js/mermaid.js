@@ -242,6 +242,7 @@ function mmShopClose(caught, title, sub) {
   mmRenderSession();
   var best = mmBest();
   var isBest = !best || MMS.coins > best.coins;
+  typeof soloCoin === 'function' && soloCoin(Math.min(40, Math.floor(MMS.coins / 25)), '인어조림 장사 끝!');
   if (isBest) mmSaveBest({ coins: MMS.coins, dishes: MMS.dishes });
   mmSound(caught ? 'fail' : 'win');
   var st = mmEl('mm-stage');

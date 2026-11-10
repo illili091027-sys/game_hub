@@ -1908,3 +1908,22 @@ body:has(#coin-pill:not([style*="none"])) .game-members-bar { right: 170px; max-
   .coin-pill { top: 6px; right: 52px; height: 38px; padding: 0 10px; font-size: 13px; }
   body:has(#coin-pill:not([style*="none"])) .game-members-bar { right: 140px; max-width: calc(100vw - 150px); }
 }
+/* 후원 채팅 */
+.donate-alert, .coin-toast { z-index: 9700; }
+.lc-box.don-on { border-color: #f2c744; }
+.lc-donbar { padding: 6px 8px 0; border-top: 1px solid rgba(255,255,255,.1); background: rgba(242,199,68,.12); }
+.lc-amts { display: flex; gap: 4px; flex-wrap: wrap; }
+.lc-amt { border: 1.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.08); color: #fff; border-radius: 99px; padding: 2px 8px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.lc-amt.on { border-color: #f2c744; background: rgba(242,199,68,.45); }
+.lc-amt-custom { width: 56px; border-radius: 99px; border: 1.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.9); color: #222; padding: 2px 8px; font-size: 12px; }
+.lc-have { font-size: 11px; color: #ffe9a6; margin: 4px 0 2px; }
+.lc-have b { color: #ffd54f; }
+.lc-box.don-on .lc-send { background: #ff9f43; }
+.coin-pill.solo { right: 12px; }
+@media (max-width: 600px) { .coin-pill.solo { right: 6px; } }
+.lc-box.in-pip { position: fixed; inset: 0; width: auto; height: auto; border-radius: 0; border: none; font-size: 15px; }
+.lc-box.in-pip .lc-head { cursor: default; font-size: 15px; }
+.lc-box.in-pip .lc-grip { display: none; }
+.lc-box.in-pip .lc-input { font-size: 16px; padding: 9px 14px; }
+.lc-box.in-pip .lc-send { width: 40px; }
+.lc-box .lc-pop { background: rgba(111,195,223,.3) !important; }

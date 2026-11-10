@@ -259,6 +259,7 @@ function wsFinish() {
   var prevBest = WS_BEST[WS.level];
   var isBest = !prevBest || t < prevBest;
   if (isBest) WS_BEST[WS.level] = t;
+  typeof soloCoin === 'function' && (soloCoin(WS.level * 5, WS.level + '단계 첫 클리어!', 'ws_lv_' + WS.level) || soloCoin(2, '낱말 찾기'));
   document.getElementById('ws-time-val').textContent = wsFmtTime(t);
   var msg = document.getElementById('ws-msg');
   msg.className = 'sd-msg over';

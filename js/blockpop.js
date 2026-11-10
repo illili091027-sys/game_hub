@@ -80,7 +80,7 @@ function bpPlace(si, gx, gy) {
   }
   BP.slots[si] = null;
   if (BP.slots.every(function (s) { return !s; })) bpDeal();
-  if (BP.score > BP.best) { BP.best = BP.score; try { localStorage.setItem('gamehub_blockpop_best', BP.best); } catch (e) {} }
+  if (BP.score > BP.best) { BP.best = BP.score; BP.newBest = true; try { localStorage.setItem('gamehub_blockpop_best', BP.best); } catch (e) {} }
   /* 더 놓을 곳이 없으면 끝 */
   if (!BP.slots.some(function (s) { return s && bpCanPlaceAnywhere(s.cells); })) {
     BP.over = true;
@@ -89,6 +89,7 @@ function bpPlace(si, gx, gy) {
       document.getElementById('bp-over-score').textContent = BP.score;
       document.getElementById('bp-over-best').textContent = BP.best;
       if (typeof playFart === 'function') playFart();
+      typeof soloCoin === 'function' && soloCoin(Math.min(40, Math.floor(BP.score / 100)) + (BP.newBest && BP.score >= 300 ? 20 : 0), BP.newBest ? '최고 기록!' : '블록 팡');
     }, 700);
   }
 }

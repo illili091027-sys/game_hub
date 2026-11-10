@@ -168,7 +168,8 @@ function btCheckWin() {
   if (got >= need && !onBoard) {
     BT.won = true;
     var st = BT.cuts <= L.p ? 3 : (BT.cuts <= L.p + 1 ? 2 : 1);
-    if (st > (BT_PROG.stars[BT.lv] || 0)) { BT_PROG.stars[BT.lv] = st; btSave(); }
+    var oldSt = BT_PROG.stars[BT.lv] || 0;
+    if (st > oldSt) { BT_PROG.stars[BT.lv] = st; btSave(); typeof soloCoin === 'function' && soloCoin((st - oldSt) * 5, '별 ' + (st - oldSt) + '개!'); }
     if (typeof mmSound === 'function') mmSound('win');
     setTimeout(function () {
       document.getElementById('bt-done').style.display = '';
