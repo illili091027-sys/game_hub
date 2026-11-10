@@ -115,6 +115,7 @@ function bmShowFinalResults(results) {
     return (i + 1) + '등: ' + esc(s.name) + (s.name === me.name ? ' (나)' : '') + ' - ' + s.score + '점';
   });
   document.getElementById('bm-over-msg').innerHTML = '모두 탈락! 최종 결과<br>' + lines.join('<br>');
+  if (allScores.length > 1) typeof celebrateWin === 'function' && celebrateWin('bomb:' + Date.now(), [allScores[0].name], '똥벼락 대탈출 · ' + allScores[0].score + '점');
 }
 
 /* ---- 탈락 후 친구 화면 크게 보기 ----
@@ -448,6 +449,7 @@ function bmFinishRoundLocal(soloMsg) {
 }
 
 function bmEndGame() {
+  if (typeof playFart === 'function') playFart();
   bmRunning = false;
   if (bmRAF) cancelAnimationFrame(bmRAF);
   bmClearBombs();

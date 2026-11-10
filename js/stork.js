@@ -81,6 +81,7 @@ function skTick(ts) {
     SK.walkPhase += speed * dt * 3.2;
     if (Math.abs(SK.theta) > SK_FALL_ANGLE) {
       SK.falling = true;
+      if (typeof playFart === 'function') playFart();
       SK.fallDir = SK.theta > 0 ? 1 : -1;
       SK.fallT = 0;
     }

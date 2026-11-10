@@ -258,6 +258,8 @@ function tpUpdatePreview() {
 var TP_LAST_STATE = null;
 
 function tpRender(s) {
+  /* 땡!으로 탈락하면 소리 */
+  if (typeof playRejectOnce === 'function') { var jw = s.lastWord; playRejectOnce('tapple', jw && jw.judged ? 'j:' + jw.id : 'none:' + (jw ? jw.id : '')); }
   if (!document.getElementById('tapple').classList.contains('active')) return;
   TP_LAST_STATE = s;
   document.querySelectorAll('#tapple .tp-phase').forEach(function (el) { el.style.display = 'none'; });
@@ -342,6 +344,7 @@ function tpRender(s) {
   } else if (s.phase === 'end') {
     document.getElementById('tp-end-area').style.display = '';
     document.getElementById('tp-end-banner').textContent = '👑 ' + tpName(s, s.roundWinner) + ' 우승! (카드 ' + TP_WIN_CARDS + '장)';
+    typeof celebrateWin === 'function' && celebrateWin('tapple:' + s.gameId, [tpName(s, s.roundWinner)], '태플');
     var ranked = s.order.slice().sort(function (a, b) { return (s.cards[b] || 0) - (s.cards[a] || 0); });
     renderRankBoard('tp-end-rank', ranked.map(function (pid) { return { name: tpName(s, pid), isMe: pid === myPlayerId, label: '카드 ' + (s.cards[pid] || 0) + '장' }; }));
     document.getElementById('tp-restart-btn').style.display = isHost ? '' : 'none';

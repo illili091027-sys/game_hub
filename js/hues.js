@@ -442,6 +442,7 @@ function huRender(state) {
     var topScore = ranked.length ? (state.scores[ranked[0].id] || 0) : 0;
     var winners = ranked.filter(function (p) { return (state.scores[p.id] || 0) === topScore; }).map(function (p) { return p.name; });
     document.getElementById('hu-end-banner').textContent = '🏆 ' + winners.join(', ') + ' 승리! (' + topScore + '점)';
+    typeof celebrateWin === 'function' && celebrateWin('hues:' + state.gameId, winners, '색감과 직감 · ' + topScore + '점');
     renderRankBoard('hu-end-rank', ranked.map(function (p) { return { name: p.name, isMe: p.id === myPlayerId, label: (state.scores[p.id] || 0) + '점' }; }));
     document.getElementById('hu-end-history').innerHTML = (state.history || []).map(function (h) {
       return '<div class="lb-row"><span><span class="hu-mini-swatch" style="background:' + huColor(h.r, h.c) + '"></span> ' + esc(h.giver) + ' · ' + h.coord + '</span><span class="hu-hist-clue">' + esc(h.clue1) + (h.clue2 && h.clue2.charAt(0) !== '(' ? ' / ' + esc(h.clue2) : '') + '</span></div>';

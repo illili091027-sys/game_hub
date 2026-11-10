@@ -17,6 +17,7 @@ var RL_SUBMITTED = {};     // 단계별 제출 여부
 var RL_PREV_CACHE = {};    // 받은 앞사람 내용 캐시
 var RL_ALL = null;         // 공개 단계: 모든 사람 제출물
 var RL_DRAW = null;        // 그림판 상태
+var RL_AWAY_SINCE = {};    // 연결이 끊긴 사람: 언제부터 끊겼는지
 var RL_EXAMPLES = ['안경을 쓰고 선글라스를 낀 문어가 라면을 먹고 있다', '교장선생님이 구름 위에서 줄넘기를 한다', '고양이가 우주선을 타고 편의점에 간다', '수박이 축구공을 차서 골을 넣었다', '펭귄이 사막에서 아이스크림을 팔고 있다', '공룡이 버스 정류장에서 줄을 서 있다'];
 
 function rlKey() { return roomKey('relay'); }
@@ -73,7 +74,18 @@ function rlPoll() {
 function rlHostCheck(st) {
   if (st.phase !== 'play') return;
   DBgetPrefix('rl_', st.order).then(function (all) {
-    var done = st.order.filter(function (pid) { var d = all[pid]; return d && d.gameId === st.gameId && d.entries && d.entries[st.step]; }).length;
+    /* 중간에 나간 사람은 그 사람 차례가 와도 기다리지 않고 바로 '완료'로 쳐요 */
+    /* (방에서 나갔거나, 20초 넘게 연결이 끊긴 사람) */
+    var here = {}, now = Date.now();
+    (roomPlayersList || []).forEach(function (p) {
+      if (p.away) { RL_AWAY_SINCE[p.id] = RL_AWAY_SINCE[p.id] || now; if (now - RL_AWAY_SINCE[p.id] > 20000) return; }
+      else delete RL_AWAY_SINCE[p.id];
+      here[p.id] = 1;
+    });
+    var done = st.order.filter(function (pid) {
+      if (!here[pid]) return true;
+      var d = all[pid]; return d && d.gameId === st.gameId && d.entries && d.entries[st.step];
+    }).length;
     var el = document.getElementById('rl-progress');
     if (el) el.textContent = '제출 ' + done + '/' + st.order.length;
     var late = Date.now() > st.deadline + 3000;
@@ -114,12 +126,17 @@ function rlEditAgain() {
 /* ---- 화면 ---- */
 function rlRender(st) {
   if (!document.getElementById('relay').classList.contains('active')) return;
-  document.querySelectorAll('#relay .rl-phase').forEach(function (el) { el.style.display = 'none'; });
   var isHost = myPlayerId === roomHostId;
+  /* 보여줄 화면만 켜고 나머지는 끄기 (매번 다 껐다 켜면 화면이 깜빡여요) */
+  var show = function (ids) {
+    document.querySelectorAll('#relay .rl-phase').forEach(function (el) {
+      var want = ids.indexOf(el.id) >= 0 ? '' : 'none';
+      if (el.style.display !== want) el.style.display = want;
+    });
+  };
   if (st.phase === 'play') {
     var type = rlStepType(st.step);
     var remain = Math.max(0, Math.ceil((st.deadline - Date.now()) / 1000));
-    document.getElementById('rl-head').style.display = '';
     document.getElementById('rl-step').textContent = (st.step + 1) + '/' + st.total + ' 단계 · ' + ({ write: '✍️ 문장 쓰기', draw: '🎨 그림 그리기', guess: '🤔 그림 보고 문장 쓰기' })[type];
     document.getElementById('rl-timer').textContent = '⏱ ' + remain + '초';
     document.getElementById('rl-timer').classList.toggle('hurry', remain <= 10);
@@ -130,7 +147,7 @@ function rlRender(st) {
       return;
     }
     if (RL_SUBMITTED[st.step]) {
-      document.getElementById('rl-wait').style.display = '';
+      show(['rl-head', 'rl-wait']);
       if (!isHost) document.getElementById('rl-progress').textContent = '';
       return;
     }
@@ -141,40 +158,46 @@ function rlRender(st) {
       if (type === 'draw') rlClearCanvas(true);
     }
     if (type === 'write') {
-      document.getElementById('rl-text-area').style.display = '';
+      show(['rl-head', 'rl-text-area']);
       document.getElementById('rl-text-title').textContent = '엉뚱하고 재밌는 문장을 써주세요!';
       document.getElementById('rl-received').innerHTML = '';
       document.getElementById('rl-text-input').placeholder = '예: ' + RL_EXAMPLES[st.gameId % RL_EXAMPLES.length];
     } else {
+      /* 받은 내용이 오기 전에도 화면은 바로 보여주고, 내용만 나중에 채워요 */
+      show(['rl-head', type === 'draw' ? 'rl-draw-area' : 'rl-text-area']);
+      if (type !== 'draw') {
+        document.getElementById('rl-text-title').textContent = '이 그림은 무슨 문장일까요?';
+        document.getElementById('rl-text-input').placeholder = '그림을 보고 문장으로 적어요';
+      }
       rlLoadPrev(st, function (entry) {
         if (!RL_STATE || RL_STATE.step !== st.step || RL_SUBMITTED[st.step]) return;
+        var sig = st.gameId + ':' + st.step + ':' + (entry ? 1 : 0);
         if (type === 'draw') {
-          document.getElementById('rl-draw-area').style.display = '';
-          document.getElementById('rl-draw-prompt').innerHTML = '<small>이 문장을 그림으로!</small>' + esc(entry ? entry.v : '(앞사람이 아직 안 냈어요… 자유롭게 그려요)');
+          var pe = document.getElementById('rl-draw-prompt');
+          if (pe.getAttribute('data-sig') !== sig) { pe.setAttribute('data-sig', sig); pe.innerHTML = '<small>이 문장을 그림으로!</small>' + esc(entry ? entry.v : '(앞사람이 안 냈어요… 자유롭게 그려요)'); }
         } else {
-          document.getElementById('rl-text-area').style.display = '';
-          document.getElementById('rl-text-title').textContent = '이 그림은 무슨 문장일까요?';
-          document.getElementById('rl-text-input').placeholder = '그림을 보고 문장으로 적어요';
-          document.getElementById('rl-received').innerHTML = entry && entry.t === 'img' ? '<img class="rl-recv-img" src="' + entry.v + '" alt="받은 그림" />' : '<div class="rl-recv-empty">(앞사람 그림이 없어요… 상상해서 적어요!)</div>';
+          var re = document.getElementById('rl-received');
+          if (re.getAttribute('data-sig') !== sig) { re.setAttribute('data-sig', sig); re.innerHTML = entry && entry.t === 'img' ? '<img class="rl-recv-img" src="' + entry.v + '" alt="받은 그림" />' : '<div class="rl-recv-empty">(앞사람 그림이 없어요… 상상해서 적어요!)</div>'; }
         }
       });
     }
   } else if (st.phase === 'reveal') {
-    document.getElementById('rl-head').style.display = 'none';
-    document.getElementById('rl-reveal').style.display = '';
+    show(['rl-reveal']);
     rlRenderReveal(st, isHost);
   }
 }
 
 function rlLoadPrev(st, cb) {
   var key = st.gameId + ':' + st.step;
-  if (RL_PREV_CACHE[key]) { cb(RL_PREV_CACHE[key]); return; }
+  var c = RL_PREV_CACHE[key];
+  if (c && (c.e || Date.now() - c.at < 4000 || c.busy)) { cb(c.e); return; }
   var prev = rlPrevPid(st);
+  RL_PREV_CACHE[key] = { e: null, at: Date.now(), busy: true };
   DBget(roomKey('rl_' + prev)).then(function (d) {
     var e = d && d.gameId === st.gameId && d.entries ? d.entries[st.step - 1] : null;
-    if (e) RL_PREV_CACHE[key] = e;
+    RL_PREV_CACHE[key] = { e: e || null, at: Date.now() };
     cb(e);
-  });
+  }, function () { RL_PREV_CACHE[key] = { e: null, at: Date.now() }; cb(null); });
 }
 
 /* ---- 결과 공개: 방장이 ▶ 시작을 누르면 한 이야기가 한 장씩 자동으로 넘어가요 ----

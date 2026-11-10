@@ -196,6 +196,7 @@ function dbShowResult(st) {
   box.style.display = '';
   var rows = st.order.map(function (pid) { return { pid: pid, n: (st.hands[pid] || []).length }; }).sort(function (a, b) { return a.n - b.n; });
   document.getElementById('db-result-title').textContent = '🏆 ' + (st.names[st.winner] || '') + ' 님 승리!';
+  typeof celebrateWin === 'function' && celebrateWin('dobble:' + st.gameId, [st.names[st.winner]], '얼른 버려!');
   renderRankBoard('db-result-rank', rows.map(function (r) { return { name: st.names[r.pid] || '?', isMe: r.pid === myPlayerId, label: r.n ? '남은 카드 ' + r.n + '장' : '다 버림! 🎉' }; }));
   document.getElementById('db-restart').style.display = myPlayerId === roomHostId ? '' : 'none';
   if (st.winner === myPlayerId) dbSound('win');

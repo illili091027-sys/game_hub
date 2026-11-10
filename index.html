@@ -81,7 +81,7 @@ window.addEventListener('load', function () {
       <button class="game-card" id="card-sudoku" onclick="cardClicked('sudoku')">
         <div class="game-card-top">
           <div class="game-icon">1</div>
-          <div class="game-name">다같이 스도쿠</div>
+          <div class="game-name">스도쿠</div>
         </div>
         <div class="game-desc" id="desc-sudoku">난이도를 고르고, 실수 3번 안에 완성해보세요.</div>
       </button>
@@ -137,6 +137,24 @@ window.addEventListener('load', function () {
           <div class="game-name">얼른 버려!</div>
         </div>
       </button>
+      <button class="game-card" id="card-catch" onclick="cardClicked('catch')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">캐치마인드</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-wasd" onclick="cardClicked('wasd')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">WASD 대모험</div>
+        </div>
+      </button>
+      <button class="game-card" id="card-yang" onclick="cardClicked('yang')">
+        <div class="game-card-top">
+          <div class="game-icon">12</div>
+          <div class="game-name">양세찬 게임</div>
+        </div>
+      </button>
       <button class="game-card" id="card-land" onclick="cardClicked('land')">
         <div class="game-card-top">
           <div class="game-icon">12</div>
@@ -180,7 +198,7 @@ window.addEventListener('load', function () {
         </div>
         <div class="game-desc" id="desc-baby">고른 캐릭터가 구름을 밟고 통통 튀어 하늘 높이 올라가요!</div>
       </button>
-      <div class="card-hint">💡 카드를 <b>오른쪽 클릭</b>(휴대폰은 <b>길게 누르기</b>)하면 설명서가 나와요</div>
+      <div class="card-hint">💡 카드를 오른쪽 클릭(휴대폰은 길게 누르기)하면 설명이 나와요</div>
     </div>
 
     <div class="home-footer" id="home-footer" style="display:none"></div>
@@ -196,8 +214,8 @@ window.addEventListener('load', function () {
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
       <span class="room-pill" id="sd-room-pill">방</span>
     </div>
-    <h2 class="game-heading">다같이 스도쿠</h2>
-    <p class="game-sub">가로 줄, 세로 줄, 굵은 선으로 나뉜 3x3 칸에 1~9 숫자가 겹치지 않게 채워보세요.</p>
+    <h2 class="game-heading">스도쿠</h2>
+    
 
     <div id="sd-difficulty-select">
       <div class="cat-vote-hint" id="sd-vote-hint" style="display:none;"></div>
@@ -268,7 +286,7 @@ window.addEventListener('load', function () {
       <span class="room-pill" id="bm-room-pill">방</span>
     </div>
     <h2 class="game-heading">똥벼락 대탈출</h2>
-    <p class="game-sub">방향키(←/→)나 A/D 키로 캐릭터를 움직여서 하늘에서 떨어지는 똥을 피하세요! 체력은 3칸, 초록 아이템은 회복, 해골 아이템은 닿으면 즉시 탈락이에요. 시간이 지날수록 점점 빨라지고 한 번에 여러 개가 떨어져요.</p>
+    <p class="game-sub">← → 또는 A D로 똥을 피해요!</p>
 
     <div id="bm-intro">
       <div class="board-box">
@@ -325,7 +343,7 @@ window.addEventListener('load', function () {
       <span class="room-pill" id="qz-room-pill">방</span>
     </div>
     <h2 class="game-heading">상식 끝판왕</h2>
-    <p class="game-sub">한 라운드 20문제! 중간중간 튀어나오는 방해 요소도 조심하세요.</p>
+    
 
     <div id="qz-intro">
       <div class="board-box">
@@ -373,7 +391,7 @@ window.addEventListener('load', function () {
       <span class="room-pill" id="ws-room-pill">혼자 하기</span>
     </div>
     <h2 class="game-heading">영어 낱말 찾기</h2>
-    <p class="game-sub">첫 글자부터 끝 글자까지 쭉 끌거나, 첫 글자와 끝 글자를 차례로 눌러서 단어를 찾아요.</p>
+    <p class="game-sub">첫 글자부터 끝 글자까지 쭉 끌어요.</p>
 
     <div id="ws-difficulty-select">
       <div class="diff-grid diff-5">
@@ -596,7 +614,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1106-4]</span></p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1110-3]</span></p>
   </div>
 </div>
 
@@ -683,7 +701,7 @@ window.addEventListener('load', function () {
     </div>
     <h2 class="game-heading">엉뚱 그림 릴레이</h2>
     <div class="sd-msg over rl-phase" id="rl-error" style="display:none"></div>
-    <div class="rl-head" id="rl-head" style="display:none">
+    <div class="rl-head rl-phase" id="rl-head" style="display:none">
       <span class="rl-step" id="rl-step"></span>
       <span class="rl-timer" id="rl-timer"></span>
       <span class="rl-progress" id="rl-progress"></span>
@@ -840,6 +858,142 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="catch" class="view">
+  <div class="wrap cm-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="cm-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">캐치마인드</h2>
+    <div class="sd-msg over" id="cm-error" style="display:none"></div>
+    <div id="cm-main">
+      <div class="cm-head">
+        <span class="cm-round" id="cm-round"></span>
+        <div class="cm-wordbox" id="cm-wordbox"></div>
+        <span class="cm-timer" id="cm-timer"></span>
+      </div>
+      <div class="cm-layout">
+        <div class="cm-left">
+          <div class="cm-stage">
+            <canvas id="cm-canvas" width="640" height="480"></canvas>
+            <div class="cm-overlay" id="cm-overlay" style="display:none"></div>
+            <div class="cm-choose" id="cm-choose" style="display:none"></div>
+          </div>
+          <div class="rl-tools cm-tools" id="cm-tools" style="display:none">
+            <div class="rl-tools-mode" id="cm-modes">
+              <button type="button" class="rl-tool on" data-tool="pen">✏️ 펜</button>
+              <button type="button" class="rl-tool" data-tool="fill">🪣 채우기</button>
+              <button type="button" class="rl-tool" data-tool="eraser">🧽 지우개</button>
+            </div>
+            <div class="rl-colors" id="cm-colors"></div>
+            <div class="rl-sizes" id="cm-sizes">
+              <button type="button" class="rl-size" data-s="3"><i style="width:4px;height:4px"></i></button>
+              <button type="button" class="rl-size on" data-s="6"><i style="width:8px;height:8px"></i></button>
+              <button type="button" class="rl-size" data-s="14"><i style="width:14px;height:14px"></i></button>
+            </div>
+            <button type="button" class="btn btn-ghost rl-tool-btn" onclick="cmUndo()">↩️ 되돌리기</button>
+            <button type="button" class="btn btn-ghost rl-tool-btn" onclick="cmClearAll()">🗑️ 다 지우기</button>
+          </div>
+        </div>
+        <div class="cm-side">
+          <div class="cm-players" id="cm-players"></div>
+          <div class="cm-feed" id="cm-feed"></div>
+          <div class="cm-input-row">
+            <input type="text" id="cm-guess" maxlength="30" autocomplete="off" placeholder="정답을 입력하고 엔터!" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();cmSendGuess();}" />
+            <button class="btn btn-primary" id="cm-send" onclick="cmSendGuess()">보내기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cm-result board-box" id="cm-result" style="display:none">
+      <div class="db-result-title" id="cm-result-title"></div>
+      <div id="cm-result-rank"></div>
+      <button class="btn btn-primary" id="cm-restart" onclick="cmHostRestart()">한 판 더!</button>
+    </div>
+  </div>
+</div>
+
+<div id="wasd" class="view">
+  <div class="wrap wd-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="wd-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">WASD 대모험</h2>
+    <div class="sd-msg over" id="wd-error" style="display:none"></div>
+    <div id="wd-main">
+      <div class="wd-stage">
+        <canvas id="wd-canvas"></canvas>
+        <div class="wd-hud wd-hud-l">💀 <b id="wd-deaths">0</b></div>
+        <div class="wd-hud wd-hud-c">⏱ <b id="wd-time">00:00.00</b></div>
+        <div class="wd-hud wd-hud-r">🪙 <b id="wd-coins">0 / 0</b></div>
+        <div class="wd-hud wd-hud-s">스테이지 <b id="wd-stage">1 / 6</b></div>
+        <div class="wd-result" id="wd-result" style="display:none">
+          <div class="wd-result-title">🏆 대모험 성공!</div>
+          <div id="wd-result-text"></div>
+          <button class="btn btn-primary" id="wd-restart" onclick="wdHostRestart()">다시 도전!</button>
+        </div>
+      </div>
+      <div class="wd-mykeys" id="wd-mykeys"></div>
+      <div class="wd-keys" id="wd-keys"></div>
+      
+    </div>
+  </div>
+</div>
+
+<div id="yang" class="view">
+  <div class="wrap yg-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="yg-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">양세찬 게임</h2>
+    <div class="sd-msg over" id="yg-error" style="display:none"></div>
+    <div id="yg-main">
+      <div class="yg-avatars" id="yg-avatars"></div>
+      <div class="yg-timebar"><div class="yg-bar" id="yg-bar"></div><span id="yg-bar-num"></span></div>
+      <div class="yg-infobar">
+        <div class="yg-side">현재<br>라운드<b id="yg-round">-</b></div>
+        <div class="yg-info" id="yg-info"></div>
+        <div class="yg-side">방 인원<b id="yg-count">-</b></div>
+      </div>
+      <div class="yg-setup" id="yg-setup" style="display:none">
+        <div class="yg-setup-title">어떤 주제로 할까요?</div>
+        <div class="yg-cats"><button class="yg-cat" onclick="ygPickCat('animal')">🐶 동물</button><button class="yg-cat" onclick="ygPickCat('food')">🍕 음식</button><button class="yg-cat" onclick="ygPickCat('job')">👩‍⚕️ 직업</button><button class="yg-cat" onclick="ygPickCat('thing')">✏️ 물건</button><button class="yg-cat" onclick="ygPickCat('chara')">🦸 캐릭터</button><button class="yg-cat" onclick="ygPickCat('sport')">⚽ 운동·놀이</button><button class="yg-cat" onclick="ygPickCat('mix')">🎲 다 섞어서</button><button class="yg-cat" onclick="ygPickCat('custom')">✍️ 서로 정해주기</button></div>
+      </div>
+      <div class="yg-write" id="yg-write" style="display:none">
+        <div class="yg-write-title" id="yg-write-title"></div>
+        <div class="yg-row">
+          <input type="text" id="yg-write-input" maxlength="20" autocomplete="off" placeholder="예: 펭귄, 떡볶이, 피카츄…" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();ygSubmitWrite();}" />
+          <button class="btn btn-primary" onclick="ygSubmitWrite()">정하기</button>
+        </div>
+        <div class="yg-write-msg" id="yg-write-msg"></div>
+      </div>
+      <div class="yg-board">
+        <div class="yg-feed" id="yg-feed"></div>
+        <div class="yg-tools" id="yg-q-tools" style="display:none">
+          <button class="btn yg-guess-btn" id="yg-guess-btn" onclick="ygSetGuessMode(!YG_GUESS_MODE)">📣 정답 외치기</button>
+          <button class="btn btn-ghost" onclick="ygNextTurn()">질문 끝 ▶ 다음 사람</button>
+        </div>
+        <div class="yg-tools" id="yg-a-tools" style="display:none">
+          <button class="btn yg-quick yes" onclick="ygQuick('⭕ 예')">⭕ 예</button>
+          <button class="btn yg-quick no" onclick="ygQuick('❌ 아니오')">❌ 아니오</button>
+          <button class="btn yg-quick" onclick="ygQuick('🤔 애매해요')">🤔 애매해요</button>
+        </div>
+        <div class="yg-inputrow">
+          <input type="text" id="yg-input" maxlength="80" autocomplete="off" placeholder="채팅을 입력하세요" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();ygSubmit();}" />
+          <button class="yg-send" onclick="ygSubmit()" aria-label="보내기">➤</button>
+        </div>
+      </div>
+      <div class="yg-result board-box" id="yg-result" style="display:none">
+        <div class="db-result-title">🏆 결과</div>
+        <div id="yg-result-rank"></div>
+        <button class="btn btn-primary" id="yg-restart" onclick="ygHostRestart()">한 판 더!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="land" class="view">
   <div class="wrap ld-wrap">
     <div class="topbar">
@@ -873,7 +1027,7 @@ window.addEventListener('load', function () {
         </div>
       </div>
     </div>
-    <p class="bb-help">방향키·WASD로 이동 · 휴대폰은 화면을 밀거나 아래 버튼</p>
+    <p class="bb-help">마우스·방향키·WASD로 조종</p>
   </div>
 </div>
 
@@ -1007,7 +1161,7 @@ window.addEventListener('load', function () {
       <span class="room-pill" id="ch-room-pill">방</span>
     </div>
     <h2 class="game-heading">채널 라운지</h2>
-    <p class="game-sub">여러 개의 대화방(채널)을 만들고, 누가 어디 들어가있는지 미리 보면서 따로따로 대화해보세요.</p>
+    
 
     <div id="ch-list-area">
       <div class="ch-list" id="ch-list"></div>
@@ -1056,8 +1210,8 @@ window.addEventListener('load', function () {
     </div>
     <button class="btn btn-primary" id="rules-ready-btn" onclick="dismissRulesOverlay()">준비 완료!</button>
     <div class="rules-wait-msg" id="rules-wait-msg"></div>
-    <button class="btn btn-ghost" id="rules-force-btn" style="display:none;" onclick="rulesForceStart()">다 준비 안 됐어도 바로 시작하기 (방장)</button>
-    <button class="rules-exit" id="rules-exit-btn" onclick="rulesExit()">← 나가기 (홈으로)</button>
+    <button class="btn btn-ghost" id="rules-force-btn" style="display:none;" onclick="rulesForceStart()">바로 시작 (방장)</button>
+    <button class="rules-exit" id="rules-exit-btn" onclick="rulesExit()">나가기</button>
   </div>
 </div>
 
@@ -1105,6 +1259,7 @@ window.addEventListener('load', function () {
 <script src="data/mermaid-chars.js"></script>
 
 <!-- 게임 로직 파일: 공용 코드(core.js)를 먼저 불러온 뒤 각 게임 코드를 불러옵니다 -->
+<script src="data/sounds.js"></script>
 <script src="js/core.js"></script>
 <script src="js/chat.js"></script>
 <script src="js/charpick.js"></script>
@@ -1124,6 +1279,10 @@ window.addEventListener('load', function () {
 <script src="js/tickbomb.js"></script>
 <script src="js/land.js"></script>
 <script src="js/dobble.js"></script>
+<script src="js/catchmind.js"></script>
+<script src="data/wasd-chars.js"></script>
+<script src="js/wasd.js"></script>
+<script src="js/yang.js"></script>
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 <script src="js/screenshare.js"></script>

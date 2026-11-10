@@ -536,6 +536,7 @@ function bbPostState(force) {
 }
 
 function bbDie() {
+  if (typeof playFart === 'function') playFart();
   BB.running = false;
   BB.over = true;
   bbDraw();
@@ -673,6 +674,7 @@ function bbRenderOpponents() {
 
 /* ---- 모두 끝! 결과 + 다 같이 새 판 ---- */
 function bbShowResult(sorted) {
+  if (sorted && sorted.length > 1 && sorted[0].p) typeof celebrateWin === 'function' && celebrateWin('baby:' + (typeof BB_ROUND !== 'undefined' ? BB_ROUND : Date.now()) + ':' + sorted.map(function (r) { return r.p.id; }).join(','), [sorted[0].p.name], '먼작귀 키우기');
   if (BB_SPECTATE) bbStopSpectate(false);
   var box = document.getElementById('bb-result');
   var medals = ['🥇', '🥈', '🥉'];

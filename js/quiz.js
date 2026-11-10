@@ -218,6 +218,8 @@ function qzGameOverOnline(state) {
   document.getElementById('qz-over-area').style.display = '';
   document.getElementById('qz-over-msg').textContent = '20문제 완료! 아래 누적 점수판을 확인해보세요.';
   renderQuizLeaderboard(state.leaderboard || {});
+  var lb = state.leaderboard || {}, top = Object.keys(lb).sort(function (a, b) { return lb[b] - lb[a]; });
+  if (top.length) typeof celebrateWin === 'function' && celebrateWin('quiz:' + state.roundId, top.filter(function (n) { return lb[n] === lb[top[0]]; }), '상식 끝판왕 · ' + lb[top[0]] + '점');
 }
 
 function renderQuizLeaderboard(lb) {

@@ -137,6 +137,7 @@ var roomCurrentGame = null;
 var roomJoined = false;
 var roomHeartbeatTimer = null;
 var lastAutoEnteredGame = null;
+var ROOM_KNOWN_IDS = { room: null, ids: null };
 var roomPlayersList = []; // [{id, name}, ...] 방 참가 순서(입장 순서) - 이어쓰기 순서 등에 사용
 
 function getPlayerId() {
@@ -254,6 +255,16 @@ function applyRoomState(state) {
   }
   roomHostId = state.hostId;
   roomCurrentGame = state.currentGame;
+  /* 새 친구가 들어오면 띠링! (처음 입장했을 때 이미 있던 사람은 소리 없이) */
+  var joinRoomId = me.room;
+  if (ROOM_KNOWN_IDS.room !== joinRoomId) ROOM_KNOWN_IDS = { room: joinRoomId, ids: null };
+  var nowIds = {};
+  (state.players || []).forEach(function (p) { nowIds[p.id] = 1; });
+  if (ROOM_KNOWN_IDS.ids) {
+    var newcomer = (state.players || []).some(function (p) { return p.id !== myPlayerId && !ROOM_KNOWN_IDS.ids[p.id]; });
+    if (newcomer && typeof playJoinSound === 'function') playJoinSound();
+  }
+  ROOM_KNOWN_IDS.ids = nowIds;
   roomPlayersList = state.players;
   var amHost = (myPlayerId === roomHostId);
   renderLobbyPlayers(state.players);
@@ -269,8 +280,8 @@ function applyRoomState(state) {
     card.classList.toggle('disabled', !amHost);
   });
   document.getElementById('lobby-hint').textContent = amHost
-    ? '아래에서 같이 할 게임을 골라주세요. (0번 채널 라운지는 누구나 자유롭게 열 수 있어요)'
-    : '채널 라운지(0번)는 자유롭게 쓸 수 있어요. 다른 게임은 방장이 고르면 같이 시작돼요.';
+    ? '같이 할 게임을 골라주세요!'
+    : '방장이 게임을 고르면 같이 시작해요.';
   var activeView = document.querySelector('.view.active');
   var activeIsHome = activeView && activeView.id === 'home';
   if (roomCurrentGame) {
@@ -408,15 +419,31 @@ document.getElementById('in-server').addEventListener('blur', function(e){
 if (document.getElementById('in-server').value) {
   cloudServerUrl = normalizeServerUrl(document.getElementById('in-server').value);
 }
+/* 닉네임·방 코드·서버 주소 칸에서 엔터를 누르면 바로 입장 (서버 주소를 방금 고쳤으면 연결 확인 후 입장) */
+['in-name', 'in-room', 'in-server'].forEach(function (id) {
+  document.getElementById(id).addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    var jb = document.getElementById('btn-join-room');
+    if (!jb || jb.style.display === 'none' || this.disabled) return;
+    e.preventDefault();
+    var srv = document.getElementById('in-server');
+    var url = normalizeServerUrl(srv.value);
+    if (url !== cloudServerUrl || cloudStatus !== 'connected') {
+      clearTimeout(serverInputDebounce);
+      srv.value = url; cloudServerUrl = url; saveServerUrl(url);
+      checkCloudServer(url).then(function (ok) { if (ok) joinRoom(); });
+    } else joinRoom();
+  });
+});
 
 /* 온라인에서만 할 수 있는 게임 카드들 - 혼자하기에서는 숨깁니다.
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-sudoku', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-land'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-catch', 'card-wasd', 'card-yang', 'card-land'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
-var SOLO_ONLY_CARD_IDS = ['card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
+var SOLO_ONLY_CARD_IDS = ['card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
 
 /* 첫 화면의 '📚 과제하기': 온라인 입장 화면을 그대로 쓰되, 지난번 과제방 코드/이름을 채워 두고
    입장하면 바로 과제방이 열려요. (과제방은 매번 같은 방 코드로 들어와야 목록이 이어져요) */
@@ -429,7 +456,7 @@ function chooseHomeworkMode() {
   if (room) { document.getElementById('in-room').value = room; me.room = room; }
   if (name && !document.getElementById('in-name').value) { document.getElementById('in-name').value = name; me.name = name; }
   document.getElementById('btn-join-room').textContent = '📚 과제방 입장하기';
-  document.getElementById('home-footer').textContent = '과제방은 친구들과 매번 같은 방 코드로 들어와야 과제 목록이 이어져요. (지난번 방 코드를 기억해 뒀어요)';
+  document.getElementById('home-footer').textContent = '과제방은 매번 같은 방 코드로 들어와요. (지난번 코드를 기억해 뒀어요)';
   updateIdStatus();
 }
 
@@ -455,7 +482,7 @@ function chooseMode(mode) {
     document.getElementById('lobby-panel').style.display = 'none';
     document.getElementById('online-id-box').style.display = 'none';
     document.getElementById('id-status').style.display = 'none';
-    document.getElementById('home-footer').textContent = '혼자 하기 모드예요. 기록은 저장되지 않고 이 화면을 나가면 사라져요.';
+    document.getElementById('home-footer').textContent = '혼자 하기 모드예요.';
     ONLINE_ONLY_CARD_IDS.forEach(function (id) { document.getElementById(id).style.display = 'none'; });
     SOLO_ONLY_CARD_IDS.forEach(function (id) { document.getElementById(id).style.display = ''; });
     renumberGameCards();
@@ -465,7 +492,7 @@ function chooseMode(mode) {
     document.getElementById('lobby-panel').style.display = 'none';
     document.getElementById('online-id-box').style.display = '';
     document.getElementById('id-status').style.display = '';
-    document.getElementById('home-footer').textContent = '닉네임, 방 코드, 서버 주소를 입력하고 "입장하기"를 누르면 대기실로 들어가요. 같은 방 코드로 들어온 친구들과 함께, 방장이 고른 게임을 같이 즐길 수 있어요.';
+    document.getElementById('home-footer').textContent = '닉네임과 방 코드를 쓰고 입장하면, 같은 방 친구들과 같이 놀 수 있어요.';
     ONLINE_ONLY_CARD_IDS.forEach(function (id) { document.getElementById(id).style.display = ''; });
     SOLO_ONLY_CARD_IDS.forEach(function (id) { document.getElementById(id).style.display = 'none'; });
     renumberGameCards();
@@ -522,8 +549,8 @@ function backToModeSelect() {
   playMode = null;
 }
 
-var ONLINE_ONLY_GAME_IDS = ['sudoku', 'bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'land'];
-var SOLO_ONLY_GAME_IDS = ['wordsearch', 'stork', 'arrows', 'mermaid'];
+var ONLINE_ONLY_GAME_IDS = ['bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'catch', 'wasd', 'yang', 'land'];
+var SOLO_ONLY_GAME_IDS = ['sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -548,8 +575,16 @@ var RULES_MANUAL_ID = null;
 
 function rulesRenderPage() {
   var man = (typeof GAME_MANUALS !== 'undefined') ? GAME_MANUALS[RULES_MANUAL_ID] : null;
-  var pages = man ? man.pages : [];
+  var pages = man ? (man.pages || []) : [];
   var textEl = document.getElementById('rules-text');
+  /* 짧은 설명서(한 장): 아이콘 + 한 줄씩 */
+  if (man && man.rules) {
+    textEl.innerHTML = '<ul class="rules-simple">' + man.rules.map(function (r) { return '<li><span class="rs-ic">' + r[0] + '</span><span class="rs-tx">' + r[1] + '</span></li>'; }).join('') + '</ul>';
+    document.getElementById('rules-dots').innerHTML = '';
+    document.querySelector('#rules-overlay .rules-nav').style.display = 'none';
+    return;
+  }
+  document.querySelector('#rules-overlay .rules-nav').style.display = '';
   if (!pages.length) {
     var descEl = document.getElementById('desc-' + RULES_MANUAL_ID);
     textEl.innerHTML = '<div class="rules-page-body"><p>' + esc(descEl ? descEl.textContent : '') + '</p></div>';
@@ -770,7 +805,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', land: 'ld-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
@@ -791,6 +826,9 @@ function enterGame(gameId) {
     else if (gameId === 'bingo') startBingoGame();
     else if (gameId === 'tickbomb') startTickBombGame();
     else if (gameId === 'dobble') startDobbleGame();
+    else if (gameId === 'catch') startCatchGame();
+    else if (gameId === 'wasd') startWasdGame();
+    else if (gameId === 'yang') startYangGame();
     else if (gameId === 'land') startLandGame();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
@@ -824,6 +862,9 @@ var GAME_ROOM_STATE_KEYS = {
   bingo: ['bingo'],
   tickbomb: ['tickbomb'],
   dobble: ['dobble'],
+  catch: ['catch', 'cm_draw'],
+  wasd: ['wasd'],
+  yang: ['yang'],
   land: ['land'],
   baby: ['baby_round']
 };
@@ -835,6 +876,9 @@ var GAME_PER_PLAYER_STATE_KEYS = {
   bingo: 'bg_',
   tickbomb: 'tb_o_',
   dobble: 'db_',
+  catch: 'cm_g_',
+  wasd: 'wd_k_',
+  yang: 'yg_',
   land: 'ld_'
 };
 var GAME_VOTE_KEYS = ['sudoku'];
@@ -873,6 +917,9 @@ function goHome() {
   stopBingoGame();
   stopTickBombGame();
   stopDobbleGame();
+  stopCatchGame();
+  stopWasdGame();
+  stopYangGame();
   stopLandGame();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }

@@ -265,6 +265,7 @@ function bgRender(st) {
     if (st.phase === 'end') {
       document.getElementById('bg-end').style.display = '';
       document.getElementById('bg-end-banner').textContent = '🏆 ' + st.winners.map(function (p) { return st.names[p]; }).join(', ') + ' 빙고 우승!';
+      typeof celebrateWin === 'function' && celebrateWin('bingo:' + st.gameId, st.winners.map(function (p) { return st.names[p]; }), '빙고 대작전');
       document.getElementById('bg-restart-btn').style.display = isHost ? '' : 'none';
     }
   }

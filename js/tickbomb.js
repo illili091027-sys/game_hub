@@ -13,7 +13,7 @@ var TB_FOCUS_SIG = '';
 
 function tbKey() { return roomKey('tickbomb'); }
 function tbNorm(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
-function stopTickBombGame() { clearInterval(TB_POLL); TB_POLL = null; }
+function stopTickBombGame() { clearInterval(TB_POLL); TB_POLL = null; if (typeof timerSoundOff === 'function') timerSoundOff(); }
 
 function startTickBombGame() {
   stopTickBombGame();
@@ -113,6 +113,7 @@ function tbHostCheck(st) {
 
 function tbSubmit() {
   var input = document.getElementById('tb-input');
+  if (input && input.value.trim() && typeof timerSoundOff === 'function') timerSoundOff();
   var word = input.value.trim().slice(0, 20);
   var err = document.getElementById('tb-err');
   if (!word) return;
@@ -169,6 +170,11 @@ function tbRender(st) {
   bomb.className = 'tb-bomb' + (st.phase === 'boom' ? ' boom' : ' ticking');
   bomb.textContent = st.phase === 'boom' ? '💥' : '💣';
 
+  /* 인정 못 해!로 단어가 취소되면 소리 */
+  if (typeof playRejectOnce === 'function') playRejectOnce('tickbomb', st.rejected ? st.gameId + ':' + st.rejected.at : 'none:' + st.gameId);
+  /* 내가 폭탄을 들고 있는 동안만 째깍째깍 */
+  var holdingNow = st.phase === 'play' && st.holder === myPlayerId && document.getElementById('tickbomb').classList.contains('active');
+  if (typeof timerSoundOn === 'function') { if (holdingNow) timerSoundOn(); else timerSoundOff(); }
   if (st.phase === 'play') {
     var mine = st.holder === myPlayerId;
     document.getElementById('tb-play').style.display = '';
@@ -191,6 +197,7 @@ function tbRender(st) {
     } else obBox.style.display = 'none';
     document.getElementById('tb-words').innerHTML = st.words.slice().reverse().map(function (w) { return '<span class="tb-word">' + esc(w.word) + '</span>'; }).join('') || '<span class="tb-word-empty">아직 나온 단어가 없어요</span>';
   } else if (st.phase === 'boom') {
+    if (window.TB_FART_AT !== st.boomUntil) { window.TB_FART_AT = st.boomUntil; if (typeof playFart === 'function') playFart(); }
     document.getElementById('tb-boom').style.display = '';
     document.getElementById('tb-boom-msg').innerHTML = '💥 펑!! <b>' + esc(st.names[st.loser] || '?') + '</b>님이 벌점 카드를 받았어요!';
   } else if (st.phase === 'end') {
@@ -199,6 +206,7 @@ function tbRender(st) {
     var best = st.cards[ranked[0]] || 0;
     var winners = ranked.filter(function (p) { return (st.cards[p] || 0) === best; }).map(function (p) { return st.names[p]; });
     document.getElementById('tb-end-banner').textContent = '🏆 ' + winners.join(', ') + ' 승리! (벌점 ' + best + '장)';
+    typeof celebrateWin === 'function' && celebrateWin('tickbomb:' + st.gameId, winners, '폭탄 돌리기 · 벌점 ' + best + '장');
     renderRankBoard('tb-end-rank', ranked.map(function (p) { return { name: st.names[p], isMe: p === myPlayerId, label: '벌점 ' + (st.cards[p] || 0) + '장' }; }));
     document.getElementById('tb-restart-btn').style.display = isHost ? '' : 'none';
   }
