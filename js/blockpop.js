@@ -30,11 +30,45 @@ function startBlockPop() {
   document.getElementById('bp-over').style.display = 'none';
   BP_RAF = requestAnimationFrame(bpFrame);
 }
-/* 새 블록 3개 (적어도 하나는 놓을 수 있게 골라요) */
+/* 난이도: 점수에 따라 3단계
+   🌱 0~999점: 작은 블록 위주 + 줄을 바로 지울 수 있는 블록을 골라 줘요 + 점수 2배 → 초반엔 점수가 팍팍!
+   🔥 1000~2999점: 보통 (골고루)
+   💀 3000점~: 큰 블록(3×3, 5칸 막대, 큰 ㄱ자)이 자주 나오고, 놓을 곳을 봐주지 않아요 */
+function bpStage() { return BP.score < 1000 ? 0 : (BP.score < 3000 ? 1 : 2); }
+var BP_STAGE_NAME = ['🌱 쉬움 · 점수 2배!', '🔥 보통', '💀 어려움'];
+var BP_WEIGHTS = [[6, 2, 0.25], [2, 2, 1], [1, 2, 2.6]];   /* [작은(1~3칸), 보통(4칸), 큰(5칸 이상)] */
+function bpPickShape(stage) {
+  var w = BP_WEIGHTS[stage], tot = 0, ws = BP_SHAPES.map(function (c) { var k = c.length <= 3 ? 0 : (c.length === 4 ? 1 : 2); tot += w[k]; return w[k]; });
+  var r = Math.random() * tot;
+  for (var i = 0; i < ws.length; i++) { r -= ws[i]; if (r <= 0) return BP_SHAPES[i]; }
+  return BP_SHAPES[0];
+}
+/* 이 블록을 어딘가에 놓으면 줄이 지워지는지 */
+function bpCanClear(cells) {
+  for (var y = 0; y < BP_N; y++) for (var x = 0; x < BP_N; x++) {
+    if (!bpFits(cells, x, y)) continue;
+    var L = bpLinesIf(cells, x, y);
+    if (L.rows.length + L.cols.length) return true;
+  }
+  return false;
+}
 function bpDeal() {
-  for (var t = 0; t < 30; t++) {
-    var set = [0, 1, 2].map(function () { return { cells: BP_SHAPES[Math.floor(Math.random() * BP_SHAPES.length)], tile: Math.floor(Math.random() * (typeof BLOCK_TILES_N === 'number' ? BLOCK_TILES_N : 12)) }; });
-    if (set.some(function (p) { return bpCanPlaceAnywhere(p.cells); }) || t === 29) { BP.slots = set; return; }
+  var stage = bpStage(), nt = typeof BLOCK_TILES_N === 'number' ? BLOCK_TILES_N : 12;
+  var make = function () { return [0, 1, 2].map(function () { return { cells: bpPickShape(stage), tile: Math.floor(Math.random() * nt) }; }); };
+  if (stage === 0) {
+    /* 쉬움: 여러 세트 중 '다 놓을 수 있고, 줄을 지울 수 있는' 세트를 골라요 */
+    var best = null, bestSc = -1;
+    for (var t = 0; t < 40; t++) {
+      var set = make(), sc = 0;
+      set.forEach(function (p) { if (bpCanPlaceAnywhere(p.cells)) sc += 2; if (bpCanClear(p.cells)) sc += 3; });
+      if (sc > bestSc) { bestSc = sc; best = set; }
+    }
+    BP.slots = best; return;
+  }
+  var tries = stage === 2 ? (Math.random() < 0.6 ? 30 : 1) : 30;   /* 어려움: 가끔은 놓을 곳을 안 봐줘요 */
+  for (var t2 = 0; t2 < tries; t2++) {
+    var set2 = make();
+    if (set2.some(function (p) { return bpCanPlaceAnywhere(p.cells); }) || t2 === tries - 1) { BP.slots = set2; return; }
   }
 }
 function bpFits(cells, gx, gy) {
@@ -59,11 +93,12 @@ function bpLinesIf(cells, gx, gy) {
 function bpPlace(si, gx, gy) {
   var p = BP.slots[si];
   p.cells.forEach(function (c) { BP.board[(gy + c[1]) * BP_N + gx + c[0]] = p.tile; });
-  BP.score += p.cells.length;
+  var stage0 = bpStage(), mult = stage0 === 0 ? 2 : 1;   /* 쉬움 구간은 점수 2배 */
+  BP.score += p.cells.length * mult;
   var L = bpLinesIf([], 0, 0), n = L.rows.length + L.cols.length;
   if (n) {
     BP.combo++; BP.since = 0;
-    var gain = n * 10 * BP.combo + (n > 1 ? (n - 1) * 10 : 0);
+    var gain = (n * 10 * BP.combo + (n > 1 ? (n - 1) * 10 : 0)) * mult;
     var clear = {};
     L.rows.forEach(function (r) { for (var j = 0; j < BP_N; j++) clear[r * BP_N + j] = 1; });
     L.cols.forEach(function (c) { for (var j = 0; j < BP_N; j++) clear[j * BP_N + c] = 1; });
@@ -79,6 +114,7 @@ function bpPlace(si, gx, gy) {
     if (typeof mmSound === 'function') mmSound('plop');
   }
   BP.slots[si] = null;
+  if (bpStage() !== stage0) BP.pops.push({ t: bpStage() === 1 ? '🔥 난이도 UP! 이제 보통' : '💀 난이도 UP! 큰 블록 조심', at: Date.now() + 500 });
   if (BP.slots.every(function (s) { return !s; })) bpDeal();
   if (BP.score > BP.best) { BP.best = BP.score; BP.newBest = true; try { localStorage.setItem('gamehub_blockpop_best', BP.best); } catch (e) {} }
   /* 더 놓을 곳이 없으면 끝 */
@@ -126,6 +162,7 @@ function bpDraw() {
   if (BP.shown > BP.score) BP.shown = BP.score;
   ctx.fillStyle = '#ffd54f'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('👑 ' + BP.best, 16, 28);
   ctx.fillStyle = '#fff'; ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(BP.shown, BP_W / 2, 50);
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(BP_STAGE_NAME[bpStage()], 16, 50);
   if (BP.combo > 1) { ctx.fillStyle = '#ff8a80'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'right'; ctx.fillText('콤보 ×' + BP.combo, BP_W - 16, 28); }
   /* 판 */
   ctx.fillStyle = '#1e2752'; ctx.fillRect(BP_BX - 4, BP_BY - 4, BP_C * BP_N + 8, BP_C * BP_N + 8);

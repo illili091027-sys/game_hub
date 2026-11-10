@@ -58,7 +58,7 @@ function celebrateWin(key, winners, sub, opts) {
   WIN_SHOWN[key] = 1;
   winners = (winners || []).filter(Boolean);
   if (!winners.length) return;
-  /* 등수대로 코인 (순위표가 그려진 뒤에 내 등수를 확인해요) */
+  /* 등수대로 분필 (순위표가 그려진 뒤에 내 등수를 확인해요) */
   setTimeout(function () {
     if (typeof coinAwardRank !== 'function') return;
     var r = opts && opts.myRank, total = opts && opts.total;

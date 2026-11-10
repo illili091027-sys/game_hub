@@ -196,7 +196,7 @@ function pjRenderDecks() {
   var el = document.getElementById('pj-deck-list');
   if (!el) return;
   var items = ((PJ.decks && PJ.decks.items) || []).slice().reverse();
-  if (!items.length) { el.innerHTML = '<div class="pj-empty">아직 꽂아둔 발표 자료가 없어요.<br>위에서 미리캔버스 공유 링크를 붙여넣고 <b>📌 꽂기</b>를 눌러보세요!</div>'; return; }
+  if (!items.length) { el.innerHTML = '<div class="pj-empty">아직 발표 자료가 없어요 · 아래에 공유 링크를 붙여넣고 <b>꽂기</b>!</div>'; return; }
   var html = items.map(function (d) {
     var pv = d.url ? pjProvider(d.url) : null;
     return '<div class="pj-deck-card' + (pv ? ' ext' : '') + '" onclick="pjOpenDeck(\'' + d.id + '\')">' +

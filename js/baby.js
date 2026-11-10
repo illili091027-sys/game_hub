@@ -382,11 +382,9 @@ function bbTick(ts) {
   for (var di = 0; di < BB.clouds.length; di++) {
     var dc = BB.clouds[di];
     if (dc.type !== 'dark') continue;
-    if (dc.poofAt) { if (BB.t - dc.poofAt > 0.3) dc.gone = true; continue; }
-    if (Math.abs(b.x - dc.x) < dc.w * 0.45 && b.y < dc.y + 6 && b.y + 38 > dc.y - dc.w * 0.62) {
-      dc.poofAt = BB.t;
-      BB.pops.push({ x: dc.x, y: dc.y - dc.w * 0.2, text: '펑!', life: 0.7 });
-      for (var pk = 0; pk < 10; pk++) BB.sparkles.push({ x: dc.x + (Math.random() - 0.5) * dc.w * 0.8, y: dc.y - Math.random() * dc.w * 0.5, life: 0.6, vy: -30 - Math.random() * 60 });
+    if (dc.poofAt) { if (BB.t - dc.poofAt > 0.7) dc.gone = true; continue; }
+    if (Math.abs(b.x - dc.x) < dc.w * 0.45 && b.y < dc.y + 6 && b.y + 38 > dc.y - dc.w * 0.45) {
+      dc.poofAt = BB.t;   /* 펑 대신 사르르 사라져요 */
     }
   }
 
@@ -537,7 +535,7 @@ function bbPostState(force) {
 
 function bbDie() {
   if (typeof playFart === 'function') playFart();
-  if (playMode === 'solo') typeof soloCoin === 'function' && soloCoin(Math.floor(bbAge() / 10) * 2, bbAge() + '살까지 키웠어요');
+  if (playMode === 'solo') typeof soloCoin === 'function' && soloCoin(Math.round(bbAge() * 0.6), bbAge() + '살까지 키웠어요');
   BB.running = false;
   BB.over = true;
   bbDraw();
@@ -761,8 +759,10 @@ function bbPuffPath(ctx, cx, top, w, dx, dy) {
 function bbCloudShape(ctx, cx, top, w, fill, stroke, shade) {
   ctx.save();
   /* 1) 테두리: 굵은 선을 먼저 그리고 2) 흰색으로 덮으면 바깥선만 남아요 */
+  /* 얄쌍하게: 세로로 납작하게 눌러요 */
+  ctx.translate(cx, top); ctx.scale(1, 0.68); ctx.translate(-cx, -top);
   bbPuffPath(ctx, cx, top, w);
-  ctx.lineWidth = Math.max(5, w * 0.055);
+  ctx.lineWidth = Math.max(3.5, w * 0.04);
   ctx.lineJoin = 'round';
   ctx.strokeStyle = stroke;
   ctx.stroke();
@@ -798,11 +798,9 @@ function bbDrawCloud(ctx, c) {
   }
   if (c.type === 'dark') {
     if (c.poofAt) {
-      var pf = Math.min(1, (BB.t - c.poofAt) / 0.3);
-      ctx.globalAlpha = 1 - pf;
-      ctx.translate(c.x, top + c.w * 0.35);
-      ctx.scale(1 + pf * 0.5, 1 + pf * 0.5);
-      ctx.translate(-c.x, -(top + c.w * 0.35));
+      var pf = Math.min(1, (BB.t - c.poofAt) / 0.7);
+      ctx.globalAlpha = Math.max(0, 1 - pf);
+      ctx.translate(0, -pf * 8);
     }
     bbCloudShape(ctx, c.x, top - 6, c.w, '#9aa3b4', '#5d687c', '#7c8698');
     ctx.strokeStyle = 'rgba(120,150,200,0.7)';
@@ -810,7 +808,7 @@ function bbDrawCloud(ctx, c) {
     for (var r = 0; r < 4; r++) {
       var rx = c.x - c.w * 0.3 + r * c.w * 0.2;
       var off = (BB.t * 60 + r * 9) % 18;
-      ctx.beginPath(); ctx.moveTo(rx, top + c.w * 0.66 + off); ctx.lineTo(rx - 3, top + c.w * 0.66 + off + 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rx, top + c.w * 0.46 + off); ctx.lineTo(rx - 3, top + c.w * 0.46 + off + 7); ctx.stroke();
     }
   } else {
     if (c.type === 'rainbow') {
@@ -826,14 +824,14 @@ function bbDrawCloud(ctx, c) {
     bbCloudShape(ctx, c.x, top - 4, c.w, '#ffffff', '#5b9cf0', '#cbd7f4');
     if (c.type === 'holed') {
       ctx.fillStyle = 'rgba(70,110,160,0.55)';
-      ctx.beginPath(); ctx.ellipse(c.x - c.w * 0.15, top + c.w * 0.32, c.w * 0.08, c.w * 0.05, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(c.x + c.w * 0.17, top + c.w * 0.42, c.w * 0.06, c.w * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(c.x - c.w * 0.15, top + c.w * 0.22, c.w * 0.08, c.w * 0.035, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(c.x + c.w * 0.17, top + c.w * 0.29, c.w * 0.06, c.w * 0.028, 0, 0, Math.PI * 2); ctx.fill();
     }
     if (c.amp) {
       ctx.fillStyle = 'rgba(111,195,223,0.9)';
       ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('◀ ▶', c.x, top + c.w * 0.3);
+      ctx.fillText('◀ ▶', c.x, top + c.w * 0.22);
     }
   }
   ctx.restore();
