@@ -2029,3 +2029,5 @@ body:has(#homework.active) #game-members-bar { display: none !important; }
 .chalk-ic { width: 1.35em; height: 1.35em; vertical-align: -0.32em; object-fit: contain; display: inline-block; }
 .coin-pill .chalk-ic { width: 1.6em; height: 1.6em; vertical-align: -0.45em; }
 .da-coins .chalk-ic { width: 54px; height: 54px; margin: 0 2px; }
+.bt-howto { font-size: 13px; color: var(--chalkDim); align-self: center; margin-right: 6px; }
+.bt-howto b { color: var(--chalk); }

@@ -639,7 +639,7 @@ window.addEventListener('load', function () {
         <div class="board-box bb-final" id="bb-final" style="display:none"></div>
       </div>
     </div>
-    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1110-13]</span></p>
+    <p class="bb-help">점프는 자동! 마우스(손가락)나 ←/→ 키로 좌우만 움직여요 · 스페이스바(⏸)로 잠깐 멈춤 · <b>떨어질 때만 탈락</b> <span class="bb-ver">[버전 1110-14]</span></p>
   </div>
 </div>
 
@@ -1058,8 +1058,7 @@ window.addEventListener('load', function () {
         </div>
       </div>
       <div class="bt-tools">
-        <button class="btn bt-tool on" data-t="knife" onclick="btSetTool('knife')">🔪 자르기</button>
-        <button class="btn bt-tool" data-t="hand" onclick="btSetTool('hand')">✋ 옮기기</button>
+        <span class="bt-howto">✋ 끌면 <b>옮기기</b> · 🔪 톡 누르면(우클릭) <b>자르기</b></span>
         <button class="btn btn-ghost" onclick="btUndo()">↩ 되돌리기</button>
         <button class="btn btn-ghost" onclick="btRestart()">🔄 처음부터</button>
         <button class="btn btn-ghost" onclick="btHint()">💡 힌트</button>
