@@ -7,7 +7,7 @@
    - 로그아웃하면 이 기기의 저장 항목을 지워요. (공용 컴퓨터에서 다른 사람이 못 보게. 계정에는 그대로 있어요) */
 
 var ACC_DEFAULT_SERVER = 'https://gamehub-server-tfu5.onrender.com';   /* 서버 주소는 자동으로 들어가요 */
-var ACC = { admin: false, pw: false, adminKey: '', adminRes: null, showServer: false, server: '', id: '', token: '', mode: 'login', open: false, busy: false, msg: '', applying: false, timer: null, state: '' };
+var ACC = { menuOpen: false, admin: false, pw: false, adminKey: '', adminRes: null, showServer: false, server: '', id: '', token: '', mode: 'login', open: false, busy: false, msg: '', applying: false, timer: null, state: '' };
 var ACC_SKIP = { 'gamehub_server_url': 1, 'gamehub_player_id': 1, 'gamehub_lc_pos': 1, 'gamehub_hw_room': 1, 'gamehub_hw_name': 1, 'gamehub_auth': 1 };
 
 function accSyncable(k) { return typeof k === 'string' && k.indexOf('gamehub_') === 0 && !ACC_SKIP[k]; }
@@ -113,7 +113,10 @@ window.addEventListener('pagehide', function () { if (ACC.token && ACC.timer) ac
 function accOpen(v) { ACC.open = v; ACC.msg = ''; accRender(); }
 function accMode(m) { ACC.mode = m; ACC.msg = ''; accRender(); }
 
-function accRenderState() { var el = document.getElementById('acc-state'); if (el) el.textContent = ACC.state; }
+function accRenderState() {
+  var el = document.getElementById('acc-state'); if (el) el.textContent = ACC.state;
+  var chip = document.getElementById('acc-chip-btn'); if (chip && ACC.token) chip.textContent = '👤 ' + ACC.id + ' ' + accStateIcon();
+}
 
 function accServer() {
   if (ACC.server) return ACC.server;
@@ -167,6 +170,8 @@ function accRender() {
     return;
   }
   if (gbox) gbox.innerHTML = '';
+  var chip = document.getElementById('acc-chip-btn');
+  if (chip) chip.textContent = ACC.token ? '👤 ' + ACC.id + ' ' + accStateIcon() : '👤 로그인';
   if (!box) return;
   var h = '';
   if (ACC.admin) {
@@ -177,21 +182,36 @@ function accRender() {
       '<input id="acc-newpw" type="password" placeholder="새 비밀번호 (4글자 이상)" maxlength="64" autocomplete="new-password" onkeydown="if(event.key===\'Enter\')accChangePw()" />' +
       '<div class="acc-msg" id="acc-msg">' + esc(ACC.msg) + '</div>' +
       '<div class="acc-actions"><button class="btn btn-primary" onclick="accChangePw()">바꾸기</button><button class="btn btn-ghost" onclick="accPwOpen(false)">닫기</button></div></div>';
-  } else if (ACC.token) {
-    h = '<div class="acc-row"><span>👤 <b>' + esc(ACC.id) + '</b>님 · <span id="acc-state">' + esc(ACC.state || '☁️ 저장됨') + '</span></span>' +
-        '<span><button class="acc-btn" onclick="accPwOpen(true)">비번 변경</button> <button class="acc-btn" onclick="accLogout()">로그아웃</button></span></div>' +
+  } else if (ACC.token && ACC.menuOpen) {
+    h = '<div class="acc-menu-head"><b>' + esc(ACC.id) + '</b>님<small id="acc-state">' + esc(ACC.state || '☁️ 저장됨') + '</small></div>' +
+        '<button class="acc-menu-item" onclick="accPwOpen(true)">🔑 비밀번호 변경</button>' +
+        '<button class="acc-menu-item" onclick="accAdminOpen(true)">🔧 관리자</button>' +
+        '<button class="acc-menu-item" onclick="accLogout()">🚪 로그아웃</button>' +
         (ACC.msg ? '<div class="acc-msg">' + esc(ACC.msg) + '</div>' : '');
-  } else if (!ACC.open) {
-    h = '<div class="acc-row"><span>👤 로그인하면 기록과 분필이 서버에 저장돼요</span><button class="acc-btn" onclick="accOpen(true)">로그인 / 가입</button></div>' +
-        (ACC.msg ? '<div class="acc-msg">' + esc(ACC.msg) + '</div>' : '');
-  } else {
-    h = accHtmlForm(true);
+  } else if (!ACC.token && ACC.open) {
+    h = accHtmlForm(true) + accHtmlFoot(true);
+  } else if (ACC.msg && ACC.token) {
+    h = '<div class="acc-msg">' + esc(ACC.msg) + '</div>';
   }
-  if (!ACC.admin) h += accHtmlFoot(!ACC.token && ACC.open);
   box.innerHTML = h;
+  box.style.display = h ? '' : 'none';
 }
 
-function accPwOpen(v) { ACC.pw = v; ACC.msg = ''; accRender(); }
+function accStateIcon() {
+  var s = ACC.state || '';
+  return s.indexOf('저장 중') > -1 || s.indexOf('불러오는') > -1 ? '⏳' : s.indexOf('⚠') > -1 ? '⚠️' : '☁️';
+}
+/* 오른쪽 위 버튼: 로그인 상태면 메뉴(비번 변경·관리자·로그아웃), 아니면 로그인 칸 */
+function accMenu() {
+  if (ACC.admin || ACC.pw) { ACC.admin = false; ACC.pw = false; ACC.menuOpen = false; ACC.adminKey = ''; ACC.msg = ''; return accRender(); }
+  if (ACC.token) ACC.menuOpen = !ACC.menuOpen; else ACC.open = !ACC.open;
+  ACC.msg = ''; accRender();
+}
+document.addEventListener('click', function (e) {
+  if (ACC.menuOpen && !(e.target.closest && e.target.closest('#acc-chip'))) { ACC.menuOpen = false; accRender(); }
+});
+
+function accPwOpen(v) { ACC.pw = v; ACC.menuOpen = false; ACC.msg = ''; accRender(); }
 function accChangePw() {
   var o = document.getElementById('acc-oldpw').value, n = document.getElementById('acc-newpw').value;
   if (!o || !n) return accSetMsg('두 칸 모두 써주세요');
@@ -204,7 +224,7 @@ function accChangePw() {
 }
 
 /* ---------- 관리자: 아이디 검색 → 비밀번호 0000으로 초기화 ---------- */
-function accAdminOpen(v) { ACC.admin = v; ACC.msg = ''; ACC.adminRes = null; if (!v) ACC.adminKey = ''; accRender(); }
+function accAdminOpen(v) { ACC.admin = v; ACC.menuOpen = false; ACC.msg = ''; ACC.adminRes = null; if (!v) ACC.adminKey = ''; accRender(); }
 function accAdminSearch() {
   var key = document.getElementById('acc-adminkey').value, q = document.getElementById('acc-q').value;
   if (!key) return accSetMsg('관리자 비밀번호를 써주세요');
@@ -261,7 +281,7 @@ function accLogout() {
   if (!confirm('로그아웃할까요?\n이 기기에 있는 기록과 분필은 지워져요. (계정에는 그대로 저장돼 있어요)')) return;
   var p = ACC.token ? accPush(false) : Promise.resolve();   /* 마지막으로 한 번 더 저장 */
   Promise.resolve(p).then(function () { return accApi('/api/auth/logout', 'POST', {}); }).catch(function () {}).then(function () {
-    ACC.token = ''; ACC.id = ''; ACC.state = ''; accSaveAuth(); accWipe(); accRender();
+    ACC.token = ''; ACC.id = ''; ACC.state = ''; ACC.menuOpen = false; accSaveAuth(); accWipe(); accRender();
   });
 }
 

@@ -2162,3 +2162,52 @@ body:has(#homework.active) #game-members-bar { display: none !important; }
 .bz-btns { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
 .bz-btns .btn:disabled { opacity: .4; }
 .bz-help { margin: 8px 0 0; text-align: center; font-size: 12px; color: var(--chalkDim); }
+
+/* 👤 오른쪽 위 계정 버튼 */
+.acc-chip { position: fixed; top: 12px; right: 12px; z-index: 60; }
+.acc-chip-btn { border: 1.5px solid var(--boardLine); background: rgba(0,0,0,0.35); color: var(--chalk); font-family: inherit; font-weight: 800; font-size: 13px; padding: 7px 14px; border-radius: 999px; cursor: pointer; backdrop-filter: blur(4px); }
+.acc-chip-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+.acc-menu { position: absolute; right: 0; top: 40px; width: 270px; max-width: 90vw; padding: 10px; border-radius: 14px; border: 1.5px solid var(--boardLine); background: #1b3329; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.acc-menu .acc-form { border: 0; background: none; padding: 4px; }
+.acc-menu-head { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 8px 8px; border-bottom: 1px dashed var(--boardLine); margin-bottom: 4px; }
+.acc-menu-head small { color: var(--chalkDim); font-size: 12px; }
+.acc-menu-item { display: block; width: 100%; text-align: left; padding: 9px 8px; border: 0; background: none; color: var(--chalk); font-family: inherit; font-size: 14px; font-weight: 700; border-radius: 8px; cursor: pointer; }
+.acc-menu-item:hover { background: rgba(245,243,231,0.1); }
+.mode-btn { min-width: 150px; }
+.mode-btn.mode-casino { border-color: #d9b84a; }
+@media (max-width: 560px) { .home-title { margin-top: 36px; } }
+
+/* 피자가게 사장님 */
+.ps-wrap{max-width:980px}
+#ps-app{--c:#fff4e0;background:var(--c);color:#5a3418;border-radius:22px;padding:12px;position:relative;border:4px solid #d9953c}
+#ps-app[data-deco="1"]{--c:#ffe9cf}#ps-app[data-deco="2"]{--c:#ffe0e0}#ps-app[data-deco="3"]{--c:#e9f5dc}
+.ps-hud{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-weight:700;margin-bottom:8px}.ps-hud b{color:#c8651b;font-size:19px}
+.ps-main{display:grid;grid-template-columns:190px minmax(0,360px) 170px;gap:12px;justify-content:center;align-items:start}
+.ps-cust{text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.ps-bub{background:#fff;border:3px solid #d9953c;border-radius:18px;padding:10px;font-size:15px;font-weight:700;min-height:90px;width:100%;line-height:1.45}
+.ps-face{font-size:64px;line-height:1}.ps-face.in{animation:psIn .5s}.ps-face.happy{animation:psHop .5s 3}.ps-face.sad{animation:psShk .3s 3}
+@keyframes psIn{from{transform:translateX(-40px);opacity:0}}@keyframes psHop{50%{transform:translateY(-14px)}}@keyframes psShk{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.ps-bench{position:relative}.ps-bench canvas{width:100%;border-radius:18px;border:4px solid #a56a2f;touch-action:none;display:block}
+.ps-msg{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(90,52,24,.9);color:#fff;border-radius:12px;padding:6px 10px;font-size:13px;text-align:center;opacity:0;pointer-events:none}.ps-msg.show{animation:psMsg 3.2s}
+@keyframes psMsg{8%,80%{opacity:1}}
+.ps-oven{display:flex;flex-direction:column;gap:7px}.ps-act{background:#fff;color:#5a3418;border:2px solid #d9953c;border-radius:14px;padding:9px 6px;font-weight:700}.ps-act.btn-primary{background:#f2c744}
+.ps-bar{position:relative;height:20px;background:#e8d5b8;border-radius:99px;overflow:hidden;border:2px solid #a56a2f}.ps-bar i{position:absolute;left:0;top:0;bottom:0;background:#e5622e;opacity:.85}.ps-bar u{position:absolute;top:0;bottom:0;background:#6fc364;z-index:1;opacity:.7}
+.ps-tools{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:4px;justify-content:center;flex-wrap:wrap}
+.ps-tb{background:#fff;border:3px solid #e0b27a;border-radius:16px;min-width:58px;padding:5px 6px;font-size:26px;cursor:pointer;display:flex;flex-direction:column;align-items:center;touch-action:none;color:#5a3418}.ps-tb small{font-size:11px;font-weight:700}.ps-tb.on{border-color:#e5622e;background:#ffe1c4;transform:translateY(-3px)}.ps-tb.lock{opacity:.5}
+.ps-over{display:none;position:absolute;inset:0;background:rgba(90,52,24,.55);border-radius:18px;align-items:center;justify-content:center;z-index:5;padding:10px;overflow:auto}.ps-over.on{display:flex}
+.ps-card{background:#fff4e0;border-radius:20px;padding:16px;max-width:420px;width:100%;text-align:center;border:4px solid #d9953c}.ps-card table{width:100%;margin:8px 0;text-align:left}.ps-card td:last-child{text-align:right}.ps-card .tot{font-weight:900;border-top:2px solid #d9953c}.ps-card .new{color:#c8651b;font-weight:700}
+.ps-shop{display:flex;flex-direction:column;gap:6px;margin:10px 0}.ps-shop .btn{background:#fff;color:#5a3418;border:2px solid #d9953c;border-radius:14px;display:flex;flex-direction:column;padding:8px}.ps-shop .btn:disabled{opacity:.45}.ps-shop small{font-size:12px}.ps-shop em{font-style:normal;color:#c8651b;font-weight:700}
+@media(max-width:720px){.ps-main{grid-template-columns:1fr}.ps-cust{flex-direction:row}.ps-bub{min-height:0}.ps-oven{display:grid;grid-template-columns:1fr 1fr}.ps-bar{grid-column:1/3}}
+
+.ps-fs,.ps-rot{display:none}
+@media (pointer:coarse){.ps-fs{display:block;margin:8px auto 0;background:#fff;color:#5a3418;border:2px solid #d9953c;border-radius:14px;font-size:13px;padding:6px 12px}}
+@media (max-width:720px) and (orientation:portrait){.ps-rot:not(.skip){display:flex;position:absolute;inset:0;z-index:9;background:rgba(90,52,24,.94);color:#fff;border-radius:18px;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;font-size:18px}.ps-rot .btn:not(.btn-primary){background:transparent;color:#fff;border:2px solid #fff;font-size:13px}}
+@media (orientation:landscape) and (max-height:540px){
+.ps-wrap .game-heading{display:none}.view>.wrap.ps-wrap>.topbar{padding:4px 18px;margin-bottom:2px}
+#ps-app{padding:6px;border-width:3px;border-radius:14px}.ps-hud{margin-bottom:4px;font-size:13px}.ps-hud b{font-size:15px}
+.ps-main{grid-template-columns:130px auto 130px;gap:8px}
+.ps-cust{flex-direction:column}.ps-bub{font-size:12px;min-height:60px;padding:6px}.ps-face{font-size:40px}
+.ps-bench canvas{width:auto;height:calc(100vh - 150px);max-height:340px;aspect-ratio:1}
+.ps-oven{display:flex;gap:5px}.ps-act{padding:6px 4px;font-size:12px}
+.ps-tools{margin-top:4px;flex-wrap:nowrap;justify-content:flex-start}.ps-tb{min-width:50px;font-size:20px;padding:3px 4px}
+.ps-fs{display:none!important}}

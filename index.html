@@ -41,6 +41,10 @@ window.addEventListener('load', function () {
 
 
 <div id="home" class="view active">
+  <div class="acc-chip" id="acc-chip">
+    <button class="acc-chip-btn" id="acc-chip-btn" onclick="accMenu()">👤 로그인</button>
+    <div class="acc-menu" id="acc-box" style="display:none"></div>
+  </div>
   <div class="wrap">
     <h1 class="home-title">쉬는 시간 게임판<span>혼자서도, 친구랑 온라인으로도 즐겨보세요</span></h1>
     <div class="chalk-rule"></div>
@@ -48,8 +52,8 @@ window.addEventListener('load', function () {
     <div class="mode-select" id="mode-select">
       <button class="mode-btn" onclick="chooseMode('solo')">혼자 할래요<span>바로 시작 · 로그인하면 기록 저장</span></button>
       <button class="mode-btn" onclick="chooseMode('online')">친구랑 온라인으로<span>같은 방 코드로 같이 플레이</span></button>
+      <button class="mode-btn mode-casino" onclick="chooseCasinoMode()">🎰 도박방<span>분필로 룰렛 · 주사위 · 슬롯</span></button>
       <button class="mode-btn mode-hw" onclick="chooseHomeworkMode()">📚 과제하기<span>채팅하며 같이 PPT 만들기 · 자료 공유</span></button>
-          <div class="acc-box" id="acc-box"></div>
     </div>
     <button class="mode-back" id="mode-back" style="display:none" onclick="backToModeSelect()">← 모드 다시 고르기</button>
 
@@ -177,6 +181,12 @@ window.addEventListener('load', function () {
           <div class="game-name">모락모락 피자가게</div>
         </div>
       </button>
+      <button class="game-card" id="card-pzshop" onclick="cardClicked('pzshop')">
+        <div class="game-card-top">
+          <div class="game-icon">🍕</div>
+          <div class="game-name">피자가게 사장님</div>
+        </div>
+      </button>
       <button class="game-card" id="card-blockpop" onclick="cardClicked('blockpop')">
         <div class="game-card-top">
           <div class="game-icon">12</div>
@@ -209,13 +219,6 @@ window.addEventListener('load', function () {
           <div class="game-name">코드 타자 연습</div>
         </div>
         <div class="game-desc" id="desc-codetype">Java · Python · C 코드를 직접 치면서 문법을 외워요! 복붙·자동완성 없이 한 글자씩.</div>
-      </button>
-      <button class="game-card" id="card-casino" onclick="cardClicked('casino')">
-        <div class="game-card-top">
-          <div class="game-icon">6</div>
-          <div class="game-name">도박방</div>
-        </div>
-        <div class="game-desc" id="desc-casino">분필로 룰렛·주사위·동전·슬롯을! 진짜 돈이 아닌 게임 속 점수예요.</div>
       </button>
       <button class="game-card" id="card-ballz" onclick="cardClicked('ballz')">
         <div class="game-card-top">
@@ -1119,6 +1122,18 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="pzshop" class="view">
+  <div class="wrap ps-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="ps-room-pill">혼자 하기</span>
+      <button class="btn btn-ghost bt-small" onclick="psResetSave()">처음부터</button>
+    </div>
+    <h2 class="game-heading">🍕 피자가게 사장님</h2>
+    <div id="ps-app"></div>
+  </div>
+</div>
+
 <div id="metro" class="view">
   <div class="wrap mt-wrap">
     <div class="topbar">
@@ -1479,6 +1494,7 @@ window.addEventListener('load', function () {
 <script src="data/bento-levels.js"></script>
 <script src="js/bento.js"></script>
 <script src="js/pizza.js"></script>
+<script src="js/pizzashop.js"></script>
 <script src="data/block-tiles.js"></script>
 <script src="js/blockpop.js"></script>
 <script src="js/metro.js"></script>
