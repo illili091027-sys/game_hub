@@ -2211,3 +2211,18 @@ body:has(#homework.active) #game-members-bar { display: none !important; }
 .ps-oven{display:flex;gap:5px}.ps-act{padding:6px 4px;font-size:12px}
 .ps-tools{margin-top:4px;flex-wrap:nowrap;justify-content:flex-start}.ps-tb{min-width:50px;font-size:20px;padding:3px 4px}
 .ps-fs{display:none!important}}
+
+.ps-oven{gap:6px}
+.ps-steps{display:flex;flex-wrap:wrap;gap:3px}.ps-steps span{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;background:#f0dcc0;color:#8a6a45}.ps-steps .on{background:#f2c744;color:#5a3418}.ps-steps .done{background:#bfe3a8;color:#3d6a2c}
+.ps-gauge{position:relative;display:flex;height:24px;border-radius:99px;overflow:hidden;border:2px solid #a56a2f;opacity:.55}.ps-gauge.live{opacity:1}
+.ps-gauge b{display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden}
+.ps-gauge .z1{background:#6fa8dc}.ps-gauge .z2{background:#4caf50;box-shadow:inset 0 0 0 2px #c8f5c0}.ps-gauge.live .z2{animation:psPulse .8s infinite alternate}.ps-gauge .z3{background:#c0392b}
+.ps-gauge i{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 0 2px #5a3418;border-radius:2px}
+@keyframes psPulse{to{filter:brightness(1.35)}}
+.ps-gl{min-height:18px;font-size:13px;font-weight:700;text-align:center}.ps-gl.go{color:#2e8b2e}.ps-gl.bad{color:#c0392b}
+.ps-prog{font-size:13px;font-weight:700;text-align:center;min-height:16px}
+.ps-gd{display:flex;gap:5px;align-items:center;justify-content:center}.ps-gd button{border:2px solid #d9953c;background:#fff;color:#5a3418;border-radius:10px;font-weight:700;width:34px;height:30px;cursor:pointer}.ps-gd button.on{background:#f2c744}.ps-gd small{font-size:11px}
+.ps-tb.dis{opacity:.4;filter:grayscale(.6)}
+.ps-bench.slide canvas{animation:psSlide .5s}@keyframes psSlide{from{transform:translateY(-18px) scale(.94);opacity:.4}}
+.ps-bench canvas{user-select:none;-webkit-user-select:none}
+@media (orientation:landscape) and (max-height:540px){.ps-steps span{font-size:9px;padding:1px 4px}.ps-gauge{height:18px}.ps-gl,.ps-prog{font-size:11px;min-height:12px}.ps-oven{gap:3px}}
