@@ -31,6 +31,14 @@ window.addEventListener('load', function () {
 </script>
 </head>
 <body>
+<div id="acc-gate" class="acc-gate">
+  <div class="acc-gate-card">
+    <h1>쉬는 시간 게임판</h1>
+    <p>로그인하고 놀아요</p>
+    <div id="acc-gate-box"></div>
+  </div>
+</div>
+
 
 <div id="home" class="view active">
   <div class="wrap">
@@ -38,9 +46,10 @@ window.addEventListener('load', function () {
     <div class="chalk-rule"></div>
 
     <div class="mode-select" id="mode-select">
-      <button class="mode-btn" onclick="chooseMode('solo')">혼자 할래요<span>바로 시작, 저장 없음</span></button>
+      <button class="mode-btn" onclick="chooseMode('solo')">혼자 할래요<span>바로 시작 · 로그인하면 기록 저장</span></button>
       <button class="mode-btn" onclick="chooseMode('online')">친구랑 온라인으로<span>같은 방 코드로 같이 플레이</span></button>
       <button class="mode-btn mode-hw" onclick="chooseHomeworkMode()">📚 과제하기<span>채팅하며 같이 PPT 만들기 · 자료 공유</span></button>
+          <div class="acc-box" id="acc-box"></div>
     </div>
     <button class="mode-back" id="mode-back" style="display:none" onclick="backToModeSelect()">← 모드 다시 고르기</button>
 
@@ -193,6 +202,27 @@ window.addEventListener('load', function () {
           <div class="game-name">영어 낱말 찾기</div>
         </div>
         <div class="game-desc" id="desc-wordsearch">알파벳이 빼곡한 판에서 숨은 영어 단어를 찾아 쭉 그어보세요! 1단계(8×8)부터 5단계(16×16, 8방향+거꾸로)까지, 단계가 오를수록 단어가 많아지고 숨는 방향도 늘어나요.</div>
+      </button>
+      <button class="game-card" id="card-codetype" onclick="cardClicked('codetype')">
+        <div class="game-card-top">
+          <div class="game-icon">5</div>
+          <div class="game-name">코드 타자 연습</div>
+        </div>
+        <div class="game-desc" id="desc-codetype">Java · Python · C 코드를 직접 치면서 문법을 외워요! 복붙·자동완성 없이 한 글자씩.</div>
+      </button>
+      <button class="game-card" id="card-casino" onclick="cardClicked('casino')">
+        <div class="game-card-top">
+          <div class="game-icon">6</div>
+          <div class="game-name">도박방</div>
+        </div>
+        <div class="game-desc" id="desc-casino">분필로 룰렛·주사위·동전·슬롯을! 진짜 돈이 아닌 게임 속 점수예요.</div>
+      </button>
+      <button class="game-card" id="card-ballz" onclick="cardClicked('ballz')">
+        <div class="game-card-top">
+          <div class="game-icon">7</div>
+          <div class="game-name">벽돌깨기</div>
+        </div>
+        <div class="game-desc" id="desc-ballz">끌어서 조준하고 공을 쏴요! 숫자 벽돌을 부수고, 내려오기 전에 버텨요.</div>
       </button>
       <button class="game-card" id="card-stork" onclick="cardClicked('stork')">
         <div class="game-card-top">
@@ -1100,6 +1130,39 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="codetype" class="view">
+  <div class="wrap ct-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="ct-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">⌨️ 코드 타자 연습</h2>
+    <div id="ct-root"></div>
+  </div>
+</div>
+
+<div id="casino" class="view">
+  <div class="wrap cs-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="cs-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">🎰 도박방</h2>
+    <div id="cs-root"></div>
+  </div>
+</div>
+
+<div id="ballz" class="view">
+  <div class="wrap bz-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="bz-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">🧱 벽돌깨기</h2>
+    <div id="bz-root"></div>
+  </div>
+</div>
+
 <div id="blockpop" class="view">
   <div class="wrap bp-wrap">
     <div class="topbar">
@@ -1419,6 +1482,10 @@ window.addEventListener('load', function () {
 <script src="data/block-tiles.js"></script>
 <script src="js/blockpop.js"></script>
 <script src="js/metro.js"></script>
+<script src="js/codetype.js"></script>
+<script src="js/casino.js"></script>
+<script src="js/ballz.js"></script>
+<script src="js/account.js"></script>
 <script src="js/pptx-writer.js"></script>
 <script src="js/homework.js"></script>
 </body>

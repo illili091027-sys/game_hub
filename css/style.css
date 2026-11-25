@@ -102,7 +102,8 @@
   .sync-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--chalkDim); margin-right: 5px; }
   .sync-dot.live { background: var(--sky); }
 
-  .mode-select { display: flex; gap: 12px; margin-bottom: 26px; }
+  .mode-select { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 26px; }
+  .mode-select .acc-box { flex: 0 0 100%; order: 10; }
   .mode-btn { flex: 1; font-family: 'Gaegu', cursive; font-size: 22px; font-weight: 700; padding: 16px 10px; border-radius: 14px; border: 2px dashed var(--boardLine); background: rgba(245,243,231,0.03); color: var(--chalk); cursor: pointer; }
   .mode-btn:hover { background: rgba(245,243,231,0.07); }
   .mode-btn span { display: block; font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 400; color: var(--chalkDim); margin-top: 4px; }
@@ -1215,7 +1216,7 @@
 .ss-unmute { position: absolute; right: 12px; bottom: 12px; border: none; border-radius: 99px; padding: 8px 14px; background: rgba(255,255,255,.85); font-weight: 800; cursor: pointer; font-family: inherit; }
 
 .mode-btn.mode-hw { border-color: rgba(242,199,68,0.55); }
-@media (max-width: 560px) { .mode-select { flex-direction: column; } }
+@media (max-width: 560px) { .mode-select { flex-direction: column; } .mode-select .acc-box { flex: 0 0 auto; } }
 
 /* ===================== 📚 과제방 (같이 PPT 만들기) ===================== */
 .hw-spacer { flex: 1; }
@@ -2031,3 +2032,133 @@ body:has(#homework.active) #game-members-bar { display: none !important; }
 .da-coins .chalk-ic { width: 54px; height: 54px; margin: 0 2px; }
 .bt-howto { font-size: 13px; color: var(--chalkDim); align-self: center; margin-right: 6px; }
 .bt-howto b { color: var(--chalk); }
+
+/* ⌨️ 코드 타자 연습 */
+.ct-wrap { max-width: 980px; }
+.ct-lead { text-align: center; color: var(--chalkDim); margin: 4px 0 14px; }
+.ct-lang-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.ct-lang { width: 200px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 12px; border-radius: 16px; background: rgba(245,243,231,0.05); border: 1.5px solid var(--boardLine); border-top: 6px solid var(--lc); color: var(--chalk); font-family: inherit; cursor: pointer; }
+.ct-lang:hover { border-color: var(--lc); }
+.ct-lang-ic { font-size: 34px; }
+.ct-lang b { font-size: 20px; }
+.ct-lang small { color: var(--chalkDim); font-size: 12px; }
+.ct-play { display: flex; gap: 14px; align-items: flex-start; }
+.ct-side { width: 230px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+.ct-back { background: none; border: 0; color: var(--chalkDim); font-family: inherit; font-size: 13px; text-align: left; padding: 2px 0; cursor: pointer; }
+.ct-side-title { font-weight: 900; font-size: 18px; color: var(--lc); }
+.ct-list { display: flex; flex-direction: column; gap: 6px; }
+.ct-item { display: flex; align-items: center; gap: 8px; text-align: left; padding: 10px 12px; border-radius: 12px; background: rgba(245,243,231,0.05); border: 1.5px solid var(--boardLine); color: var(--chalk); font-family: inherit; font-size: 14px; cursor: pointer; }
+.ct-item:hover { border-color: var(--lc); }
+.ct-item.on { border-color: var(--lc); background: rgba(245,243,231,0.12); font-weight: 800; }
+.ct-item-name { flex: 1; min-width: 0; }
+.ct-item-best { font-size: 12px; font-weight: 800; color: var(--yellow); white-space: nowrap; }
+.ct-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.ct-lesson { font-weight: 900; font-size: 20px; }
+.ct-stats { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--chalkDim); }
+.ct-stats b { color: var(--chalk); font-size: 16px; }
+.ct-bar { height: 6px; border-radius: 99px; background: rgba(245,243,231,0.1); overflow: hidden; }
+.ct-bar-in { height: 100%; width: 0; background: var(--lc); transition: width .12s; }
+.ct-editor { border-radius: 14px; overflow: hidden; border: 1.5px solid var(--boardLine); background: rgba(0,0,0,0.32); }
+.ct-editor:focus-within { border-color: var(--lc); }
+.ct-editor-top { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: rgba(0,0,0,0.25); font-size: 12px; color: var(--chalkDim); }
+.ct-editor-top i { width: 10px; height: 10px; border-radius: 50%; background: rgba(245,243,231,0.22); display: inline-block; }
+.ct-editor-top span { margin-left: 8px; }
+.ct-codewrap { position: relative; padding: 14px 6px 14px 0; cursor: text; min-height: 150px; overflow-x: auto; }
+.ct-code { font-family: ui-monospace, 'D2Coding', Menlo, Consolas, monospace; font-size: 17px; line-height: 1.75; }
+.ct-ln { display: flex; white-space: pre; }
+.ct-no { width: 42px; flex-shrink: 0; text-align: right; padding-right: 14px; color: rgba(245,243,231,0.28); user-select: none; }
+.ct-tx { white-space: pre; }
+.ct-c { opacity: .62; }
+.ct-c.d { color: #F5F3E7; } .ct-c.kw { color: #ff9e7a; } .ct-c.str { color: #9fe0a3; } .ct-c.num { color: #F2C744; } .ct-c.com { color: #8aa396; }
+.ct-c.ok { opacity: 1; }
+.ct-c.bad { opacity: 1; color: #fff; background: rgba(242,131,107,0.65); border-radius: 3px; }
+.ct-c.nl { opacity: .45; }
+.ct-c.cur { opacity: 1; font-weight: 800; text-decoration: underline; text-decoration-color: var(--yellow); text-decoration-thickness: 3px; text-underline-offset: 5px; }
+.ct-grp { margin: 8px 2px 0; font-size: 12px; font-weight: 800; color: var(--chalkDim); }
+.ct-inp { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; resize: none; border: 0; cursor: text; }
+.ct-notice { min-height: 18px; font-size: 13px; color: var(--yellow); text-align: center; }
+.ct-done { display: none; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 12px; border-radius: 14px; border: 1.5px solid var(--yellow); }
+.ct-done.on { display: flex; }
+.ct-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ct-help { margin: 0; text-align: center; font-size: 12px; color: var(--chalkDim); }
+@media (max-width: 720px) {
+  .ct-play { flex-direction: column; }
+  .ct-side { width: 100%; }
+  .ct-list { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+  .ct-item { flex-shrink: 0; }
+  .ct-code { font-size: 14px; }
+}
+
+/* 🎰 도박방 */
+.cs-wrap { max-width: 640px; }
+.cs-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 800; }
+.cs-top .chalk-ic { width: 20px; height: 20px; vertical-align: -4px; }
+.cs-top b { color: var(--yellow); font-size: 20px; }
+#cs-allow { font-size: 13px; color: var(--chalkDim); font-weight: 700; }
+.cs-note { font-size: 12px; color: var(--chalkDim); margin: 6px 0 12px; }
+.cs-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.cs-tab { border: 1.5px solid var(--boardLine); background: rgba(245,243,231,0.05); color: var(--chalkDim); font-family: inherit; font-weight: 800; font-size: 14px; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+.cs-tab.on { background: var(--yellow); color: var(--boardDeep); border-color: var(--yellow); }
+.cs-bet { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px 0 6px; font-weight: 800; font-size: 14px; color: var(--chalkDim); }
+#cs-chips { display: flex; gap: 6px; }
+.cs-chip { min-width: 52px; padding: 7px 10px; border-radius: 999px; border: 2px dashed var(--boardLine); background: none; color: var(--chalk); font-family: inherit; font-weight: 900; cursor: pointer; }
+.cs-chip.on { border-style: solid; border-color: var(--yellow); color: var(--yellow); }
+.cs-chip:disabled { opacity: .3; cursor: not-allowed; }
+.cs-game { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 10px; border-radius: 16px; border: 1.5px solid var(--boardLine); background: rgba(245,243,231,0.05); margin-top: 8px; }
+.cs-stage { min-height: 120px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.cs-wheel { width: 110px; height: 110px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 900; border: 6px solid var(--chalk); color: #fff; }
+.cs-wheel.red { background: #c23b3b; } .cs-wheel.black { background: #1a1a1a; } .cs-wheel.green { background: #2f8f4e; }
+.cs-die { font-size: 84px; line-height: 1; }
+.cs-reel { width: 86px; height: 96px; display: inline-flex; align-items: center; justify-content: center; font-size: 52px; border-radius: 14px; background: rgba(0,0,0,0.3); border: 2px solid var(--boardLine); }
+.cs-coin { width: 110px; height: 110px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 900; background: var(--yellow); color: var(--boardDeep); border: 6px solid #d4a72c; transition: transform .1s; }
+.cs-coin.flip { transform: scaleX(-1); }
+.cs-picks { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.cs-picks button { border: 1.5px solid var(--boardLine); background: rgba(245,243,231,0.05); color: var(--chalk); font-family: inherit; font-weight: 800; font-size: 14px; padding: 9px 14px; border-radius: 12px; cursor: pointer; }
+.cs-picks button.on { border-color: var(--yellow); background: rgba(242,199,68,0.18); }
+.cs-picks input { width: 52px; margin-left: 6px; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--boardLine); background: rgba(0,0,0,0.25); color: var(--chalk); font-family: inherit; font-weight: 800; text-align: center; }
+.cs-help { margin: 0; font-size: 12px; color: var(--chalkDim); }
+.cs-go { min-width: 180px; }
+.cs-go:disabled { opacity: .5; }
+.cs-msg { min-height: 26px; margin-top: 12px; font-weight: 900; font-size: 18px; }
+.cs-msg.win { color: var(--yellow); } .cs-msg.lose { color: var(--coral); }
+
+/* 👤 계정 */
+.acc-box { width: 100%; margin-top: 4px; }
+.acc-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; border: 1.5px dashed var(--boardLine); font-size: 14px; color: var(--chalkDim); }
+.acc-row b { color: var(--chalk); }
+.acc-btn { border: 1.5px solid var(--boardLine); background: none; color: var(--chalk); font-family: inherit; font-weight: 800; font-size: 13px; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.acc-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+.acc-form { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; border: 1.5px solid var(--boardLine); background: rgba(245,243,231,0.05); }
+.acc-form input { padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--boardLine); background: rgba(0,0,0,0.25); color: var(--chalk); font-family: inherit; font-size: 15px; }
+.acc-tabs { display: flex; gap: 6px; }
+.acc-tabs button { flex: 1; padding: 8px; border-radius: 10px; border: 1.5px solid var(--boardLine); background: none; color: var(--chalkDim); font-family: inherit; font-weight: 800; cursor: pointer; }
+.acc-tabs button.on { background: var(--yellow); color: var(--boardDeep); border-color: var(--yellow); }
+.acc-hint { font-size: 12px; color: var(--chalkDim); line-height: 1.5; }
+.acc-msg { min-height: 16px; font-size: 13px; color: var(--coral); font-weight: 700; margin-top: 4px; }
+.acc-actions { display: flex; gap: 8px; }
+
+.acc-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+.acc-foot button { background: none; border: 0; color: var(--chalkDim); font-family: inherit; font-size: 12px; cursor: pointer; opacity: .7; }
+.acc-foot button:hover { opacity: 1; }
+.acc-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+.acc-user { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--boardLine); font-size: 14px; }
+.acc-user small { display: block; color: var(--chalkDim); font-size: 11px; }
+
+/* 🔐 로그인 창 (로그인해야 게임이 보여요) */
+.acc-gate { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: auto; background: radial-gradient(circle at 50% 30%, #2c4a3d, #16281f 70%); }
+.acc-gate-card { width: 100%; max-width: 380px; text-align: center; }
+.acc-gate-card h1 { font-family: 'Gaegu', cursive; font-size: 40px; margin: 0 0 4px; color: var(--chalk); }
+.acc-gate-card p { margin: 0 0 18px; color: var(--chalkDim); }
+.acc-gate-card .acc-form { text-align: left; }
+.acc-gate-card .acc-foot { justify-content: center; margin-top: 12px; }
+
+/* 🧱 벽돌깨기 */
+.bz-wrap { max-width: 460px; }
+.bz-hud { display: flex; justify-content: space-between; align-items: center; font-weight: 800; padding: 0 4px 8px; color: var(--chalkDim); }
+.bz-hud b { color: var(--chalk); font-size: 20px; }
+.bz-board { position: relative; border-radius: 14px; overflow: hidden; border: 1.5px solid var(--boardLine); line-height: 0; }
+.bz-canvas { width: 100%; height: auto; aspect-ratio: 420 / 620; display: block; touch-action: none; cursor: crosshair; }
+.bz-over { position: absolute; inset: 0; background: rgba(0,0,0,0.6); color: var(--chalk); font-size: 20px; line-height: 1.5; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+.bz-btns { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+.bz-btns .btn:disabled { opacity: .4; }
+.bz-help { margin: 8px 0 0; text-align: center; font-size: 12px; color: var(--chalkDim); }

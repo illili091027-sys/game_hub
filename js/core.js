@@ -456,7 +456,7 @@ if (document.getElementById('in-server').value) {
 var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-catch', 'card-wasd', 'card-yang', 'card-land'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
-var SOLO_ONLY_CARD_IDS = ['card-metro', 'card-blockpop', 'card-pizza', 'card-bento', 'card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
+var SOLO_ONLY_CARD_IDS = ['card-ballz', 'card-casino', 'card-codetype', 'card-metro', 'card-blockpop', 'card-pizza', 'card-bento', 'card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
 
 /* 첫 화면의 '📚 과제하기': 온라인 입장 화면을 그대로 쓰되, 지난번 과제방 코드/이름을 채워 두고
    입장하면 바로 과제방이 열려요. (과제방은 매번 같은 방 코드로 들어와야 목록이 이어져요) */
@@ -565,7 +565,7 @@ function backToModeSelect() {
 }
 
 var ONLINE_ONLY_GAME_IDS = ['bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'catch', 'wasd', 'yang', 'land'];
-var SOLO_ONLY_GAME_IDS = ['metro', 'blockpop', 'pizza', 'bento', 'sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
+var SOLO_ONLY_GAME_IDS = ['ballz', 'casino', 'codetype', 'metro', 'blockpop', 'pizza', 'bento', 'sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -820,7 +820,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pizza: 'pz-room-pill', blockpop: 'bp-room-pill', metro: 'mt-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pizza: 'pz-room-pill', blockpop: 'bp-room-pill', metro: 'mt-room-pill', codetype: 'ct-room-pill', casino: 'cs-room-pill', ballz: 'bz-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = playMode === 'solo' ? '혼자 하기' : (me.room + ' 방');
@@ -849,6 +849,9 @@ function enterGame(gameId) {
     else if (gameId === 'pizza') startPizzaGame();
     else if (gameId === 'blockpop') startBlockPop();
     else if (gameId === 'metro') startMetroGame();
+    else if (gameId === 'codetype') startCodeTypeGame();
+    else if (gameId === 'casino') startCasinoGame();
+    else if (gameId === 'ballz') startBallzGame();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
@@ -944,6 +947,9 @@ function goHome() {
   if (typeof stopPizzaGame === 'function') stopPizzaGame();
   if (typeof stopBlockPop === 'function') stopBlockPop();
   if (typeof stopMetroGame === 'function') stopMetroGame();
+  if (typeof stopCodeTypeGame === 'function') stopCodeTypeGame();
+  if (typeof stopCasinoGame === 'function') stopCasinoGame();
+  if (typeof stopBallzGame === 'function') stopBallzGame();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';
