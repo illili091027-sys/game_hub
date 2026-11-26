@@ -374,7 +374,7 @@ function wdDraw(dt) {
   else if (st.phase === 'clear') { big = st.stage >= WD_STAGES ? '모두 클리어! 🎉' : '스테이지 클리어! 🎉'; }
   if (big) {
     ctx.textAlign = 'center';
-    ctx.font = 'bold ' + Math.round(Math.min(W, H) / 7) + 'px "Gaegu", sans-serif';
+    ctx.font = 'bold ' + Math.round(Math.min(W, H) / 7) + 'px "LeeSeoyun", "Gaegu", sans-serif';
     ctx.lineWidth = 8 * WD_DPR; ctx.strokeStyle = 'rgba(40,60,30,0.85)';
     ctx.strokeText(big, W / 2, H / 2); ctx.fillStyle = '#fff'; ctx.fillText(big, W / 2, H / 2);
     if (sub) {

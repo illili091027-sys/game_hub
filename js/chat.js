@@ -94,6 +94,7 @@ function chatBubbleInner(m) {
    문제가 있었는데, 이제는 마지막 메시지 id까지 같이 비교합니다. */
 function chatRenderInto(el, messages, tracker, emptyText) {
   if (!el) return;
+  messages = messages.filter(chatVisible);
   var all = messages.concat(tracker.pending || []);
   var last = all[all.length - 1];
   /* 수정/삭제도 화면에 반영되도록 각 메시지의 id+수정번호+삭제여부로 비교 */
@@ -126,7 +127,8 @@ function chatRenderInto(el, messages, tracker, emptyText) {
     var timeHtml = (sameMinuteNext && !editedHtml) ? '' : '<span class="cmsg-time">' + editedHtml + (sameMinuteNext || m.type === 'pending' ? '' : chatFmtTime(m.ts)) + '</span>';
     var isMedia = m.type === 'file' && !m.del;
     var inner = m.del ? '<span class="cmsg-deleted">🚫 삭제된 메시지예요</span>' : chatBubbleInner(m);
-    var bubble = '<div class="cmsg-bubble' + (isMedia ? ' media' : '') + (m.del ? ' deleted' : '') + '">' + inner + '</div>';
+    var wh = m.to && !m.del ? '<span class="cmsg-wh">🤫 ' + (mine ? esc(m.toName || '') + '님에게 귓속말' : '나에게 귓속말') + '</span>' : '';
+    var bubble = '<div class="cmsg-bubble' + (isMedia ? ' media' : '') + (m.del ? ' deleted' : '') + (m.to ? ' whisper' : '') + '">' + wh + inner + '</div>';
     if (mine) {
       var canMenu = !m.del && m.type !== 'pending';
       var more = canMenu ? '<button type="button" class="cmsg-more" data-mid="' + esc(m.id) + '" title="수정/삭제">⋯</button>' : '';
@@ -430,11 +432,106 @@ function chatPushMessage(key, msg) {
   });
 }
 
+/* ---------------- 귓속말 ----------------
+   '/닉네임 할 말' 로 보내면 그 사람과 나한테만 보여요. ( / 를 누르면 방에 있는 친구 목록이 떠요 )
+   메시지에 to(받는 사람 id)·toName 이 붙고, 화면에 그릴 때 나와 받는 사람만 볼 수 있게 걸러요. */
+function chatVisible(m) { return !m || !m.to || m.pid === myPlayerId || m.to === myPlayerId; }
+function chatWhisperTargets() {
+  var list = (typeof roomPlayersList !== 'undefined' && roomPlayersList) || [];
+  return list.filter(function (p) { return p && p.id !== myPlayerId && p.name; });
+}
+function chatParseWhisper(text) {
+  var rest = text.slice(1), best = null;
+  function find(r) {
+    var found = null;
+    chatWhisperTargets().forEach(function (p) {
+      var n = String(p.name);
+      if (r.indexOf(n) === 0 && /^\s/.test(r.slice(n.length)) && (!found || n.length > String(found.name).length)) found = p;
+    });
+    return found;
+  }
+  best = find(rest) || find(rest.replace(/^(w|귓|귓속말|whisper)\s+/i, ''));
+  if (!best) return null;
+  var after = rest.indexOf(best.name) === 0 ? rest.slice(best.name.length) : rest.replace(/^(w|귓|귓속말|whisper)\s+/i, '').slice(best.name.length);
+  return { to: best.id, toName: best.name, text: after.trim() };
+}
+function chatNotice(msg) { if (typeof coinToast === 'function') coinToast(msg); }
+
 function chatSendText(key, text) {
   text = String(text || '').trim();
   if (!text) return Promise.resolve();
-  return chatPushMessage(key, { id: chatNewId(), pid: myPlayerId, name: me.name, text: text.slice(0, CHAT_MAX_TEXT), ts: Date.now() });
+  var msg = { id: chatNewId(), pid: myPlayerId, name: me.name, text: text.slice(0, CHAT_MAX_TEXT), ts: Date.now() };
+  if (text.charAt(0) === '/') {
+    var w = chatParseWhisper(text);
+    /* 못 보낸 글은 입력칸에 되돌려 놓아요 */
+    var back = function () { var a = document.activeElement; if (a && /^(TEXTAREA|INPUT)$/.test(a.tagName) && !a.value) { a.value = text; chatAutoGrow(a); } };
+    if (!w) { chatNotice('귓속말 받을 친구를 못 찾았어요. / 를 누르면 목록이 나와요'); back(); return Promise.resolve(); }
+    if (!w.text) { chatNotice('보낼 말도 적어주세요 (예: /' + w.toName + ' 안녕)'); back(); return Promise.resolve(); }
+    msg.to = w.to; msg.toName = w.toName; msg.text = w.text.slice(0, CHAT_MAX_TEXT);
+  }
+  return chatPushMessage(key, msg);
 }
+
+/* '/' 를 치면 귓속말 받을 친구를 고르는 목록이 입력칸 위에 떠요 (↑↓ + Enter/Tab, 또는 눌러서 고르기) */
+var WH = { pop: null, input: null, items: [], sel: 0 };
+function whClose() { if (WH.pop && WH.pop.parentNode) WH.pop.parentNode.removeChild(WH.pop); WH.pop = null; WH.input = null; WH.items = []; }
+function whRender() {
+  if (!WH.pop) return;
+  var h = '<div class="wh-head">🤫 귓속말 받을 친구</div>';
+  if (!WH.items.length) h += '<div class="wh-empty">' + (chatWhisperTargets().length ? '그런 이름의 친구가 없어요' : '방에 다른 친구가 없어요') + '</div>';
+  WH.items.forEach(function (p, i) {
+    h += '<button type="button" class="wh-item' + (i === WH.sel ? ' on' : '') + '" data-i="' + i + '">' + esc(p.name) + '</button>';
+  });
+  WH.pop.innerHTML = h;
+}
+function whOpen(inp) {
+  var m = /^\/([^\s]*)$/.exec(inp.value);
+  if (!m) { whClose(); return; }
+  var q = m[1].toLowerCase();
+  var items = chatWhisperTargets().filter(function (p) { return String(p.name).toLowerCase().indexOf(q) > -1; });
+  if (WH.input !== inp || !WH.pop) {
+    whClose();
+    WH.pop = document.createElement('div'); WH.pop.className = 'wh-pop';
+    WH.pop.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      var b = e.target.closest && e.target.closest('.wh-item');
+      if (b) whPick(+b.getAttribute('data-i'));
+    });
+    document.body.appendChild(WH.pop);
+  }
+  WH.input = inp; WH.items = items; WH.sel = Math.min(WH.sel, Math.max(0, items.length - 1));
+  var r = inp.getBoundingClientRect();
+  WH.pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 228)) + 'px';
+  WH.pop.style.width = Math.max(180, Math.min(r.width, 280)) + 'px';
+  WH.pop.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+  whRender();
+}
+function whPick(i) {
+  var p = WH.items[i], inp = WH.input;
+  if (!p || !inp) return;
+  inp.value = '/' + p.name + ' ';
+  whClose();
+  inp.focus();
+  try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) {}
+  chatAutoGrow(inp);
+}
+document.addEventListener('input', function (e) {
+  var t = e.target;
+  if (t && t.matches && t.matches('.chat-textarea, .lc-input')) { WH.sel = 0; whOpen(t); }
+}, true);
+document.addEventListener('keydown', function (e) {
+  if (!WH.pop || e.target !== WH.input || e.isComposing) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!WH.items.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    WH.sel = (WH.sel + (e.key === 'ArrowDown' ? 1 : WH.items.length - 1)) % WH.items.length; whRender();
+  } else if ((e.key === 'Enter' || e.key === 'Tab') && WH.items.length) {
+    e.preventDefault(); e.stopImmediatePropagation(); whPick(WH.sel);
+  } else if (e.key === 'Escape') {
+    e.preventDefault(); whClose();
+  } else if (e.key === 'Enter') { whClose(); }
+}, true);
+document.addEventListener('focusout', function (e) { if (WH.pop && e.target === WH.input) setTimeout(whClose, 120); }, true);
 
 /* 채팅방(목록 key)이 통째로 지워질 때 그 안에 있던 파일들도 같이 지웁니다. */
 function chatDeleteFilesOf(messages) {
@@ -554,7 +651,13 @@ function chatSendFiles(key, fileList, tracker, onRefresh, onError) {
 function chatAutoGrow(ta) {
   if (!ta) return;
   ta.style.height = 'auto';
-  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  var h = ta.scrollHeight;
+  if (!h) return; /* 화면에 안 보이는 상태면 높이를 건드리지 않아요 */
+  var cs = getComputedStyle(ta);
+  var extra = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+  var full = h + extra;
+  ta.style.height = Math.min(full, 120) + 'px';
+  ta.style.overflowY = full > 120 ? 'auto' : 'hidden';
 }
 function chatSetupMultiline(ta, sendFn) {
   if (!ta || ta.getAttribute('data-ml')) return;

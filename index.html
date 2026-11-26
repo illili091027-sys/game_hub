@@ -9,8 +9,10 @@
 <title>쉬는 시간 게임판 (아이콘 에디션)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Hi+Melody&family=Gaegu:wght@400;700&family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/theme.css" />
+<script>if(document.fonts)document.fonts.load("20px LeeSeoyun");</script>
 <script>
 // css/style.css나 데이터/게임 스크립트 파일을 못 찾을 때(예: 압축을 통째로 풀지 않고 zip 안에서 바로 index.html만 열었을 때)
 // 화면이 새하얀 무스타일로 보이는 문제를 안내하기 위한 안전장치입니다.
@@ -175,12 +177,6 @@ window.addEventListener('load', function () {
           <div class="game-name">도시락 칼질</div>
         </div>
       </button>
-      <button class="game-card" id="card-pizza" onclick="cardClicked('pizza')">
-        <div class="game-card-top">
-          <div class="game-icon">12</div>
-          <div class="game-name">모락모락 피자가게</div>
-        </div>
-      </button>
       <button class="game-card" id="card-pzshop" onclick="cardClicked('pzshop')">
         <div class="game-card-top">
           <div class="game-icon">🍕</div>
@@ -191,12 +187,6 @@ window.addEventListener('load', function () {
         <div class="game-card-top">
           <div class="game-icon">12</div>
           <div class="game-name">블록 팡</div>
-        </div>
-      </button>
-      <button class="game-card" id="card-metro" onclick="cardClicked('metro')">
-        <div class="game-card-top">
-          <div class="game-icon">12</div>
-          <div class="game-name">지하철 타이핑</div>
         </div>
       </button>
       <button class="game-card" id="card-land" onclick="cardClicked('land')">
@@ -216,9 +206,9 @@ window.addEventListener('load', function () {
       <button class="game-card" id="card-codetype" onclick="cardClicked('codetype')">
         <div class="game-card-top">
           <div class="game-icon">5</div>
-          <div class="game-name">코드 타자 연습</div>
+          <div class="game-name">타자 연습</div>
         </div>
-        <div class="game-desc" id="desc-codetype">Java · Python · C 코드를 직접 치면서 문법을 외워요! 복붙·자동완성 없이 한 글자씩.</div>
+        <div class="game-desc" id="desc-codetype">코드(Java·Python·C)와 SQL 터미널을 직접 치면서 외워요! 복붙·자동완성 없이 한 글자씩.</div>
       </button>
       <button class="game-card" id="card-ballz" onclick="cardClicked('ballz')">
         <div class="game-card-top">
@@ -371,7 +361,7 @@ window.addEventListener('load', function () {
           <img class="bm-ufo" id="bm-ufo" src="" alt="" />
           <div class="bm-watch" id="bm-watch" style="display:none"></div>
           <div class="bm-overlay" id="bm-ready-overlay">
-            <div style="font-family:'Gaegu',cursive; font-size:22px;">방향키(←/→)나 A/D 를 눌러서<br/>똥을 피해보세요!</div>
+            <div style="font-family:'LeeSeoyun', 'Hi Melody','LeeSeoyun','Gaegu',cursive; font-size:22px;">방향키(←/→)나 A/D 를 눌러서<br/>똥을 피해보세요!</div>
           </div>
         </div>
           <div class="bm-touch-row">
@@ -1100,28 +1090,6 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
-<div id="pizza" class="view">
-  <div class="wrap pz-wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="pz-room-pill">혼자 하기</span>
-    </div>
-    <h2 class="game-heading">🍕 모락모락 피자가게</h2>
-    <div class="pz-hud"><span id="pz-day"></span><span id="pz-cust"></span><b id="pz-money"></b><button class="btn btn-ghost bt-small" onclick="pzResetSave()">처음부터</button></div>
-    <div class="pz-counter" id="pz-counter"></div>
-    <div class="pz-kitchen">
-      <div class="pz-tools" id="pz-tools"></div>
-      <div class="pz-stage"><canvas id="pz-canvas" width="400" height="400"></canvas><div class="bt-toast" id="pz-toast"></div></div>
-      <div class="pz-actions">
-        <button class="btn pz-act" onclick="pzBake()">🔥<span>굽기</span></button>
-        <button class="btn pz-act" onclick="pzCut()">🔪<span>자르기</span></button>
-        <button class="btn pz-act" onclick="pzTrash()">🗑<span>버리기</span></button>
-        <button class="btn btn-primary pz-act" onclick="pzServe()">📦<span>드리기</span></button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div id="pzshop" class="view">
   <div class="wrap ps-wrap">
     <div class="topbar">
@@ -1134,24 +1102,13 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
-<div id="metro" class="view">
-  <div class="wrap mt-wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="mt-room-pill">혼자 하기</span>
-    </div>
-    <h2 class="game-heading">🚇 지하철 타이핑</h2>
-    <div id="mt-root"></div>
-  </div>
-</div>
-
 <div id="codetype" class="view">
   <div class="wrap ct-wrap">
     <div class="topbar">
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
       <span class="room-pill" id="ct-room-pill">혼자 하기</span>
     </div>
-    <h2 class="game-heading">⌨️ 코드 타자 연습</h2>
+    <h2 class="game-heading">⌨️ 타자 연습</h2>
     <div id="ct-root"></div>
   </div>
 </div>
@@ -1493,11 +1450,10 @@ window.addEventListener('load', function () {
 <script src="js/tables.js"></script>
 <script src="data/bento-levels.js"></script>
 <script src="js/bento.js"></script>
-<script src="js/pizza.js"></script>
 <script src="js/pizzashop.js"></script>
 <script src="data/block-tiles.js"></script>
 <script src="js/blockpop.js"></script>
-<script src="js/metro.js"></script>
+<script src="data/metro-data.js"></script>
 <script src="js/codetype.js"></script>
 <script src="js/casino.js"></script>
 <script src="js/ballz.js"></script>

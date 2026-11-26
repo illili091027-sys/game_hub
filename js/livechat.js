@@ -210,6 +210,7 @@ function lcPoll(force) {
   }, function () { LC.busy = false; });
 }
 function lcRender(el, msgs, force) {
+  msgs = msgs.filter(chatVisible);
   var list = el.querySelector('.lc-list');
   var sig = msgs.length + ':' + (msgs.length ? msgs[msgs.length - 1].id + (msgs[msgs.length - 1].text || '') : '');
   if (sig === el._sig && !force) return;
@@ -218,6 +219,7 @@ function lcRender(el, msgs, force) {
   list.innerHTML = msgs.slice(-40).map(function (m) {
     if (m.deleted) return '';
     var body = m.type === 'file' ? '📎 ' + esc(m.fileName || '파일') : esc(m.text || '');
+    if (m.to) body = '<i class="lc-wh">🤫 ' + (m.pid === myPlayerId ? esc(m.toName || '') + '님에게' : '귓속말') + '</i> ' + body;
     if (m.don) return '<div class="lc-m don"><b>' + esc(m.name) + '</b> → ' + esc(m.don.toName) + ' ' + CHALK_IMG + m.don.amount + (m.don.msg ? '<br>“' + esc(m.don.msg) + '”' : '') + '</div>';
     return '<div class="lc-m' + (m.pid === myPlayerId ? ' me' : '') + '"><b>' + esc(m.name || '?') + '</b> ' + body + '</div>';
   }).join('') || '<div class="lc-empty">채팅이 여기 실시간으로 올라와요</div>';

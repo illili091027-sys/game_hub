@@ -956,7 +956,7 @@ function bbDraw() {
   // 떠오르는 글자
   BB.pops.forEach(function (p) {
     ctx.globalAlpha = Math.min(1, p.life * 1.5);
-    ctx.font = 'bold 20px "Gaegu", sans-serif';
+    ctx.font = 'bold 20px "LeeSeoyun", "Gaegu", sans-serif';
     ctx.textAlign = 'center';
     ctx.lineWidth = 4;
     ctx.strokeStyle = '#ffffff';

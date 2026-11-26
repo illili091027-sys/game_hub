@@ -1,11 +1,19 @@
-/* ⌨️ 코드 타자 연습 (혼자 하기)
-   언어(Java · Python · C)를 고르고, 왼쪽 목록에서 연습을 골라 코드를 그대로 쳐요.
-   - 복사·붙여넣기·자동완성 불가, 한 글자씩 직접 쳐야 해요.
-   - 코드 에디터처럼 줄 번호와 색이 보이고, 친 글자는 진하게 / 틀린 글자는 빨갛게 표시돼요.
-   - 타수(1분에 맞게 친 글자 수), 정확도, 시간을 재고 연습별 최고 기록을 저장해요. */
+/* ⌨️ 타자 연습 (혼자 하기)
+   먼저 종류를 골라요:  💻 프로그래밍 언어 (Java · Python · C)   /   🖥️ SQL 터미널 (SQL*Plus 화면처럼)
+   - 복사·붙여넣기·자동완성은 안 돼요. 한 글자씩 직접 쳐야 해요.
+   - 한글도 직접 쳐요 (한글 입력 지원). 영문 코드 연습에서 한글을 치면 틀린 걸로 보여요.
+   - SQL 터미널: 따옴표 안 글자(데이터)는 정확히, 나머지는 대소문자를 구분하지 않아요.
+   - 타수(1분에 맞게 친 글자 수), 정확도, 시간을 재고 연습별 최고 기록을 저장해요.
+   새 종류는 CT_TRACKS 와 CT_DATA 에 항목만 추가하면 돼요. */
+
+var CT_TRACKS = {
+  code: { name: '프로그래밍 언어', icon: '💻', desc: 'Java · Python · C 코드를 쳐요', lead: '연습할 언어를 골라요. 코드를 직접 치면서 문법을 몸에 익혀요.' },
+  sql: { name: 'SQL 터미널', icon: '🖥️', desc: 'SQL*Plus 화면처럼 쿼리를 쳐요', lead: '연습할 프로그램을 골라요. 검은 터미널 창에서 SQL을 직접 쳐요.' },
+  subway: { name: '지하철 역 이름', icon: '🚇', desc: '노선별 역 이름을 순서대로 쳐요', lead: '연습할 노선을 골라요. 역 이름을 순서대로 한글로 직접 쳐요.' }
+};
 
 var CT_DATA = {
-  java: { name: 'Java', file: 'Main.java', color: '#F2836B', icon: '☕', items: [
+  java: { track: 'code', name: 'Java', file: 'Main.java', color: '#F2836B', icon: '☕', items: [
     ['Hello World 출력하기', String.raw`public class Main {
     public static void main(String[] args) {
         System.out.println("Hello, Java!");
@@ -44,7 +52,7 @@ System.out.println(n * 2);`],
 }
 Dog d = new Dog("Rex");`]
   ] },
-  python: { name: 'Python', file: 'main.py', color: '#F2C744', icon: '🐍', items: [
+  python: { track: 'code', name: 'Python', file: 'main.py', color: '#F2C744', icon: '🐍', items: [
     ['Hello World 출력하기', String.raw`print("Hello, Python!")`],
     ['변수 선언하기', String.raw`age = 20
 pi = 3.14
@@ -75,7 +83,7 @@ for k, v in ages.items():
 
 d = Dog("Rex")`]
   ] },
-  c: { name: 'C', file: 'main.c', color: '#7BB8F2', icon: '🔧', items: [
+  c: { track: 'code', name: 'C', file: 'main.c', color: '#7BB8F2', icon: '🔧', items: [
     ['Hello World 출력하기', String.raw`#include <stdio.h>
 
 int main(void) {
@@ -114,6 +122,11 @@ struct Dog d = {"Rex", 3};`]
   ] }
 };
 
+var CT_KW = {
+  java: 'public|private|class|static|void|int|double|float|char|String|boolean|if|else|for|while|return|new|this|import|final|true|false|null',
+  python: 'def|class|if|elif|else|for|while|return|in|import|from|print|True|False|None|and|or|not|range|self',
+  c: 'int|double|float|char|void|if|else|for|while|return|struct|const|unsigned|sizeof|printf|scanf|NULL'
+};
 
 /* 긴 코드: 실제 프로그램처럼 조금 더 긴 연습 (목록에서 "긴 코드" 아래에 나와요) */
 CT_DATA.java.items.push(
@@ -234,13 +247,202 @@ int main(void) {
 }`, 'long']
 );
 
-var CT_KW = {
-  java: 'public|private|class|static|void|int|double|float|char|String|boolean|if|else|for|while|return|new|this|import|final|true|false|null',
-  python: 'def|class|if|elif|else|for|while|return|in|import|from|print|True|False|None|and|or|not|range|self',
-  c: 'int|double|float|char|void|if|else|for|while|return|struct|const|unsigned|sizeof|printf|scanf|NULL'
-};
+/* ================= SQL 터미널 ================= */
+/* 연습 항목: [제목, 코드, 'long'(긴 쿼리)|'', 옵션]
+   옵션: shell(윈도우 명령 프롬프트 줄) / out(끝난 뒤 보여줄 글) / rows(select 결과 줄 수, 순서대로) / noBanner */
+var CT_SQL_CONNECT = ['접속하기 (sqlplus)', 'sqlplus system', '', { shell: true, noBanner: true, out: function () { return '\nEnter password: \n'; } }];
 
-var CT = { lang: null, idx: 0, target: '', colors: [], t0: 0, total: 0, wrong: 0, prev: 0, done: false, skip: true, timer: null };
+CT_DATA.sql_car = { track: 'sql', skin: 'term', name: '차량주행 관리', icon: '🚗', color: '#9ad1ff', items: [
+  CT_SQL_CONNECT,
+  ['부서 테이블 만들기', String.raw`create table TBL_DEPT (
+    DEPT_CODE CHAR(2) NOT NULL PRIMARY KEY,
+    DEPT_NAME VARCHAR2(14),
+    DEPT_OFFR VARCHAR2(14)
+);`],
+  ['부서 데이터 넣기 (insert)', String.raw`INSERT INTO TBL_DEPT VALUES('10', '영업부', '김영업');
+INSERT INTO TBL_DEPT VALUES('20', '총무부', '이총무');
+INSERT INTO TBL_DEPT VALUES('30', '구매부', '박구매');
+INSERT INTO TBL_DEPT VALUES('40', '개발부', '조개발');`],
+  ['차량 테이블 만들기', String.raw`create table TBL_CAR (
+    CAR_NO CHAR(10) NOT NULL PRIMARY KEY,
+    CAR_MODEL VARCHAR2(14),
+    CAR_COMPANY VARCHAR2(10),
+    CAR_DATE CHAR(8)
+);`],
+  ['차량 데이터 넣기 (insert)', String.raw`INSERT INTO TBL_CAR VALUES('10가0001', '소나타', '현대', '20230101');
+INSERT INTO TBL_CAR VALUES('10가0002', 'K5', '기아', '20230102');
+INSERT INTO TBL_CAR VALUES('10가0003', 'SM5', '삼성', '20230103');
+INSERT INTO TBL_CAR VALUES('10가0004', '그랜저', '현대', '20230104');
+INSERT INTO TBL_CAR VALUES('10가0005', 'K5', '기아', '20230105');`],
+  ['주행내역 테이블 (복합 기본키)', String.raw`CREATE TABLE TBL_DRIVE (
+    DRV_DATE CHAR(8) NOT NULL,
+    CAR_NO CHAR(10) NOT NULL,
+    DRV_START NUMBER,
+    DRV_END NUMBER,
+    DEPT_CODE CHAR(2),
+    DRV_MONEY NUMBER,
+    PRIMARY KEY(DRV_DATE, CAR_NO)
+);`],
+  ['전체 조회 (select *)', String.raw`select * from TBL_DEPT;
+select * from TBL_CAR;
+select * from TBL_DRIVE;`, '', { rows: [4, 5, 10] }],
+  ['차량 목록 날짜 형식으로', String.raw`select car_no,
+    car_model,
+    car_company,
+    substr(car_date,1,4)||'년'||substr(car_date,5,2)||'월'||substr(car_date,7,2)||'일'
+from tbl_car1;`, '', { rows: [5] }],
+  ['주행내역 데이터 넣기 (insert 10줄)', String.raw`INSERT INTO TBL_DRIVE VALUES('20200301', '10가0001', 10000, 10100, '10', 20000);
+INSERT INTO TBL_DRIVE VALUES('20200301', '10가0002', 10000, 10150, '10', 30000);
+INSERT INTO TBL_DRIVE VALUES('20200301', '10가0003', 10000, 10200, '20', 30000);
+INSERT INTO TBL_DRIVE VALUES('20200301', '10가0004', 10000, 10250, '30', 40000);
+INSERT INTO TBL_DRIVE VALUES('20200301', '10가0005', 10000, 10300, '40', 40000);
+INSERT INTO TBL_DRIVE VALUES('20200302', '10가0001', 10100, 10300, '10', 25000);
+INSERT INTO TBL_DRIVE VALUES('20200302', '10가0002', 10150, 10300, '10', 20000);
+INSERT INTO TBL_DRIVE VALUES('20200302', '10가0003', 10200, 10400, '20', 35000);
+INSERT INTO TBL_DRIVE VALUES('20200302', '10가0004', 10250, 10500, '20', 40000);
+INSERT INTO TBL_DRIVE VALUES('20200302', '10가0005', 10300, 10600, '30', 50000);`, 'long'],
+  ['3개 테이블 조인하기', String.raw`select substr(c.drv_date,1,4)||'년'||substr(c.drv_date,5,2)||'월'||substr(c.drv_date,7,2)||'일' as c1,
+    b.car_no,
+    b.car_model,
+    to_char(c.drv_start, '999,999') as c4,
+    to_char(c.drv_end, '999,999') as c5,
+    a.dept_name,
+    '\'||to_char(c.drv_money, 'FM999,999') as c7
+from tbl_dept1 a, tbl_car1 b, tbl_drive1 c
+where a.dept_code=c.dept_code and b.car_no=c.car_no;`, 'long', { rows: [10] }],
+  ['부서별 주행거리·주유금액 합계', String.raw`select a.dept_code,
+    a.dept_name,
+    sum(c.drv_end-drv_start),
+    '\'||to_char(sum(drv_money), 'fm999,999')
+from tbl_dept1 a, tbl_drive1 c
+where a.dept_code = c.dept_code
+group by (a.dept_code, a.dept_name);`, 'long', { rows: [4] }]
+] };
+
+CT_DATA.sql_patient = { track: 'sql', skin: 'term', name: '환자 검사', icon: '🏥', color: '#9be08f', items: [
+  CT_SQL_CONNECT,
+  ['환자 테이블 만들기', String.raw`create table kwai_patient4 (
+    p_no       char(4) not null primary key,
+    p_name     varchar2(20),
+    p_birth    char(8),
+    p_gender   char(1),
+    p_tel1     char(3),
+    p_tel2     char(4),
+    p_tel3     char(4),
+    p_city     char(2)
+);`],
+  ['환자 데이터 넣기 (insert)', String.raw`insert into kwai_patient4 values('1001', '김환자', '19850301', 'M', '010', '2222', '0001', '10');
+insert into kwai_patient4 values('1002', '이환자', '19900301', 'M', '010', '2222', '0002', '20');
+insert into kwai_patient4 values('1003', '박환자', '19770301', 'F', '010', '2222', '0003', '30');
+insert into kwai_patient4 values('1004', '조환자', '19650301', 'F', '010', '2222', '0004', '10');
+insert into kwai_patient4 values('1005', '황환자', '19400301', 'M', '010', '2222', '0005', '40');
+insert into kwai_patient4 values('1006', '양환자', '19440301', 'F', '010', '2222', '0006', '40');
+insert into kwai_patient4 values('1007', '허환자', '19760301', 'F', '010', '2222', '0007', '10');`],
+  ['검사코드 테이블 만들기', String.raw`create table kwai_labtest4 (
+    t_code char(4) not null primary key,
+    t_name varchar2(20)
+);`],
+  ['검사코드 데이터 넣기', String.raw`insert into kwai_labtest4 values('T001', '결핵');
+insert into kwai_labtest4 values('T002', '장티푸스');
+insert into kwai_labtest4 values('T003', '수두');
+insert into kwai_labtest4 values('T004', '홍역');
+insert into kwai_labtest4 values('T005', '콜레라');`],
+  ['검사결과 테이블 만들기', String.raw`create table kwai_result_2023 (
+    p_se       number not null primary key,
+    p_no       char(4),
+    t_code     char(4),
+    t_sdate    char(8),
+    t_status   varchar2(4),
+    t_idate    char(8),
+    t_result   varchar2(4)
+);`],
+  ['검사결과 데이터 넣기 (insert 10줄)', String.raw`insert into kwai_result_2023 values(1, '1001', 'T001', '20200101', '1', '20200102', 'X');
+insert into kwai_result_2023 values(2, '1002', 'T002', '20200101', '2', '20200102', 'P');
+insert into kwai_result_2023 values(3, '1003', 'T003', '20200101', '2', '20200102', 'N');
+insert into kwai_result_2023 values(4, '1004', 'T004', '20200101', '2', '20200102', 'P');
+insert into kwai_result_2023 values(5, '1005', 'T005', '20200101', '2', '20200102', 'P');
+insert into kwai_result_2023 values(6, '1006', 'T001', '20200101', '2', '20200102', 'N');
+insert into kwai_result_2023 values(7, '1007', 'T002', '20200101', '2', '20200102', 'P');
+insert into kwai_result_2023 values(8, '1005', 'T003', '20200101', '2', '20200102', 'P');
+insert into kwai_result_2023 values(9, '1006', 'T004', '20200101', '2', '20200102', 'N');
+insert into kwai_result_2023 values(10, '1007', 'T005', '20200101', '2', '20200102', 'N');
+commit;`, 'long'],
+  ['환자 정보 조회 (decode)', String.raw`select p_no,
+       p_name,
+       substr(p_birth, 1, 4) || '년' ||substr(p_birth, 5, 2) || '월' ||substr(p_birth, 7, 2) || '일',
+       decode(p_gender, 'M', '남', 'F', '여'),
+       p_tel1 || '-' || p_tel2 || '-' || p_tel3,
+       decode(p_city, '10', '서울', '20', '경기', '30', '강원', '40', '대구')
+from kwai_patient4
+order by p_no;`, 'long', { rows: [7] }],
+  ['환자별 검사결과 조회', String.raw`select a.p_no,
+       a.p_name,
+       b.t_name,
+       substr(c.t_sdate, 1, 4) || '-' ||substr(c.t_sdate, 5, 2) || '-' ||substr(c.t_sdate, 7, 2),
+       decode(c.t_status, '1', '검사 중', '2', '검사 완료'),
+       substr(c.t_idate, 1, 4) || '-' ||substr(c.t_idate, 5, 2) || '-' ||substr(c.t_idate, 7, 2),
+       decode(c.t_result, 'X', '미입력', 'P', '양성', 'N', '음성')
+from kwai_patient4 a, kwai_labtest4 b, kwai_result_2023 c
+where a.p_no = c.p_no and b.t_code = c.t_code
+order by a.p_no asc;`, 'long', { rows: [10] }],
+  ['지역별 검사건수', String.raw`select a.p_city 지역코드,
+       decode(a.p_city, '10', '서울', '20', '경기', '30', '강원', '40', '대구') 지역명,
+       count(b.p_se) 검사건수
+from kwai_patient4 a,
+     kwai_result_2023 b
+where a.p_no = b.p_no
+group by a.p_city,
+         decode(a.p_city, '10', '서울', '20', '경기', '30', '강원', '40', '대구')
+order by a.p_city;`, 'long', { rows: [4] }]
+] };
+
+CT_DATA.sql_store = { track: 'sql', skin: 'term', name: '매장관리', icon: '🏪', color: '#f2c744', items: [
+  CT_SQL_CONNECT,
+  ['매장 테이블 만들기', String.raw`create table TBL_STORE (
+    store_code char(3) not null primary key,
+    store_name varchar2(20),
+    store_type char(1),
+    founders_day char(8)
+);`],
+  ['매장 데이터 넣기 (insert)', String.raw`insert into TBL_STORE values ('100', '코엑스점', 'M', '20230101');
+insert into TBL_STORE values ('200', '판교점', 'A', '20230202');
+insert into TBL_STORE values ('300', '울산점', 'M', '20230303');
+insert into TBL_STORE values ('400', '일산점', 'A', '20230404');`],
+  ['매출 테이블 만들기', String.raw`create table TBL_SALES (
+    store_code char(3) not null primary key,
+    first number,
+    second number,
+    third number,
+    fourth number
+);`],
+  ['매출 데이터 넣기 + commit', String.raw`insert into TBL_SALES values ('100', 10000, 20000, 30000, 40000);
+insert into TBL_SALES values ('200', 5000, 2000, 10000, 15000);
+insert into TBL_SALES values ('300', 15000, 30000, 10000, 10000);
+commit;`],
+  ['1단계 : 테이블 합치기 (조인)', String.raw`select *
+from tbl_store a, tbl_sales b
+where a.store_code = b.store_code;`, '', { rows: [3] }],
+  ['2단계 : 필요한 컬럼 추출', String.raw`select a.store_name,
+    first,
+    second,
+    third,
+    fourth,
+    first + second + third + fourth,
+    founders_day
+from tbl_store a, tbl_sales b
+where a.store_code = b.store_code;`, 'long', { rows: [3] }],
+  ['3단계 : 출력 형식 지정', String.raw`select a.store_name,
+    to_char(first, '999,999'),
+    second,
+    third,
+    fourth,
+    first + second + third + fourth,
+    substr(founders_day, 1, 4) || '년'
+from tbl_store a, tbl_sales b
+where a.store_code = b.store_code;`, 'long', { rows: [3] }]
+] };
+
+var CT = { lang: null, idx: 0, target: '', colors: [], strict: [], info: [], term: false, kr: false, t0: 0, total: 0, wrong: 0, prev: 0, done: false, comp: false, skip: true, timer: null, showTime: (function () { try { return localStorage.getItem('gamehub_ct_showtime') !== '0'; } catch (e) { return true; } })() };
 
 function ctEsc(c) { return c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c; }
 
@@ -248,6 +450,7 @@ function ctEsc(c) { return c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ?
 function ctColors(lang, code) {
   var cls = [], i;
   for (i = 0; i < code.length; i++) cls.push('d');
+  if (!CT_KW[lang]) return cls;   /* SQL 터미널은 색 없이 (진짜 터미널처럼) */
   function mark(re, c) {
     var m;
     re.lastIndex = 0;
@@ -264,25 +467,132 @@ function ctColors(lang, code) {
   return cls;
 }
 
+/* 정확히 쳐야 하는 글자: 코드 연습은 전부, SQL은 따옴표 안(데이터)만 */
+function ctStrictMap(term, code) {
+  var s = [], i;
+  for (i = 0; i < code.length; i++) s.push(!term);
+  if (term) {
+    var re = /'[^'\n]*'/g, m;
+    while ((m = re.exec(code))) for (var k = m.index; k < m.index + m[0].length; k++) s[k] = true;
+  }
+  return s;
+}
+function ctEq(i, ch) {
+  var t = CT.target[i];
+  return CT.strict[i] ? ch === t : (ch === t || (ch && t && ch.toLowerCase() === t.toLowerCase()));
+}
+function ctSame(v) {
+  if (v.length !== CT.target.length) return false;
+  for (var i = 0; i < v.length; i++) if (!ctEq(i, v[i])) return false;
+  return true;
+}
+
+/* SQL 터미널: 줄마다 프롬프트(SQL> / 2) 와 실행 결과(Table created. 등)를 미리 정해둬요 */
+function ctTermInfo(code, opt) {
+  var lines = code.split('\n'), info = [], stmt = [], rows = (opt && opt.rows ? opt.rows.slice() : []), shell = !!(opt && opt.shell);
+  lines.forEach(function (line, n) {
+    var o = { prompt: shell ? 'C:\\Users\\PC>' : (stmt.length === 0 ? 'SQL> ' : ('   ' + (stmt.length + 1)).slice(-3) + '  '), out: '' };
+    stmt.push(line);
+    if (shell) {
+      if (n === lines.length - 1 && opt.out) o.out = typeof opt.out === 'function' ? opt.out() : opt.out;
+    } else if (/;\s*$/.test(line)) {
+      var s = stmt.join(' ');
+      var m = '';
+      if (/^\s*drop\s+table/i.test(s)) m = 'Table dropped.';
+      else if (/^\s*create\s+table/i.test(s)) m = 'Table created.';
+      else if (/^\s*insert/i.test(s)) m = '1 row created.';
+      else if (/^\s*commit/i.test(s)) m = 'Commit complete.';
+      else if (/^\s*select/i.test(s)) { var r = rows.length ? rows.shift() : 1; m = r + (r === 1 ? ' row selected.' : ' rows selected.'); }
+      if (m) o.out = '\n' + m + '\n';
+      stmt = [];
+    }
+    info.push(o);
+  });
+  return info;
+}
+
+
+/* 주제별 '전체 한 번에' 긴 연습: 각 SQL 주제의 항목들을 순서대로 이어붙여요 (접속 항목 제외) */
+(function () {
+  function countSel(code) {
+    var n = 0, fresh = true;
+    code.split('\n').forEach(function (l) {
+      if (fresh && /^\s*select\b/i.test(l)) n++;
+      if (/;\s*$/.test(l)) fresh = true; else fresh = false;
+    });
+    return n;
+  }
+  Object.keys(CT_DATA).forEach(function (id) {
+    var D = CT_DATA[id];
+    if (D.track !== 'sql') return;
+    var codes = [], rows = [];
+    D.items.forEach(function (it) {
+      var o = it[3] || {};
+      if (o.shell) return;
+      codes.push(it[1]);
+      var c = countSel(it[1]), r = o.rows ? o.rows.slice() : [];
+      while (r.length < c) r.push(1);
+      rows = rows.concat(r);
+    });
+    D.items.push(['📚 ' + D.name + ' 전체 한 번에', codes.join('\n'), 'long', { rows: rows, full: true }]);
+  });
+})();
+
+
+/* 🚇 지하철: metro.js 의 노선 데이터로 연습 항목을 만들어요 (한 구간 10역씩 + 노선 전체) */
+(function () {
+  if (typeof MT_LINES === 'undefined') return;
+  function rows(arr) { var r = []; for (var i = 0; i < arr.length; i += 5) r.push(arr.slice(i, i + 5).join(' ')); return r.join('\n'); }
+  MT_LINES.forEach(function (L) {
+    var items = [], st = L.st, n = st.length;
+    for (var a = 0; a < n; a += 10) {
+      var seg = st.slice(a, a + 10);
+      items.push([L.name + ' · ' + seg[0] + ' → ' + seg[seg.length - 1], rows(seg)]);
+    }
+    if (n > 10) items.push(['📚 ' + L.name + ' 전체 (' + n + '역)', rows(st), 'long', { full: true }]);
+    CT_DATA['sub_' + L.id] = { track: 'subway', kr: true, num: L.num, name: L.name, file: L.name + '.txt', icon: '🚇', color: L.color, items: items };
+  });
+})();
+
 /* ---------- 기록 ---------- */
 function ctKey(l, i) { return 'gamehub_codetype_best_' + l + '_' + i; }
 function ctBest(l, i) { try { return JSON.parse(localStorage.getItem(ctKey(l, i)) || 'null'); } catch (e) { return null; } }
 function ctSaveBest(l, i, rec) { try { localStorage.setItem(ctKey(l, i), JSON.stringify(rec)); } catch (e) {} }
+function ctDoneCount(id) { var n = 0; CT_DATA[id].items.forEach(function (_, i) { if (ctBest(id, i)) n++; }); return n; }
 
-/* ---------- 화면 ---------- */
-function startCodeTypeGame() { stopCodeTypeGame(); ctShowLang(); }
+/* ---------- 화면: 종류 고르기 → 언어/프로그램 고르기 → 연습 ---------- */
+function startCodeTypeGame() { stopCodeTypeGame(); ctShowTracks(); }
 function stopCodeTypeGame() { clearInterval(CT.timer); CT.timer = null; }
 
-function ctShowLang() {
+function ctShowTracks() {
   stopCodeTypeGame();
   CT.lang = null;
-  var html = '<div class="ct-langs"><p class="ct-lead">연습할 언어를 골라요. 코드를 직접 치면서 문법을 몸에 익혀요.</p><div class="ct-lang-row">';
-  ['java', 'python', 'c'].forEach(function (id) {
-    var D = CT_DATA[id], done = 0;
-    D.items.forEach(function (_, i) { if (ctBest(id, i)) done++; });
-    html += '<button class="ct-lang" style="--lc:' + D.color + '" onclick="ctPickLang(\'' + id + '\')">' +
-      '<span class="ct-lang-ic">' + D.icon + '</span><b>' + D.name + '</b>' +
-      '<small>연습 ' + D.items.length + '개 (기본+긴 코드) · 완료 ' + done + '개</small></button>';
+  var html = '<div class="ct-langs"><p class="ct-lead">무엇을 연습할까요?</p><div class="ct-lang-row">';
+  Object.keys(CT_TRACKS).forEach(function (id) {
+    var T = CT_TRACKS[id], total = 0, done = 0;
+    Object.keys(CT_DATA).forEach(function (k) { if (CT_DATA[k].track === id) { total += CT_DATA[k].items.length; done += ctDoneCount(k); } });
+    html += '<button class="ct-lang ct-track" onclick="ctShowLang(\'' + id + '\')"><span class="ct-lang-ic">' + T.icon + '</span><b>' + T.name + '</b>' +
+      '<small>' + T.desc + '</small><small>연습 ' + total + '개 · 완료 ' + done + '개</small></button>';
+  });
+  html += '</div></div>';
+  document.getElementById('ct-root').innerHTML = html;
+}
+
+/* 지하철은 호선 색깔 동그라미(번호), 나머지는 이모지 아이콘 */
+function ctIcon(D) {
+  return D.num ? '<span class="ct-badge" style="background:' + D.color + '">' + D.num + '</span>' : D.icon;
+}
+
+function ctShowLang(track) {
+  stopCodeTypeGame();
+  CT.lang = null;
+  var T = CT_TRACKS[track];
+  var html = '<div class="ct-langs"><button class="ct-back ct-back-top" onclick="ctShowTracks()">← 종류 다시 고르기</button><p class="ct-lead">' + T.lead + '</p><div class="ct-lang-row">';
+  Object.keys(CT_DATA).forEach(function (id) {
+    var D = CT_DATA[id]; if (D.track !== track) return;
+    html += '<button class="ct-lang' + (D.num ? ' ct-sub' : '') + '" style="--lc:' + D.color + '" onclick="ctPickLang(\'' + id + '\')">' +
+      '<span class="ct-lang-ic">' + ctIcon(D) + '</span><b>' + D.name + '</b>' +
+      '<small>연습 ' + D.items.length + '개 · 완료 ' + ctDoneCount(id) + '개</small></button>';
   });
   html += '</div></div>';
   document.getElementById('ct-root').innerHTML = html;
@@ -290,24 +600,27 @@ function ctShowLang() {
 
 function ctPickLang(id) {
   CT.lang = id;
-  var D = CT_DATA[id];
+  var D = CT_DATA[id], term = D.skin === 'term';
+  CT.kr = !!D.kr;
+  var top = term
+    ? '<div class="ct-term-top"><span class="ct-term-tab">▣ C:\\Users\\PC\\Desktop\\SQL연습 ✕</span><span class="ct-term-plus">＋ ⌄</span><span class="ct-term-wc">—  ☐  ✕</span></div>'
+    : '<div class="ct-editor-top"><i></i><i></i><i></i><span>' + D.file + '</span></div>';
   document.getElementById('ct-root').innerHTML =
-    '<div class="ct-play" style="--lc:' + D.color + '">' +
+    '<div class="ct-play' + (D.num ? ' sub' : '') + '" style="--lc:' + D.color + '">' +
       '<aside class="ct-side">' +
-        '<button class="ct-back" onclick="ctShowLang()">← 언어 다시 고르기</button>' +
-        '<div class="ct-side-title">' + D.icon + ' ' + D.name + '</div>' +
+        '<button class="ct-back" onclick="ctShowLang(\'' + D.track + '\')">← 다시 고르기</button>' +
+        '<div class="ct-side-title">' + ctIcon(D) + ' ' + D.name + '</div>' +
         '<div id="ct-list" class="ct-list"></div>' +
       '</aside>' +
       '<section class="ct-main">' +
         '<div class="ct-lesson" id="ct-lesson"></div>' +
         '<div class="ct-stats">' +
-          '<span>⌨️ <b id="ct-cpm">0</b>타</span><span>🎯 <b id="ct-acc">100</b>%</span>' +
-          '<span>⏱ <b id="ct-time">0.0</b>초</span><span>📈 <b id="ct-prog">0</b>%</span>' +
+          '<span class="ct-st-time">⌨️ <b id="ct-cpm">0</b>타</span><span>🎯 <b id="ct-acc">100</b>%</span>' +
+          '<span class="ct-st-time">⏱ <b id="ct-time">0.0</b>초</span><span>📈 <b id="ct-prog">0</b>%</span>' +
         '</div>' +
         '<div class="ct-bar"><div class="ct-bar-in" id="ct-bar"></div></div>' +
-        '<div class="ct-editor">' +
-          '<div class="ct-editor-top"><i></i><i></i><i></i><span>' + D.file + '</span></div>' +
-          '<div class="ct-codewrap" id="ct-wrap"><div id="ct-code" class="ct-code"></div>' +
+        '<div class="ct-editor' + (term ? ' ct-termwin' : '') + '">' + top +
+          '<div class="ct-codewrap" id="ct-wrap"><div id="ct-banner" class="ct-banner"></div><div id="ct-code" class="ct-code"></div>' +
             '<textarea id="ct-inp" class="ct-inp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="타자 입력"></textarea></div>' +
         '</div>' +
         '<div class="ct-notice" id="ct-notice"></div>' +
@@ -315,10 +628,12 @@ function ctPickLang(id) {
         '<div class="ct-btns">' +
           '<button class="btn btn-ghost" onclick="ctReset()">↻ 처음부터</button>' +
           '<button class="btn btn-ghost" id="ct-skipbtn" onclick="ctToggleSkip()"></button>' +
+          '<button class="btn btn-ghost" id="ct-timebtn" onclick="ctToggleTime()"></button>' +
         '</div>' +
-        '<p class="ct-help">영문 입력 상태에서 쳐요. 복사·붙여넣기와 자동완성은 막혀 있어요.</p>' +
+        '<p class="ct-help">' + (D.kr ? '한글 입력 상태에서 쳐요. 역 이름 사이는 띄어쓰기(스페이스)로 구분해요. 복사·붙여넣기와 자동완성은 막혀 있어요.' : term ? '한글도 직접 쳐요. 따옴표 안 글자는 정확히, 나머지는 대소문자 상관없어요. 복사·붙여넣기와 자동완성은 막혀 있어요.' : '영문 입력 상태에서 쳐요. 복사·붙여넣기와 자동완성은 막혀 있어요.') + '</p>' +
       '</section>' +
     '</div>';
+  CT.term = term;
   ctBuildList();
   ctBindInput();
   clearInterval(CT.timer);
@@ -327,31 +642,49 @@ function ctPickLang(id) {
 }
 
 function ctBuildList() {
-  var D = CT_DATA[CT.lang], html = '', prevLong = null;
+  var D = CT_DATA[CT.lang], html = '', prevLong = null, term = D.skin === 'term';
   D.items.forEach(function (it, i) {
-    var isLong = it[2] === 'long';
-    if (prevLong !== isLong) { html += '<div class="ct-grp">' + (isLong ? '📜 긴 코드' : '🌱 기본 문법') + '</div>'; prevLong = isLong; }
+    var isFull = !!(it[3] && it[3].full), isLong = isFull ? 'full' : it[2] === 'long';
+    if (prevLong !== isLong) { html += '<div class="ct-grp">' + (isFull ? (D.kr ? '📚 노선 전체' : '📚 주제 전체 묶음') : isLong ? (term ? '📜 긴 쿼리' : '📜 긴 코드') : (D.kr ? '🚉 구간별' : '🌱 기본')) + '</div>'; prevLong = isLong; }
     var b = ctBest(CT.lang, i);
     html += '<button class="ct-item' + (i === CT.idx ? ' on' : '') + '" onclick="ctSelect(' + i + ')">' +
       '<span class="ct-item-name">' + it[0] + '</span>' +
-      '<span class="ct-item-best">' + (b ? '👑 ' + b.cpm + '타' : '') + '</span></button>';
+      '<span class="ct-item-best">' + (b ? (b.cpm ? '👑 ' + b.cpm + '타' : '✅') : '') + '</span></button>';
   });
   document.getElementById('ct-list').innerHTML = html;
 }
 
 function ctSelect(i) {
   CT.idx = i;
-  var it = CT_DATA[CT.lang].items[i];
+  var D = CT_DATA[CT.lang], it = D.items[i], opt = it[3] || {};
   CT.target = it[1];
+  CT.term = D.skin === 'term';
   CT.colors = ctColors(CT.lang, it[1]);
+  CT.strict = ctStrictMap(CT.term, it[1]);
+  CT.info = CT.term ? ctTermInfo(it[1], opt) : [];
   document.getElementById('ct-lesson').textContent = it[0];
+  var bn = document.getElementById('ct-banner');
+  bn.textContent = '';
+  bn.style.display = 'none';   /* SQL*Plus 버전/저작권 안내 글은 보여주지 않아요 */
   ctBuildList();
   ctReset();
 }
 
+function ctToggleTime() {
+  CT.showTime = !CT.showTime;
+  try { localStorage.setItem('gamehub_ct_showtime', CT.showTime ? '1' : '0'); } catch (e) {}
+  ctTimeLabel();
+  var f = document.getElementById('ct-inp'); if (f) f.focus();
+}
+function ctTimeLabel() {
+  var b = document.getElementById('ct-timebtn');
+  if (b) b.textContent = CT.showTime ? '⏱ 시간·타수 보기: 켜짐' : '⏱ 시간·타수 보기: 꺼짐';
+  document.querySelectorAll('.ct-st-time').forEach(function (e) { e.style.display = CT.showTime ? '' : 'none'; });
+}
 function ctToggleSkip() { CT.skip = !CT.skip; ctSkipLabel(); var f = document.getElementById('ct-inp'); if (f) f.focus(); }
 function ctSkipLabel() {
   var b = document.getElementById('ct-skipbtn');
+  if (b) b.style.display = CT.kr ? 'none' : '';
   if (b) b.textContent = CT.skip ? '↹ 들여쓰기 자동 건너뛰기: 켜짐' : '↹ 들여쓰기 자동 건너뛰기: 꺼짐 (Tab = 공백 4칸)';
 }
 
@@ -359,11 +692,12 @@ function ctReset() {
   var inp = document.getElementById('ct-inp');
   if (!inp) return;
   inp.value = '';
-  CT.t0 = 0; CT.total = 0; CT.wrong = 0; CT.prev = 0; CT.done = false;
+  CT.t0 = 0; CT.total = 0; CT.wrong = 0; CT.prev = 0; CT.done = false; CT.comp = false;
   document.getElementById('ct-done').innerHTML = '';
   document.getElementById('ct-done').classList.remove('on');
   document.getElementById('ct-notice').textContent = '';
   ctSkipLabel();
+  ctTimeLabel();
   ctRender();
   ctStats();
   inp.focus();
@@ -371,33 +705,45 @@ function ctReset() {
 
 /* ---------- 그리기 ---------- */
 function ctRender() {
-  var v = document.getElementById('ct-inp').value, t = CT.target, html = '', i = 0;
-  var lines = t.split('\n');
-  for (var n = 0; n < lines.length; n++) {
-    html += '<div class="ct-ln"><span class="ct-no">' + (n + 1) + '</span><span class="ct-tx">';
+  var v = document.getElementById('ct-inp').value, t = CT.target, html = '', i = 0, term = CT.term;
+  var lines = t.split('\n'), last = lines.length - 1;
+  var compIdx = CT.comp && v.length ? v.length - 1 : -1;   /* 한글을 조합하는 중인 글자 */
+  for (var n = 0; n <= last; n++) {
+    html += '<div class="ct-ln"><span class="ct-no">' + (term ? ctEsc(CT.info[n].prompt) : (n + 1)) + '</span><span class="ct-tx">';
     var line = lines[n];
     for (var k = 0; k <= line.length; k++, i++) {
       var isNl = (k === line.length);
-      if (isNl && n === lines.length - 1) break;
+      if (isNl && n === last) break;
       var c = isNl ? '\n' : line[k];
       var st = '';
-      if (i < v.length) st = v[i] === c ? 'ok' : 'bad';
+      if (i < v.length) st = i === compIdx ? 'comp' : (ctEq(i, v[i]) ? 'ok' : 'bad');
       else if (i === v.length && !CT.done) st = 'cur';
       var cl = 'ct-c ' + CT.colors[i] + (st ? ' ' + st : '');
+      var tp = (st === 'bad' && !isNl && v[i] && v[i] !== ' ' && v[i] !== c) ? ' data-t="' + ctEsc(v[i]).replace(/"/g, '&quot;') + '"' : '';
       if (isNl) html += '<span class="' + cl + ' nl">↵</span>';
       else if (c === ' ' && st === 'bad') html += '<span class="' + cl + '">·</span>';
-      else html += '<span class="' + cl + '">' + ctEsc(c) + '</span>';
+      else html += '<span class="' + cl + '"' + tp + '>' + ctEsc(c) + '</span>';
     }
     html += '</span></div>';
+    /* 줄을 끝까지 치고 Enter를 누르면 실행 결과가 나와요 */
+    if (term && CT.info[n].out && (n < last ? v.length >= i : CT.done)) html += '<div class="ct-out">' + ctEsc(CT.info[n].out) + '</div>';
   }
   document.getElementById('ct-code').innerHTML = html;
+  /* 영문을 쳐야 하는데 한글로 입력 중이면 바로 알려줘요 */
+  var hg = /[\u3131-\u318E\uAC00-\uD7A3]/, hw = false;
+  for (var j = 0; j < v.length && !hw; j++) { if (hg.test(v[j]) && !hg.test(t[j] || '')) hw = true; }
+  var nt = document.getElementById('ct-notice');
+  if (nt) {
+    if (hw) { nt.textContent = '⚠️ 지금 한글로 입력되고 있어요! 빨간 글자 위에 작게 보이는 게 내가 친 글자예요. 한/영 키로 영문으로 바꿔서 쳐요.'; CT.hnote = true; }
+    else if (CT.hnote) { nt.textContent = ''; CT.hnote = false; }
+  }
 }
 
 function ctStats() {
   var inp = document.getElementById('ct-inp');
   if (!inp) return;
   var v = inp.value, ok = 0;
-  for (var i = 0; i < v.length; i++) if (v[i] === CT.target[i]) ok++;
+  for (var i = 0; i < v.length; i++) if (ctEq(i, v[i])) ok++;
   var sec = CT.t0 ? (Date.now() - CT.t0) / 1000 : 0;
   var good = Math.max(0, CT.total - CT.wrong);
   document.getElementById('ct-cpm').textContent = sec > 0.5 ? Math.round(good / (sec / 60)) : 0;
@@ -408,7 +754,7 @@ function ctStats() {
   document.getElementById('ct-bar').style.width = p + '%';
 }
 
-/* ---------- 입력 (붙여넣기·자동완성 막기) ---------- */
+/* ---------- 입력 (붙여넣기·자동완성 막기, 한글 조합 처리) ---------- */
 function ctBindInput() {
   var inp = document.getElementById('ct-inp'), wrap = document.getElementById('ct-wrap');
   function toEnd() { var n = inp.value.length; try { inp.setSelectionRange(n, n); } catch (e) {} }
@@ -429,16 +775,23 @@ function ctBindInput() {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].indexOf(e.key) > -1) e.preventDefault();
     if ((e.ctrlKey || e.metaKey) && ['v', 'c', 'x', 'a', 'z', 'y'].indexOf(e.key.toLowerCase()) > -1) e.preventDefault();
   });
-  wrap.addEventListener('mousedown', function (e) { e.preventDefault(); inp.focus(); toEnd(); });
+  wrap.addEventListener('mousedown', function (e) { e.preventDefault(); inp.focus(); if (!CT.comp) toEnd(); });
+  /* 한글: 조합 중인 글자는 맞다/틀리다 정하지 않고, 조합이 끝나면 그때 채점해요 */
   inp.addEventListener('compositionstart', function () {
-    document.getElementById('ct-notice').textContent = '한글 입력 중이에요. 한/영 키로 영문으로 바꿔서 쳐요.';
+    CT.comp = true;
+    if (!CT.term && !CT.kr) document.getElementById('ct-notice').textContent = '한글 입력 중이에요. 한/영 키로 영문으로 바꿔서 쳐요.';
   });
   inp.addEventListener('compositionend', function () {
-    inp.value = inp.value.slice(0, CT.prev);
-    toEnd();
+    CT.comp = false;
+    if (inp.value.length - CT.prev > 2) inp.value = inp.value.slice(0, CT.prev);   /* 한꺼번에 많이 들어오면 되돌려요 */
+    ctHandle();
   });
   inp.addEventListener('input', function (e) {
-    if (e.isComposing) return;
+    if (e.isComposing || CT.comp) {
+      /* 마지막 글자를 조합하는 중에 정답과 똑같아지면 바로 끝낼 수 있게 (안 그러면 다른 키를 한 번 더 눌러야 끝나요) */
+      if (!CT.done && inp.value.length === CT.target.length && ctSame(inp.value)) { CT.comp = false; ctHandle(); return; }
+      ctRender(); return;
+    }
     /* 한 번에 두 글자 이상 늘어나면(붙여넣기·자동완성) 되돌려요 */
     if (inp.value.length - CT.prev > 1 && e.inputType !== 'insertLineBreak') inp.value = inp.value.slice(0, CT.prev);
     ctHandle();
@@ -450,16 +803,19 @@ function ctHandle() {
   if (CT.done) { inp.value = t; return; }
   if (v.length > t.length) v = v.slice(0, t.length);
   if (!CT.t0 && v.length) CT.t0 = Date.now();
-  for (var i = CT.prev; i < v.length; i++) { CT.total++; if (v[i] !== t[i]) CT.wrong++; }
+  /* 아직 조합 중인(막 시작된) 마지막 한글 글자는 채점을 미뤄요: 완성되기 전 낱자모가 '틀림'(빨간색)으로 세어지지 않게 */
+  var lim = v.length;
+  if (lim && (CT.comp || (/[\u3131-\u318E]/.test(v[lim - 1]) && v[lim - 1] !== t[lim - 1]))) lim--;
+  for (var i = CT.prev; i < lim; i++) { CT.total++; if (!ctEq(i, v[i])) CT.wrong++; }
   /* 줄바꿈을 맞게 쳤으면 다음 줄 들여쓰기는 자동으로 건너뛰어요 (기록에는 안 셈) */
   if (CT.skip && v.length > CT.prev && v.length < t.length && v[v.length - 1] === '\n' && t[v.length - 1] === '\n') {
     while (t[v.length] === ' ') v += ' ';
   }
-  inp.value = v;
-  CT.prev = v.length;
-  try { inp.setSelectionRange(v.length, v.length); } catch (e) {}
-  if (v === t) ctFinish();
-  document.getElementById('ct-notice').textContent = '';
+  if (inp.value !== v) inp.value = v;
+  CT.prev = lim;
+  if (!CT.comp) { try { inp.setSelectionRange(v.length, v.length); } catch (e) {} }
+  if (lim === v.length && ctSame(v)) ctFinish();
+  document.getElementById('ct-notice').textContent = CT.comp && !CT.term && !CT.kr ? document.getElementById('ct-notice').textContent : '';
   ctRender();
   ctStats();
 }
@@ -471,12 +827,13 @@ function ctFinish() {
   var cpm = Math.round(good / (sec / 60));
   var acc = Math.round(good / CT.total * 100);
   var old = ctBest(CT.lang, CT.idx);
-  var isBest = !old || cpm > old.cpm;
+  var isBest = CT.showTime && (!old || !old.cpm || cpm > old.cpm);
   if (isBest) ctSaveBest(CT.lang, CT.idx, { cpm: cpm, acc: acc });
+  else if (!old) ctSaveBest(CT.lang, CT.idx, { cpm: 0, acc: acc });
   ctBuildList();
   var last = CT.idx >= CT_DATA[CT.lang].items.length - 1;
   var el = document.getElementById('ct-done');
-  el.innerHTML = '<div class="ct-done-msg">🎉 완료! <b>' + cpm + '타</b> · 정확도 <b>' + acc + '%</b> · ' + sec.toFixed(1) + '초' +
+  el.innerHTML = '<div class="ct-done-msg">🎉 완료! ' + (CT.showTime ? '<b>' + cpm + '타</b> · ' : '') + '정확도 <b>' + acc + '%</b>' + (CT.showTime ? ' · ' + sec.toFixed(1) + '초' : '') +
     (isBest ? ' · 👑 최고 기록!' : '') + '</div>' +
     (last ? '' : '<button class="btn btn-primary" onclick="ctSelect(' + (CT.idx + 1) + ')">다음 연습 ▶</button>');
   el.classList.add('on');

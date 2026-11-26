@@ -1,0 +1,111 @@
+@font-face{font-family:'LeeSeoyun';src:url('../fonts/LeeSeoyun.ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap;}
+/* ☁️ 밝고 조용한 무채색 테마 (style.css 뒤에 덮어써요) */
+:root {
+  --board: #F6F5F2; --boardDeep: #FFFFFF; --boardLine: rgba(30,30,30,0.10);
+  --chalk: #1E1E1E; --chalkDim: #8C8984;
+  --yellow: #1E1E1E; --sky: #6F7C86; --coral: #C2554A; --lilac: #8F8A98; --leaf: #5F7F63;
+  --ink: #1E1E1E; --card: #FFFFFF; --soft: #ECEAE6;
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 10px 28px rgba(0,0,0,0.05);
+}
+body { font-synthesis: none; background: var(--board); background-image: none; color: var(--ink); }
+::selection { background: rgba(30,30,30,0.14); }
+
+/* 쓸데없는 작은 말은 숨겨요 */
+.home-title span, .game-desc, .game-sub, .mode-btn span, .home-footer, .cat-vote-hint,
+.ct-help, .ct-lead, .ct-lang small, #rules-tag, .chalk-rule { display: none !important; }
+
+/* 홈 */
+.home-title { font-size: 46px; letter-spacing: -0.01em; margin-bottom: 26px; }
+.id-field input { border: 1px solid var(--boardLine); border-radius: 14px; padding: 11px 14px; background: #fff; }
+.id-field input:focus { border-color: var(--ink); }
+.card-grid { gap: 12px; }
+.game-card, .game-card:nth-child(n), .mode-btn {
+  transform: none !important; border-radius: 20px !important; padding: 18px 20px !important;
+  border: 1px solid var(--boardLine) !important; background: var(--card) !important; box-shadow: var(--shadow);
+  transition: transform .18s, box-shadow .18s; color: var(--ink);
+}
+.game-card:hover, .mode-btn:hover { transform: translateY(-2px) !important; background: var(--card) !important; box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 16px 34px rgba(0,0,0,0.08); }
+.game-card:active, .mode-btn:active { transform: translateY(0) !important; }
+.game-card .game-icon { border: none !important; border-radius: 14px !important; background: var(--soft) !important; color: var(--ink) !important; width: 46px; height: 46px; }
+.game-name { font-size: 24px; }
+.mode-btn { font-size: 24px; }
+
+/* 공통 부품 */
+.btn { border-radius: 99px; padding: 11px 24px; box-shadow: none; transition: transform .12s, background .15s; }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--ink); color: #fff; }
+.btn-primary:hover { filter: none; background: #000; }
+.btn-ghost { background: #fff; border: 1px solid var(--boardLine); color: var(--ink); }
+.btn-ghost:hover { background: var(--soft); }
+.back-btn { border-radius: 99px; padding: 6px 12px; }
+.back-btn:hover { background: var(--soft); }
+.room-pill { background: var(--ink); color: #fff; }
+.board-box, .lobby-panel { background: var(--card); border: 1px solid var(--boardLine); border-radius: 20px; box-shadow: var(--shadow); }
+.game-heading { font-size: 34px; }
+.topbar { background: transparent; }
+
+/* 타자 연습: 코드 창은 어둡게 (고급스러운 대비) */
+.ct-item { border-radius: 12px; background: #fff; border: 1px solid var(--boardLine); }
+.ct-item.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.ct-item.on .ct-item-best { color: #ddd; }
+.ct-editor { background: #1D1D1F; border: none; border-radius: 18px; box-shadow: var(--shadow); }
+.ct-editor:focus-within { box-shadow: 0 0 0 2px var(--ink), var(--shadow); }
+.ct-editor-top { background: #29292C; color: #9a9a9a; }
+.ct-editor-top i { background: #4a4a4e; }
+.ct-editor .ct-no { color: #6b6b70; }
+.ct-c.cur { text-decoration-color: #fff; }
+.ct-c.comp { background: rgba(255,255,255,0.22); }
+.ct-stats span { border-radius: 99px; }
+.ct-bar { background: var(--soft); border-radius: 99px; }
+.ct-bar-in { background: var(--ink); border-radius: 99px; }
+.ct-lang, .ct-track { background: #fff !important; border: 1px solid var(--boardLine) !important; border-radius: 20px !important; box-shadow: var(--shadow); }
+.ct-side-title, .ct-lang b { color: var(--ink); }
+
+/* 마무리 다듬기 */
+.mode-btn { font-size: 21px; }
+.ct-btns .btn { font-size: 15px; padding: 9px 18px; }
+.coin-pill, .coin-toast { background: #fff !important; color: var(--ink) !important; border: 1px solid var(--boardLine) !important; box-shadow: var(--shadow); }
+
+/* ✍️ 글꼴: 손글씨 느낌 (바꾸고 싶으면 아래 두 줄만 고치면 돼요. index.html 맨 위 Google Fonts 주소에도 같은 글꼴이 있어야 해요)
+   손글씨 후보: 'LeeSeoyun', 'Hi Melody' · 'Gaegu' · 'Gamja Flower' · 'Poor Story' · 'Nanum Pen Script' · 'Single Day' */
+:root { --font-hand: 'LeeSeoyun', 'Hi Melody', 'LeeSeoyun','Gaegu', 'Jua', cursive; --font-body: 'LeeSeoyun', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; }
+body { font-family: var(--font-body); }
+
+/* 🤫 귓속말 */
+.wh-pop { position: fixed; z-index: 100000; background: #fff; border: 1px solid var(--boardLine); border-radius: 14px; box-shadow: 0 10px 28px rgba(0,0,0,0.16); padding: 6px; max-height: 220px; overflow: auto; font-family: var(--font-hand); }
+.wh-head { font-size: 13px; color: var(--chalkDim); padding: 4px 8px 6px; }
+.wh-empty { font-size: 15px; color: var(--chalkDim); padding: 6px 10px 8px; }
+.wh-item { display: block; width: 100%; border: 0; background: none; padding: 8px 10px; border-radius: 10px; text-align: left; font: inherit; font-size: 18px; color: var(--ink); cursor: pointer; }
+.wh-item.on, .wh-item:hover { background: var(--soft); }
+.cmsg-bubble.whisper { background: #EFE9FA !important; color: #2b2340 !important; border: 1px dashed #8F7BC4; }
+.cmsg-wh { display: block; font-size: 12px; font-weight: 700; color: #6b55a8; margin-bottom: 2px; }
+.lc-wh { font-style: normal; font-size: 12px; font-weight: 700; color: #b9a5f0; }
+
+/* 🚇 지하철 호선 색깔 */
+.ct-badge { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: #fff; font-family: var(--font-hand); font-weight: 900; font-size: 21px; line-height: 1; box-shadow: 0 2px 0 rgba(0,0,0,0.14); }
+.ct-side-title .ct-badge { width: 28px; height: 28px; font-size: 15px; vertical-align: middle; margin-right: 2px; }
+.ct-lang.ct-sub { box-shadow: inset 0 6px 0 var(--lc), var(--shadow) !important; }
+.ct-play.sub .ct-item.on { background: var(--lc); border-color: var(--lc); color: #fff; }
+.ct-play.sub .ct-item.on .ct-item-best { color: #fff; }
+.ct-play.sub .ct-bar-in { background: var(--lc); }
+.ct-play.sub .ct-lesson { border-left: 6px solid var(--lc); padding-left: 10px; }
+
+/* ===== v2 패치 ===== */
+/* 홈 카드 글자 크기 통일 (긴 이름도 같은 크기, 넘치면 줄바꿈) */
+.game-card .game-name, .game-card .game-name.long { font-size: 22px; letter-spacing: normal; white-space: normal; word-break: keep-all; line-height: 1.25; overflow: visible; text-overflow: clip; }
+/* 채팅 입력칸 잘림 방지 */
+.chat-composer textarea.chat-textarea { min-height: 40px; box-sizing: border-box; }
+.chat-composer.compact textarea.chat-textarea { min-height: 34px; }
+/* 타자 연습: 틀린 글자 위에 내가 친 글자 표시 */
+.ct-c.bad[data-t] { position: relative; }
+.ct-c.bad[data-t]::after { content: attr(data-t); position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; font-size: .62em; line-height: 1; color: #C2554A; font-weight: 700; pointer-events: none; }
+/* PC 전체화면: 화면을 넓게 채우기 */
+@media (min-width: 1100px) {
+  .wrap { max-width: min(1760px, 96vw); }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); justify-content: stretch; gap: 16px; }
+  .game-card { padding: 22px 24px !important; }
+  .game-card .game-name, .game-card .game-name.long { font-size: 24px; }
+  .sd-grid, .sd-pause-overlay, .sd-tool-row, .sd-numpad { max-width: min(640px, 72vh); }
+  .bm-stage, .bm-touch-row { max-width: min(760px, 80vh); }
+}

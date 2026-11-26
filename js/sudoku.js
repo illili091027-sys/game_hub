@@ -479,7 +479,7 @@ function undoSudoku() {
   } else {
     SD_VALUES[r][c] = last.prevValue;
     SD_MEMOS[r][c] = last.prevMemos;
-    if (typeof last.prevMistakes === 'number') SD_MISTAKES = last.prevMistakes;
+    /* 실수 횟수는 되돌리기를 해도 줄어들지 않아요 */
     if (typeof last.prevScore === 'number') SD_SCORE = last.prevScore;
   }
   SD_SELECTED = { r: r, c: c };

@@ -290,7 +290,7 @@ function rlBuildFrames(st, c) {
     var frames = [];
     var mk = function (fn) { var cv = document.createElement('canvas'); cv.width = W; cv.height = H; var x = cv.getContext('2d'); fn(x); frames.push(cv); };
     var bg = function (x) { x.fillStyle = '#26402F'; x.fillRect(0, 0, W, H); x.fillStyle = 'rgba(255,255,255,0.06)'; for (var i = 0; i < 12; i++) x.fillRect(0, i * 46, W, 2); };
-    var font = function (sz, bold) { return (bold ? '700 ' : '') + sz + "px 'Gaegu','Noto Sans KR',sans-serif"; };
+    var font = function (sz, bold) { return (bold ? '700 ' : '') + sz + "px 'LeeSeoyun','Gaegu','LeeSeoyun', 'Noto Sans KR',sans-serif"; };
     var owner = st.names[st.order[c % st.order.length]] || '?';
     mk(function (x) {
       bg(x);
