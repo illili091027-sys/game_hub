@@ -261,7 +261,7 @@ function skDrawStork(ctx) {
     var t = (SK.t || 0) * 4;
     var cx = footX + Math.sin(th) * h * 0.85, cy = footY - Math.cos(th) * h * 0.85;
     ctx.fillStyle = '#f2c744';
-    ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
+    ctx.font = 'bold 24px "LeeSeoyun", sans-serif'; ctx.textAlign = 'center';
     for (var i = 0; i < 3; i++) ctx.fillText('★', cx + Math.cos(t + i * 2.1) * 34, cy - 20 + Math.sin(t + i * 2.1) * 10);
   }
 }
@@ -282,7 +282,7 @@ function skDrawBalanceMeter(ctx) {
   ctx.beginPath(); ctx.moveTo(cx, y - 12); ctx.lineTo(cx, y + 12); ctx.stroke();
   if (SK.flash) {
     ctx.fillStyle = 'rgba(111,195,223,' + (SK.flash.life * 4) + ')';
-    ctx.font = 'bold 30px sans-serif';
+    ctx.font = 'bold 30px "LeeSeoyun", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(SK.flash.dir < 0 ? '◀' : '▶', cx + SK.flash.dir * (w / 2 + 30), y + 10);
   }

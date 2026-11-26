@@ -829,7 +829,7 @@ function bbDrawCloud(ctx, c) {
     }
     if (c.amp) {
       ctx.fillStyle = 'rgba(111,195,223,0.9)';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = 'bold 12px "LeeSeoyun", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('◀ ▶', c.x, top + c.w * 0.22);
     }

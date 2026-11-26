@@ -575,7 +575,7 @@ function ldDraw(dt) {
       ctx.drawImage(img, -(s2 * Math.min(1, r)) / 2, -(s2 / Math.max(1, r)) / 2, s2 * Math.min(1, r), s2 / Math.max(1, r));
       ctx.restore();
     }
-    ctx.font = 'bold ' + Math.round(Math.max(11 * LD_DPR, hs * 0.62)) + 'px sans-serif';
+    ctx.font = 'bold ' + Math.round(Math.max(11 * LD_DPR, hs * 0.62)) + 'px "LeeSeoyun", sans-serif';
     ctx.textAlign = 'center';
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.strokeText(name + (isMe ? '(나)' : ''), cx, cy - hs * 1.3);
@@ -594,9 +594,9 @@ function ldDraw(dt) {
   if (!LD.alive) {
     ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-    ctx.font = 'bold ' + Math.round(H / 14) + 'px sans-serif';
+    ctx.font = 'bold ' + Math.round(H / 14) + 'px "LeeSeoyun", sans-serif';
     ctx.fillText('으앙! 탈락…', W / 2, H / 2 - 10 * LD_DPR);
-    ctx.font = Math.round(H / 26) + 'px sans-serif';
+    ctx.font = Math.round(H / 26) + 'px "LeeSeoyun", sans-serif';
     ctx.fillText(Math.max(0, Math.ceil((LD.deadUntil - now) / 1000)) + '초 뒤 다시 시작', W / 2, H / 2 + 24 * LD_DPR);
   }
   if (now - LD_MM_AT > 300) { LD_MM_AT = now; ldDrawMinimap(); }

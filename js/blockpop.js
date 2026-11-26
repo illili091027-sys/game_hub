@@ -160,10 +160,10 @@ function bpDraw() {
   /* 점수 (부드럽게 올라가요) */
   BP.shown += Math.ceil((BP.score - BP.shown) / 6);
   if (BP.shown > BP.score) BP.shown = BP.score;
-  ctx.fillStyle = '#ffd54f'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('👑 ' + BP.best, 16, 28);
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(BP.shown, BP_W / 2, 50);
-  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(BP_STAGE_NAME[bpStage()], 16, 50);
-  if (BP.combo > 1) { ctx.fillStyle = '#ff8a80'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'right'; ctx.fillText('콤보 ×' + BP.combo, BP_W - 16, 28); }
+  ctx.fillStyle = '#ffd54f'; ctx.font = 'bold 15px "LeeSeoyun", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('👑 ' + BP.best, 16, 28);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 36px "LeeSeoyun", sans-serif'; ctx.textAlign = 'center'; ctx.fillText(BP.shown, BP_W / 2, 50);
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = 'bold 12px "LeeSeoyun", sans-serif'; ctx.textAlign = 'left'; ctx.fillText(BP_STAGE_NAME[bpStage()], 16, 50);
+  if (BP.combo > 1) { ctx.fillStyle = '#ff8a80'; ctx.font = 'bold 15px "LeeSeoyun", sans-serif'; ctx.textAlign = 'right'; ctx.fillText('콤보 ×' + BP.combo, BP_W - 16, 28); }
   /* 판 */
   ctx.fillStyle = '#1e2752'; ctx.fillRect(BP_BX - 4, BP_BY - 4, BP_C * BP_N + 8, BP_C * BP_N + 8);
   for (var y = 0; y < BP_N; y++) for (var x = 0; x < BP_N; x++) {
@@ -203,7 +203,7 @@ function bpDraw() {
   /* 점수 글씨 */
   BP.pops = BP.pops.filter(function (q) {
     var t = (now - q.at) / 1100; if (t >= 1) return false;
-    ctx.globalAlpha = 1 - t; ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+    ctx.globalAlpha = 1 - t; ctx.fillStyle = '#fff'; ctx.font = 'bold 22px "LeeSeoyun", sans-serif'; ctx.textAlign = 'center';
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,20,80,0.8)';
     var ty = BP_BY + BP_C * BP_N / 2 - t * 40;
     ctx.strokeText(q.t, BP_W / 2, ty); ctx.fillText(q.t, BP_W / 2, ty);

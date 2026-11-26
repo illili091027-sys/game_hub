@@ -102,10 +102,21 @@ body { font-family: var(--font-body); }
 .ct-c.bad[data-t]::after { content: attr(data-t); position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; font-size: .62em; line-height: 1; color: #C2554A; font-weight: 700; pointer-events: none; }
 /* PC 전체화면: 화면을 넓게 채우기 */
 @media (min-width: 1100px) {
-  .wrap { max-width: min(1760px, 96vw); }
-  .card-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); justify-content: stretch; gap: 16px; }
-  .game-card { padding: 22px 24px !important; }
-  .game-card .game-name, .game-card .game-name.long { font-size: 24px; }
-  .sd-grid, .sd-pause-overlay, .sd-tool-row, .sd-numpad { max-width: min(640px, 72vh); }
-  .bm-stage, .bm-touch-row { max-width: min(760px, 80vh); }
+  .wrap { max-width: min(1320px, 92vw); }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); justify-content: stretch; gap: 16px; }
+  .game-card { padding: 20px 22px !important; }
+  .game-card .game-name, .game-card .game-name.long { font-size: 23px; }
+}
+
+/* ===== v3 패치 (PC에서 게임이 화면 안에 들어오게) ===== */
+@media (min-width: 900px) {
+  .bz-wrap { max-width: 560px; }
+  .bz-board { width: min(100%, 420px, calc((100vh - 200px) * 0.6774)); margin: 0 auto; }
+  .bp-stage { max-width: min(440px, calc((100vh - 210px) * 0.6667)); }
+  #pz-canvas { max-width: min(440px, calc(100vh - 230px)); }
+  .wd-stage { width: min(100%, 900px, calc((100vh - 230px) * 1.5714)); margin-left: auto; margin-right: auto; }
+  .bt-stage { width: min(100%, 900px, calc((100vh - 230px) * 1.7778)); margin-left: auto; margin-right: auto; }
+  #cm-canvas { width: min(100%, 640px, calc((100vh - 260px) * 1.3333)); margin-left: auto; margin-right: auto; }
+  .sd-grid { width: min(100%, 396px, max(260px, calc(100vh - 380px))); }
+  .mm-wrap { max-width: 860px; }
 }

@@ -351,7 +351,7 @@ function wdDraw(dt) {
     wdDrawChar(ctx, row, tp.dir || st.dir, px, py - hop, ts * 1.25, dead);
   }
   if (dead) {
-    ctx.font = 'bold ' + Math.round(ts * 0.9) + 'px sans-serif'; ctx.textAlign = 'center';
+    ctx.font = 'bold ' + Math.round(ts * 0.9) + 'px "LeeSeoyun", sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('💫', px, py - ts * 0.75);
   }
   /* 다음에 꺾을 방향(예약된 키) 화살표 */
@@ -378,7 +378,7 @@ function wdDraw(dt) {
     ctx.lineWidth = 8 * WD_DPR; ctx.strokeStyle = 'rgba(40,60,30,0.85)';
     ctx.strokeText(big, W / 2, H / 2); ctx.fillStyle = '#fff'; ctx.fillText(big, W / 2, H / 2);
     if (sub) {
-      ctx.font = 'bold ' + Math.round(Math.min(W, H) / 22) + 'px sans-serif';
+      ctx.font = 'bold ' + Math.round(Math.min(W, H) / 22) + 'px "LeeSeoyun", sans-serif';
       ctx.lineWidth = 5 * WD_DPR; ctx.strokeText(sub, W / 2, H / 2 + Math.min(W, H) / 10);
       ctx.fillText(sub, W / 2, H / 2 + Math.min(W, H) / 10);
     }
@@ -453,7 +453,7 @@ function wdDrawFlag(ctx, cx, cy, ts, open, now) {
   ctx.fillStyle = open ? '#ff5252' : '#9e9e9e';
   var wave = open ? Math.sin(now / 150) * ts * 0.04 : 0;
   ctx.beginPath(); ctx.moveTo(cx + ts * 0.04, cy - ts * 0.38); ctx.lineTo(cx + ts * 0.38, cy - ts * 0.26 + wave); ctx.lineTo(cx + ts * 0.04, cy - ts * 0.12); ctx.closePath(); ctx.fill();
-  if (!open) { ctx.font = Math.round(ts * 0.36) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🔒', cx, cy + ts * 0.4); }
+  if (!open) { ctx.font = Math.round(ts * 0.36) + 'px "LeeSeoyun", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🔒', cx, cy + ts * 0.4); }
 }
 
 function wdFmtTime(ms) {

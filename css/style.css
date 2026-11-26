@@ -1011,7 +1011,7 @@
 
 /* 요리 */
 .mm-cook-top { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
-.mm-recipe { background: #fffdf3; border: 3px solid #6b4a55; border-radius: 16px; padding: 6px 12px 8px; flex: 1; box-shadow: 3px 3px 0 #e8c9a0; transform: rotate(-1deg); }
+.mm-recipe { background: #fffdf3; border: 3px solid #6b4a55; border-radius: 16px; padding: 6px 12px 8px; flex: 1; box-shadow: 3px 3px 0 #e8c9a0; }
 .mm-recipe-title { font-size: 20px; font-weight: 700; }
 .mm-recipe ol { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 18px; }
 .mm-recipe li { display: flex; align-items: center; gap: 3px; color: #b9a9b0; }

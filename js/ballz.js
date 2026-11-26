@@ -215,7 +215,7 @@ function bzDraw() {
   ctx.strokeStyle = 'rgba(245,243,231,0.5)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, BZ_FLOOR); ctx.lineTo(BZ_W, BZ_FLOOR); ctx.stroke();
   /* 벽돌 */
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 20px "LeeSeoyun", sans-serif';
   BZ.bricks.forEach(function (b) {
     var t = Math.min(1, b.hp / Math.max(4, BZ.round * 1.6)), x = b.c * BZ_CELL + 3, y = b.row * BZ_CELL + 3, w = BZ_CELL - 6;
     ctx.fillStyle = 'hsl(' + (32 - 32 * t) + ',85%,' + (64 - 14 * t + (b.hit > 0 ? 12 : 0)) + '%)';
@@ -240,7 +240,7 @@ function bzDraw() {
   if (BZ.state === 'aim' || BZ.over) { ctx.beginPath(); ctx.arc(BZ.lx, ly, BZ_R, 0, 7); ctx.fill(); }
   else {
     var waiting = BZ.balls - BZ.fired;
-    if (waiting > 0) { ctx.beginPath(); ctx.arc(BZ.lx, ly, BZ_R, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(245,243,231,0.7)'; ctx.font = '12px sans-serif'; ctx.fillText('x' + waiting, BZ.lx, ly - 16); ctx.fillStyle = '#f5f3e7'; }
+    if (waiting > 0) { ctx.beginPath(); ctx.arc(BZ.lx, ly, BZ_R, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(245,243,231,0.7)'; ctx.font = '12px "LeeSeoyun", sans-serif'; ctx.fillText('x' + waiting, BZ.lx, ly - 16); ctx.fillStyle = '#f5f3e7'; }
     var landed = false;
     BZ.flying.forEach(function (b) {
       if (b.done) { if (!landed && BZ.firstLand !== null) { landed = true; ctx.beginPath(); ctx.arc(BZ.firstLand, ly, BZ_R, 0, 7); ctx.fill(); } return; }
