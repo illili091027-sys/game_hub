@@ -256,6 +256,7 @@ function ssViewTick() {
 function ssBigView() {
   var box = document.getElementById('ss-viewer');
   if (!box) return;
+  if (typeof socActive === 'function' && socActive()) { SOC.big = true; }
   box.classList.remove('mini');
   var b = document.getElementById('ss-mini-btn'); if (b) b.textContent = '▭ 작게 보기';
   box.style.left = box.style.top = box.style.right = box.style.bottom = '';
@@ -286,6 +287,7 @@ function ssOpenViewer(name) {
     box.innerHTML =
       '<div class="ss-viewer-bar"><span class="ss-live">● LIVE</span><span class="ss-viewer-name" id="ss-viewer-name"></span>' +
       '<span class="hw-spacer"></span>' +
+      '<button class="btn btn-ghost" id="ss-soc-btn" style="display:none" title="화면을 크게 / 소통방 안으로">⛶ 화면 크게</button>' +
       '<button class="btn btn-ghost" id="ss-mini-btn" title="작게 띄워두고 게임하기">▭ 작게 보기</button>' +
       '<button class="btn btn-ghost" id="ss-full-btn">⛶ 크게</button>' +
       '<button class="btn btn-ghost" id="ss-close-btn">닫기 ✕</button></div>' +
@@ -331,6 +333,7 @@ function ssOpenViewer(name) {
   var vv = document.getElementById('ss-video'); vv.muted = true; document.getElementById('ss-unmute').textContent = '🔇 소리 켜기';
   ssViewerMsg('화면 받아오는 중...');
   box.style.display = 'flex';
+  if (typeof socSyncViewer === 'function') socSyncViewer();   /* 소통방이면 왼쪽 칸 안으로 */
 }
 
 function ssViewerMsg(text, isErr) {

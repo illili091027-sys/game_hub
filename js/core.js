@@ -173,9 +173,16 @@ function joinRoom() {
     applyRoomState(state);
     clearInterval(roomHeartbeatTimer);
     roomHeartbeatTimer = setInterval(roomHeartbeat, 1500);
-    startGroupWidget();
-    if (typeof ssMount === 'function') ssMount('room');
-    if (typeof tblStart === 'function') tblStart(); /* 게임 테이블 */ /* 화면 공유는 방 전체에서 하나 - 홈/게임으로 가도 계속돼요 */
+    if (!HW_MODE) {   /* 과제방은 게임 · 화면 공유 · 후원을 전부 막아요 */
+      startGroupWidget();
+      if (typeof ssMount === 'function') ssMount('room');
+      if (typeof tblStart === 'function') tblStart(); /* 게임 테이블 */ /* 화면 공유는 방 전체에서 하나 - 홈/게임으로 가도 계속돼요 */
+    }
+    if (SOC_MODE) {
+      /* 첫 화면에서 '소통방'으로 들어왔으면 입장하자마자 소통방으로 */
+      try { localStorage.setItem('gamehub_soc_room', me.room); localStorage.setItem('gamehub_soc_name', me.name); } catch (e) {}
+      setTimeout(function () { if (roomJoined) openSocial(); }, 50);
+    }
     if (HW_MODE) {
       /* 첫 화면에서 '과제하기'로 들어왔으면 입장하자마자 과제방으로 */
       try { localStorage.setItem('gamehub_hw_room', me.room); localStorage.setItem('gamehub_hw_name', me.name); } catch (e) {}
@@ -297,6 +304,8 @@ function applyRoomState(state) {
   if (roomCurrentGame) {
     if (activeIsHome && roomCurrentGame !== lastAutoEnteredGame) {
       enterGame(roomCurrentGame);
+    } else if (activeView && activeView.id === 'social' && typeof socGameNotice === 'function') {
+      socGameNotice(roomCurrentGame);   /* 소통방에 있으면 끌려가지 않고 알림만 */
     }
   } else {
     lastAutoEnteredGame = null;
@@ -305,7 +314,7 @@ function applyRoomState(state) {
        방장이 게임을 아직 안 고른 상태(roomCurrentGame이 비어있음)에서 채널 라운지를
        열어도 하트비트가 돌 때마다(1.5~2초마다) "게임이 선택 안 됨 = 다들 홈으로"로
        착각해서 자꾸 홈으로 튕겨나가는 문제가 있었습니다. */
-    if (activeView && activeView.id !== 'home' && activeView.id !== 'channels' && activeView.id !== 'homework' && activeView.id !== 'tables') {
+    if (activeView && activeView.id !== 'home' && activeView.id !== 'channels' && activeView.id !== 'homework' && activeView.id !== 'social' && activeView.id !== 'tables') {
       clearInterval(pollTimer);
       clearInterval(pixelTickTimer);
       document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
@@ -374,6 +383,7 @@ function delegateHost(targetId) {
 function leaveRoomLocal() {
   clearInterval(roomHeartbeatTimer);
   if (typeof pjStopAll === 'function') pjStopAll();
+  if (typeof socStop === 'function') socStop();
   if (typeof tblStop === 'function') tblStop();
   if (typeof ssUnmount === 'function') ssUnmount();
   stopGroupWidget();
@@ -461,11 +471,26 @@ var SOLO_ONLY_CARD_IDS = ['card-ballz', 'card-codetype', 'card-blockpop', 'card-
 /* 첫 화면의 '📚 과제하기': 온라인 입장 화면을 그대로 쓰되, 지난번 과제방 코드/이름을 채워 두고
    입장하면 바로 과제방이 열려요. (과제방은 매번 같은 방 코드로 들어와야 목록이 이어져요) */
 var HW_MODE = false;
+/* 💬 소통방: 화면 공유 · 채팅 · 같이 게임 · 후원 (social.js) */
+var SOC_MODE = false;
 /* 🎰 도박방: 혼자 하기/온라인과 따로 있는 별도 모드 (모드 고르는 화면에서 바로 들어가요) */
 function chooseCasinoMode() {
-  HW_MODE = false;
+  HW_MODE = false; SOC_MODE = false;
   playMode = null;
   enterGame('casino');
+}
+
+/* 첫 화면의 '💬 소통방': 온라인 입장 화면을 그대로 쓰고, 입장하면 바로 소통방이 열려요 */
+function chooseSocialMode() {
+  chooseMode('online');
+  SOC_MODE = true;
+  var room = null, name = null;
+  try { room = localStorage.getItem('gamehub_soc_room'); name = localStorage.getItem('gamehub_soc_name'); } catch (e) {}
+  if (room) { document.getElementById('in-room').value = room; me.room = room; }
+  if (name && !document.getElementById('in-name').value) { document.getElementById('in-name').value = name; me.name = name; }
+  document.getElementById('btn-join-room').textContent = '💬 소통방 입장하기';
+  document.getElementById('home-footer').textContent = '소통방은 같은 방 코드로 들어와요. 화면 공유 · 채팅 · 같이 게임 · 후원을 할 수 있어요.';
+  updateIdStatus();
 }
 
 function chooseHomeworkMode() {
@@ -481,8 +506,8 @@ function chooseHomeworkMode() {
 }
 
 function chooseMode(mode) {
-  HW_MODE = false;
-  var bbh = document.getElementById('btn-back-hw'); if (bbh) bbh.style.display = 'none';
+  HW_MODE = false; SOC_MODE = false;
+  var bbh = document.getElementById('btn-back-soc'); if (bbh) bbh.style.display = 'none';
   var jb = document.getElementById('btn-join-room'); if (jb) jb.textContent = '입장하기';
   playMode = mode;
   /* 온라인에서 '방장만 고를 수 있어요'로 흐리게 했던 카드를 원래대로 (혼자 하기에서 흐릿하게 보이던 문제) */

@@ -54,7 +54,8 @@ window.addEventListener('load', function () {
     <div class="mode-select" id="mode-select">
       <button class="mode-btn" onclick="chooseMode('solo')">혼자 할래요<span>바로 시작 · 로그인하면 기록 저장</span></button>
       <button class="mode-btn" onclick="chooseMode('online')">친구랑 온라인으로<span>같은 방 코드로 같이 플레이</span></button>
-      <button class="mode-btn mode-casino" onclick="chooseCasinoMode()">🎰 도박방<span>분필로 룰렛 · 주사위 · 슬롯</span></button>
+      <button class="mode-btn mode-casino" onclick="chooseCasinoMode()">🎰 도박방<span>분필로 홀짝 · 주사위 · 사다리 · 슬롯 · 야바위</span></button>
+      <button class="mode-btn mode-soc" onclick="chooseSocialMode()">💬 소통방<span>화면 공유 · 채팅 · 같이 게임 · 후원</span></button>
       <button class="mode-btn mode-hw" onclick="chooseHomeworkMode()">📚 과제하기<span>채팅하며 같이 PPT 만들기 · 자료 공유</span></button>
     </div>
     <button class="mode-back" id="mode-back" style="display:none" onclick="backToModeSelect()">← 모드 다시 고르기</button>
@@ -79,7 +80,7 @@ window.addEventListener('load', function () {
       <div class="host-free-bar" id="host-free-bar" style="display:none"></div>
       <div class="lobby-players" id="lobby-players"></div>
       <div class="lobby-hint" id="lobby-hint" style="margin-top:10px;font-weight:700;"></div>
-      <button class="btn btn-primary lobby-hw-btn" id="btn-back-hw" style="display:none" onclick="openHomework()">📚 과제방으로 돌아가기</button>
+      <button class="btn btn-primary lobby-hw-btn" id="btn-back-soc" style="display:none" onclick="openSocial()">💬 소통방으로 돌아가기</button>
     </div>
 
     <div class="card-grid" id="card-grid" style="display:none">
@@ -1194,7 +1195,7 @@ window.addEventListener('load', function () {
 <div id="homework" class="view">
   <div class="pj-wrap">
     <div class="topbar">
-      <button class="back-btn" onclick="closeHomework()">🎮 게임 화면</button>
+      <button class="back-btn" onclick="hwLeave()">← 나가기</button>
       <span class="pj-head-title">📚 과제방</span>
       <span class="room-pill" id="hw-room-pill">방</span>
     </div>
@@ -1204,7 +1205,6 @@ window.addEventListener('load', function () {
         <button data-t="files" onclick="pjTab('files')">📁 자료실 <span id="pj-files-n"></span></button>
         <button data-t="chat" class="pj-tab-chat" onclick="pjTab('chat')">💬 채팅 <span class="pj-badge" id="pj-chat-badge"></span></button>
       </div>
-      <div class="ss-bar" id="hw-ss-bar"></div>
     </div>
     <div class="pj-body">
       <div class="pj-main">
@@ -1308,6 +1308,40 @@ window.addEventListener('load', function () {
           <input type="file" id="pj-file-input" multiple style="display:none" />
           <textarea id="pj-chat-input" class="chat-textarea" rows="1" placeholder="메시지 입력" maxlength="500" autocomplete="off"></textarea>
           <button type="button" class="btn btn-primary chat-send-btn" onclick="pjSendChat()">전송</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div id="social" class="view">
+  <div class="soc-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="socLeave()">← 나가기</button>
+      <span class="pj-head-title">💬 소통방</span>
+      <span class="room-pill" id="soc-room-pill">방</span>
+    </div>
+    <div class="soc-actions">
+      <button class="btn btn-ghost" onclick="socOpenGames()">🎮 같이 게임</button>
+      <button class="btn btn-ghost" onclick="socDonate()">💸 후원</button>
+      <span class="soc-who" id="soc-who"></span>
+    </div>
+    <div class="soc-body">
+      <section class="soc-stage" id="soc-stage">
+        <div class="ss-bar" id="soc-ss-bar"></div>
+        <div class="soc-screen" id="soc-screen">
+          <div class="soc-screen-empty" id="soc-screen-empty">📺 아직 공유 중인 화면이 없어요<br><small>위의 <b>내 화면 공유하기</b>를 누르면 친구들이 여기서 볼 수 있어요.<br>화면은 누르면 크게 보이고, 크게 볼 땐 채팅이 오른쪽 아래에 떠요.</small></div>
+        </div>
+      </section>
+      <aside class="soc-chat" id="soc-chat">
+        <div class="pj-chat-head">💬 채팅</div>
+        <div class="chat-scroll compact pj-messages" id="soc-chat-messages"></div>
+        <div class="chat-upload-err" id="soc-upload-err"></div>
+        <div class="chat-composer compact">
+          <button type="button" class="chat-attach-btn" id="soc-attach-btn" title="사진/파일 올리기">📎</button>
+          <input type="file" id="soc-file-input" multiple style="display:none" />
+          <textarea id="soc-chat-input" class="chat-textarea" rows="1" placeholder="메시지 입력" maxlength="500" autocomplete="off"></textarea>
+          <button type="button" class="btn btn-primary chat-send-btn" onclick="socSendChat()">전송</button>
         </div>
       </aside>
     </div>
@@ -1455,10 +1489,12 @@ window.addEventListener('load', function () {
 <script src="js/blockpop.js"></script>
 <script src="data/metro-data.js"></script>
 <script src="js/codetype.js"></script>
+<script src="data/casino-chars.js"></script>
 <script src="js/casino.js"></script>
 <script src="js/ballz.js"></script>
 <script src="js/account.js"></script>
 <script src="js/pptx-writer.js"></script>
 <script src="js/homework.js"></script>
+<script src="js/social.js"></script>
 </body>
 </html>

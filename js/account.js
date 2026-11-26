@@ -7,8 +7,8 @@
    - 로그아웃하면 이 기기의 저장 항목을 지워요. (공용 컴퓨터에서 다른 사람이 못 보게. 계정에는 그대로 있어요) */
 
 var ACC_DEFAULT_SERVER = 'https://gamehub-server-tfu5.onrender.com';   /* 서버 주소는 자동으로 들어가요 */
-var ACC = { menuOpen: false, admin: false, pw: false, adminKey: '', adminRes: null, showServer: false, server: '', id: '', token: '', mode: 'login', open: false, busy: false, msg: '', applying: false, timer: null, state: '' };
-var ACC_SKIP = { 'gamehub_server_url': 1, 'gamehub_player_id': 1, 'gamehub_lc_pos': 1, 'gamehub_hw_room': 1, 'gamehub_hw_name': 1, 'gamehub_auth': 1 };
+var ACC = { menuOpen: false, admin: false, adminOk: false, adminQ: '', pw: false, adminKey: '', adminRes: null, showServer: false, server: '', id: '', token: '', mode: 'login', open: false, busy: false, msg: '', applying: false, timer: null, state: '' };
+var ACC_SKIP = { 'gamehub_server_url': 1, 'gamehub_player_id': 1, 'gamehub_lc_pos': 1, 'gamehub_hw_room': 1, 'gamehub_hw_name': 1, 'gamehub_soc_room': 1, 'gamehub_soc_name': 1, 'gamehub_auth': 1 };
 
 function accSyncable(k) { return typeof k === 'string' && k.indexOf('gamehub_') === 0 && !ACC_SKIP[k]; }
 
@@ -97,6 +97,7 @@ function accPull() {
     if (j._status === 401) return accExpire();
     if (j._status !== 200) { ACC.state = '⚠️ 불러오기 실패'; return accRenderState(); }
     accApply(j.blob);
+    accApplyAdminCoins(j.adminCoins);
     ACC.state = '☁️ 저장됨';
     accRender();
     accPush(false);   /* 이 기기에만 있던 기록도 올려요 */
@@ -122,7 +123,7 @@ function accServer() {
   if (ACC.server) return ACC.server;
   return accNorm((typeof loadSavedServerUrl === 'function' ? loadSavedServerUrl() : '') || ACC_DEFAULT_SERVER);
 }
-function accSetMsg(t) { ACC.msg = t; var m = document.getElementById('acc-msg'); if (m) m.textContent = t; }
+function accSetMsg(t) { ACC.msg = t; var m = document.getElementById(ACC.admin ? 'acc-admin-msg' : 'acc-msg'); if (m) m.textContent = t; }
 
 /* 로그인해야 게임이 보이게 할지 (true: 로그인 창이 먼저 떠요) */
 var ACC_REQUIRE_LOGIN = true;
@@ -130,17 +131,56 @@ var ACC_REQUIRE_LOGIN = true;
 var ACC_ALLOW_GUEST = false;
 function accGateOn() { return ACC_REQUIRE_LOGIN && !ACC.token && !(ACC.guest && ACC_ALLOW_GUEST); }
 
-function accHtmlAdmin() {
-  var h = '<div class="acc-form"><b>🔧 관리자</b>' +
-    '<input id="acc-adminkey" type="password" placeholder="관리자 비밀번호" maxlength="64" autocomplete="off" value="' + esc(ACC.adminKey) + '" />' +
-    '<input id="acc-q" type="text" placeholder="아이디 검색 (비워두면 전체)" maxlength="16" autocomplete="off" onkeydown="if(event.key===\'Enter\')accAdminSearch()" />' +
-    '<div class="acc-actions"><button class="btn btn-primary" onclick="accAdminSearch()">검색</button><button class="btn btn-ghost" onclick="accAdminOpen(false)">닫기</button></div>' +
-    '<div class="acc-msg" id="acc-msg">' + esc(ACC.msg) + '</div><div class="acc-list">';
+/* ---------- 관리자 창 (큰 창으로 따로 떠요) ----------
+   비밀번호를 치고 들어가면 가입한 사용자가 전부 뜨고, 사람마다
+   분필 개수 조절 · 비밀번호 0000 초기화를 할 수 있어요.
+   (비밀번호는 서버가 확인해요. 서버의 관리자 비밀번호를 einbe4039 로 맞춰 두세요) */
+function accHtmlAdmin() { return ''; }   /* 예전 작은 관리자 칸은 없앴어요 → accRenderAdmin() */
+function accAdminModal() {
+  var m = document.getElementById('acc-admin-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'acc-admin-modal'; m.className = 'acc-admin-modal';
+    document.body.appendChild(m);
+  }
+  return m;
+}
+function accRenderAdmin() {
+  var m = accAdminModal();
+  if (!ACC.admin) { m.style.display = 'none'; m.innerHTML = ''; return; }
+  m.style.display = 'flex';
+  var h = '<div class="acc-admin-card"><div class="acc-admin-head"><b>🔧 관리자</b><span class="hw-spacer"></span>' +
+    (ACC.adminOk ? '<button class="btn btn-ghost" onclick="accAdminLoad()">↻ 새로고침</button>' : '') +
+    '<button class="btn btn-ghost" onclick="accAdminOpen(false)">닫기 ✕</button></div>';
+  if (!ACC.adminOk) {
+    h += '<div class="acc-admin-login"><p>관리자 비밀번호를 치면 사용자 목록이 떠요.</p>' +
+      '<input id="acc-adminkey" type="password" placeholder="관리자 비밀번호" maxlength="64" autocomplete="off" value="' + esc(ACC.adminKey) + '" onkeydown="if(event.key===\'Enter\')accAdminEnter()" />' +
+      '<button class="btn btn-primary" onclick="accAdminEnter()">들어가기</button>' +
+      '<div class="acc-msg" id="acc-admin-msg">' + esc(ACC.msg) + '</div></div></div>';
+    m.innerHTML = h;
+    var k = document.getElementById('acc-adminkey'); if (k) k.focus();
+    return;
+  }
+  h += '<div class="acc-admin-tools"><input id="acc-q" type="text" placeholder="아이디 검색 (비우면 전체)" maxlength="16" autocomplete="off" value="' + esc(ACC.adminQ || '') + '" onkeydown="if(event.key===\'Enter\')accAdminLoad()" />' +
+    '<button class="btn btn-primary" onclick="accAdminLoad()">검색</button></div>' +
+    '<div class="acc-msg" id="acc-admin-msg">' + esc(ACC.msg) + '</div><div class="acc-admin-list">';
   (ACC.adminRes || []).forEach(function (u) {
-    h += '<div class="acc-user"><span><b>' + esc(u.id) + '</b>' + (u.coins != null ? ' · 분필 ' + esc(u.coins) : '') + '<small>' + (u.updatedAt ? new Date(u.updatedAt).toLocaleString() : '') + '</small></span>' +
-      '<button class="acc-btn" data-id="' + esc(u.id) + '" onclick="accAdminReset(this.dataset.id)">비번 0000으로</button></div>';
+    var id = esc(u.id);
+    h += '<div class="acc-admin-row"><div class="acc-admin-who"><b>' + id + '</b>' +
+      '<span class="acc-admin-coins">분필 <b id="acc-c-' + id + '">' + (u.coins != null ? esc(u.coins) : '-') + '</b></span>' +
+      '<small>' + (u.updatedAt ? new Date(u.updatedAt).toLocaleString() : '') + '</small></div>' +
+      '<div class="acc-admin-act">' +
+      '<button class="acc-btn" data-id="' + id + '" data-d="-100" onclick="accAdminDelta(this.dataset.id,+this.dataset.d)">-100</button>' +
+      '<button class="acc-btn" data-id="' + id + '" data-d="-10" onclick="accAdminDelta(this.dataset.id,+this.dataset.d)">-10</button>' +
+      '<button class="acc-btn" data-id="' + id + '" data-d="10" onclick="accAdminDelta(this.dataset.id,+this.dataset.d)">+10</button>' +
+      '<button class="acc-btn" data-id="' + id + '" data-d="100" onclick="accAdminDelta(this.dataset.id,+this.dataset.d)">+100</button>' +
+      '<input type="number" min="0" class="acc-admin-num" id="acc-n-' + id + '" placeholder="개수" onkeydown="if(event.key===\'Enter\')accAdminSetCoins(this.id.slice(6))" />' +
+      '<button class="acc-btn" data-id="' + id + '" onclick="accAdminSetCoins(this.dataset.id)">분필 설정</button>' +
+      '<button class="acc-btn warn" data-id="' + id + '" onclick="accAdminReset(this.dataset.id)">비번 0000으로</button>' +
+      '</div></div>';
   });
-  return h + '</div></div>';
+  if (!(ACC.adminRes || []).length) h += '<div class="acc-admin-empty">사용자가 없어요</div>';
+  m.innerHTML = h + '</div></div>';
 }
 function accHtmlForm(closable) {
   return '<div class="acc-form">' +
@@ -165,7 +205,8 @@ function accRender() {
   var on = accGateOn();
   if (gate) gate.style.display = on ? 'flex' : 'none';
   if (on && gbox) {   /* 로그인 창: 로그인해야 게임이 보여요 */
-    gbox.innerHTML = (ACC.admin ? accHtmlAdmin() : accHtmlForm(false) + accHtmlFoot(true));
+    gbox.innerHTML = accHtmlForm(false) + accHtmlFoot(true);
+    accRenderAdmin();
     if (box) box.innerHTML = '';
     return;
   }
@@ -174,9 +215,8 @@ function accRender() {
   if (chip) chip.textContent = ACC.token ? '👤 ' + ACC.id + ' ' + accStateIcon() : '👤 로그인';
   if (!box) return;
   var h = '';
-  if (ACC.admin) {
-    h = accHtmlAdmin();
-  } else if (ACC.pw && ACC.token) {
+  accRenderAdmin();
+  if (ACC.pw && ACC.token) {
     h = '<div class="acc-form"><b>🔑 비밀번호 바꾸기</b>' +
       '<input id="acc-oldpw" type="password" placeholder="지금 비밀번호" maxlength="64" autocomplete="current-password" />' +
       '<input id="acc-newpw" type="password" placeholder="새 비밀번호 (4글자 이상)" maxlength="64" autocomplete="new-password" onkeydown="if(event.key===\'Enter\')accChangePw()" />' +
@@ -190,7 +230,7 @@ function accRender() {
         (ACC.msg ? '<div class="acc-msg">' + esc(ACC.msg) + '</div>' : '');
   } else if (!ACC.token && ACC.open) {
     h = accHtmlForm(true) + accHtmlFoot(true);
-  } else if (ACC.msg && ACC.token) {
+  } else if (ACC.msg && ACC.token && !ACC.admin) {
     h = '<div class="acc-msg">' + esc(ACC.msg) + '</div>';
   }
   box.innerHTML = h;
@@ -223,20 +263,59 @@ function accChangePw() {
   }).catch(function () { accSetMsg('서버에 연결이 안 돼요'); });
 }
 
-/* ---------- 관리자: 아이디 검색 → 비밀번호 0000으로 초기화 ---------- */
-function accAdminOpen(v) { ACC.admin = v; ACC.menuOpen = false; ACC.msg = ''; ACC.adminRes = null; if (!v) ACC.adminKey = ''; accRender(); }
-function accAdminSearch() {
-  var key = document.getElementById('acc-adminkey').value, q = document.getElementById('acc-q').value;
+/* ---------- 관리자: 사용자 전부 보기 · 분필 조절 · 비밀번호 초기화 ---------- */
+function accAdminOpen(v) {
+  ACC.admin = v; ACC.menuOpen = false; ACC.msg = ''; ACC.adminRes = null; ACC.adminOk = false; ACC.adminQ = '';
+  if (!v) ACC.adminKey = '';
+  accRender();
+}
+function accAdminEnter() {
+  var k = document.getElementById('acc-adminkey');
+  var key = k ? k.value : ACC.adminKey;
   if (!key) return accSetMsg('관리자 비밀번호를 써주세요');
-  ACC.adminKey = key;
-  accSetMsg('찾는 중…');
-  accApi('/api/admin/search', 'POST', { adminKey: key, query: q }, false, true).then(function (j) {
-    if (j._status !== 200) { ACC.adminRes = null; accRender(); return accSetMsg(j.message || '잘 안 됐어요 (' + j._status + ')'); }
-    ACC.adminRes = j.users;
-    ACC.msg = j.users.length ? '전체 ' + j.total + '명 중 ' + j.users.length + '명' : '그런 아이디가 없어요';
+  ACC.adminKey = key; ACC.adminQ = '';
+  accAdminLoad();
+}
+function accAdminLoad() {
+  var qEl = document.getElementById('acc-q');
+  var q = qEl ? qEl.value : (ACC.adminQ || '');
+  ACC.adminQ = q;
+  if (!ACC.adminKey) return accSetMsg('관리자 비밀번호를 써주세요');
+  accSetMsg('불러오는 중…');
+  accApi('/api/admin/search', 'POST', { adminKey: ACC.adminKey, query: q }, false, true).then(function (j) {
+    if (j._status !== 200) {
+      ACC.adminOk = false; ACC.adminRes = null;
+      ACC.msg = (j._status === 401 || j._status === 403) ? '관리자 비밀번호가 달라요' : (j.message || '잘 안 됐어요 (' + j._status + ')');
+      accRender(); return;
+    }
+    ACC.adminOk = true;
+    ACC.adminRes = j.users || [];
+    ACC.msg = ACC.adminRes.length ? '전체 ' + (j.total != null ? j.total : ACC.adminRes.length) + '명 중 ' + ACC.adminRes.length + '명' : '그런 아이디가 없어요';
     accRender();
-    document.getElementById('acc-q').value = q;
   }).catch(function () { accSetMsg('서버에 연결이 안 돼요'); });
+}
+function accAdminUser(id) { return (ACC.adminRes || []).filter(function (u) { return u.id === id; })[0]; }
+function accAdminSendCoins(id, coins) {
+  coins = Math.max(0, Math.floor(coins));
+  accSetMsg(id + ' 분필을 ' + coins + '개로 바꾸는 중…');
+  accApi('/api/admin/coins', 'POST', { adminKey: ACC.adminKey, id: id, coins: coins }, false, true).then(function (j) {
+    if (j._status === 200) {
+      var u = accAdminUser(id); if (u) u.coins = (j.coins != null ? j.coins : coins);
+      ACC.msg = '✅ ' + id + ' 분필 ' + (u ? u.coins : coins) + '개';
+      accRender();
+    } else if (j._status === 404) accSetMsg('서버에 분필 조절 기능(/api/admin/coins)이 아직 없어요. 서버_관리자_패치.md 를 서버에 넣어 주세요.');
+    else accSetMsg(j.message || '잘 안 됐어요 (' + j._status + ')');
+  }).catch(function () { accSetMsg('서버에 연결이 안 돼요'); });
+}
+function accAdminSetCoins(id) {
+  var el = document.getElementById('acc-n-' + id);
+  var v = el ? el.value : '';
+  if (v === '' || isNaN(+v) || +v < 0) return accSetMsg('분필 개수를 0 이상 숫자로 써주세요');
+  accAdminSendCoins(id, +v);
+}
+function accAdminDelta(id, d) {
+  var u = accAdminUser(id);
+  accAdminSendCoins(id, Math.max(0, ((u && u.coins) || 0) + d));
 }
 function accAdminReset(id) {
   if (!confirm(id + ' 님의 비밀번호를 0000으로 초기화할까요?\n(로그인돼 있던 기기는 로그아웃돼요)')) return;
@@ -244,6 +323,26 @@ function accAdminReset(id) {
     accSetMsg(j._status === 200 ? '✅ ' + id + ' 비밀번호를 0000으로 바꿨어요' : (j.message || '잘 안 됐어요'));
   }).catch(function () { accSetMsg('서버에 연결이 안 돼요'); });
 }
+
+/* ---------- 관리자가 바꾼 분필을 사용자 기기에 반영 ----------
+   서버가 /api/account/data 응답에 adminCoins: { rev, coins } 를 담아 주면,
+   처음 보는 rev일 때 내 지갑의 분필을 그 값으로 바꿔요. (로그인 중엔 20초마다 확인) */
+var ACC_COIN_REV_KEY = 'gamehub_admin_coin_rev';
+function accApplyAdminCoins(ac) {
+  if (!ac || typeof ac.coins !== 'number' || !ac.rev) return;
+  var seen = 0;
+  try { seen = +localStorage.getItem(ACC_COIN_REV_KEY) || 0; } catch (e) {}
+  if (ac.rev <= seen) return;
+  try {
+    var w = walletLoad(); w.coins = Math.max(0, Math.round(ac.coins)); walletSave(w);
+    localStorage.setItem(ACC_COIN_REV_KEY, String(ac.rev));
+    if (typeof coinToast === 'function') coinToast('관리자가 분필을 ' + w.coins + '개로 바꿨어요');
+  } catch (e) {}
+}
+setInterval(function () {
+  if (!ACC.token || document.visibilityState === 'hidden') return;
+  accApi('/api/account/data', 'GET').then(function (j) { if (j._status === 200 && j.adminCoins) accApplyAdminCoins(j.adminCoins); }).catch(function () {});
+}, 20000);
 
 function accSubmit() {
   if (ACC.busy) return;
@@ -268,6 +367,7 @@ function accSubmit() {
     accSaveAuth();
     if (typeof saveServerUrl === 'function') saveServerUrl(server);   /* 온라인 방 입장 화면에도 서버 주소가 채워져요 */
     accApply(j.blob);
+    accApplyAdminCoins(j.adminCoins);
     accRender();
     accPush(false);   /* 이 기기에만 있던 기록도 올려요 */
   }).catch(function () {

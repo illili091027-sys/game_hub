@@ -542,7 +542,7 @@ function ctTermInfo(code, opt) {
 /* 🚇 지하철: metro.js 의 노선 데이터로 연습 항목을 만들어요 (한 구간 10역씩 + 노선 전체) */
 (function () {
   if (typeof MT_LINES === 'undefined') return;
-  function rows(arr) { var r = []; for (var i = 0; i < arr.length; i += 5) r.push(arr.slice(i, i + 5).join(' ')); return r.join('\n'); }
+  function rows(arr) { return arr.join(' '); }
   MT_LINES.forEach(function (L) {
     var items = [], st = L.st, n = st.length;
     for (var a = 0; a < n; a += 10) {
@@ -550,7 +550,7 @@ function ctTermInfo(code, opt) {
       items.push([L.name + ' · ' + seg[0] + ' → ' + seg[seg.length - 1], rows(seg)]);
     }
     if (n > 10) items.push(['📚 ' + L.name + ' 전체 (' + n + '역)', rows(st), 'long', { full: true }]);
-    CT_DATA['sub_' + L.id] = { track: 'subway', kr: true, num: L.num, name: L.name, file: L.name + '.txt', icon: '🚇', color: L.color, items: items };
+    CT_DATA['sub_' + L.id] = { track: 'subway', kr: true, lid: L.id, num: L.num, name: L.name, file: L.name + '.txt', icon: '🚇', color: L.color, items: items };
   });
 })();
 
@@ -604,7 +604,7 @@ function ctPickLang(id) {
   CT.kr = !!D.kr;
   var top = term
     ? '<div class="ct-term-top"><span class="ct-term-tab">▣ C:\\Users\\PC\\Desktop\\SQL연습 ✕</span><span class="ct-term-plus">＋ ⌄</span><span class="ct-term-wc">—  ☐  ✕</span></div>'
-    : '<div class="ct-editor-top"><i></i><i></i><i></i><span>' + D.file + '</span></div>';
+    : (D.track === 'subway' ? '' : '<div class="ct-editor-top"><i></i><i></i><i></i><span>' + D.file + '</span></div>');
   document.getElementById('ct-root').innerHTML =
     '<div class="ct-play' + (D.num ? ' sub' : '') + '" style="--lc:' + D.color + '">' +
       '<aside class="ct-side">' +
@@ -619,7 +619,7 @@ function ctPickLang(id) {
           '<span class="ct-st-time">⏱ <b id="ct-time">0.0</b>초</span><span>📈 <b id="ct-prog">0</b>%</span>' +
         '</div>' +
         '<div class="ct-bar"><div class="ct-bar-in" id="ct-bar"></div></div>' +
-        '<div class="ct-editor' + (term ? ' ct-termwin' : '') + '">' + top +
+        '<div class="ct-editor' + (term ? ' ct-termwin' : '') + (D.track === 'subway' ? ' ct-metro' : '') + '">' + top +
           '<div class="ct-codewrap" id="ct-wrap"><div id="ct-banner" class="ct-banner"></div><div id="ct-code" class="ct-code"></div>' +
             '<textarea id="ct-inp" class="ct-inp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="타자 입력"></textarea></div>' +
         '</div>' +
@@ -703,8 +703,153 @@ function ctReset() {
   inp.focus();
 }
 
+
+/* ---------- 🚇 메트로 스킨: 지도 위를 달리는 열차 + 하단 [이전 역 | 지금 칠 역 | 다음 역] 바 ---------- */
+var CTM = { key: '', pts: [], els: [], n: 0 };
+var CTM_SP = 170, CTM_CY = 118;
+/* 어두운 지도 배경 (도로·공원·강). 가로세로로 이어 붙여도 끊기지 않게 그렸어요 */
+var CTM_BG = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="420" height="340" viewBox="0 0 420 340">' +
+  '<rect x="28" y="38" width="112" height="72" rx="20" fill="#1f4a3b" opacity=".55"/>' +
+  '<rect x="236" y="190" width="130" height="86" rx="22" fill="#1f4a3b" opacity=".5"/>' +
+  '<ellipse cx="338" cy="70" rx="48" ry="30" fill="#1f4a3b" opacity=".45"/>' +
+  '<path d="M0 300 C100 268 150 332 260 300 S380 282 420 300" stroke="#2b4a73" stroke-width="14" fill="none" opacity=".55"/>' +
+  '<path d="M0 150H420" stroke="#5a6678" stroke-width="7" opacity=".5"/>' +
+  '<path d="M0 238H420" stroke="#5a6678" stroke-width="4" opacity=".45"/>' +
+  '<path d="M96 0V340" stroke="#5a6678" stroke-width="6" opacity=".5"/>' +
+  '<path d="M200 0V340" stroke="#5a6678" stroke-width="3" opacity=".4"/>' +
+  '<path d="M292 0V340" stroke="#5a6678" stroke-width="5" opacity=".45"/>' +
+  '<path d="M0 76H420" stroke="#5a6678" stroke-width="3" opacity=".35"/>' +
+  '</svg>') + '")';
+
+function ctmRgb(c) { var n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+/* 호선 색을 어두운 배경에서도 잘 보이게 밝게 (글자 맞게 쳤을 때 색) */
+function ctmLight(c) { var r = ctmRgb(c); return 'rgb(' + r.map(function (x) { return Math.round(x + (255 - x) * 0.55); }).join(',') + ')'; }
+/* 호선 색 위에 올릴 글자색 (밝은 호선은 검정 글자) */
+function ctmText(c) { var r = ctmRgb(c); return (0.299 * r[0] + 0.587 * r[1] + 0.114 * r[2]) > 175 ? '#1d1d1f' : '#fff'; }
+function ctmLine(D) { for (var i = 0; i < MT_LINES.length; i++) if (MT_LINES[i].id === D.lid) return MT_LINES[i]; return null; }
+/* 역 번호: 호선 번호 + 순서 (2호선 첫 역 = 201). 신분당 D, 공항철도 A 로 시작해요 */
+function ctmCode(L, name) {
+  var k = L.st.indexOf(name); if (k < 0) return '';
+  var n = k + 1;
+  if (/^\d$/.test(L.num)) return String(Number(L.num) * 100 + n);
+  return (L.id === 'sb' ? 'D' : L.id === 'ap' ? 'A' : '') + (n < 10 ? '0' : '') + n;
+}
+/* 이 역에서 갈아탈 수 있는 다른 호선들 */
+function ctmXfer(L, name) {
+  var out = [];
+  MT_LINES.forEach(function (o) { if (o.id !== L.id && o.st.indexOf(name) > -1) out.push(o); });
+  return out;
+}
+function ctmBadge(o) { return '<span class="ct-badge" style="background:' + o.color + ';color:' + ctmText(o.color) + '">' + o.num + '</span>'; }
+
+/* 연습 항목이 바뀔 때 한 번만: 지도(노선·역·열차)를 그려 둬요. 타자 칠 때는 색·위치만 바뀌어요 */
+function ctmBuild(D, key) {
+  var L = ctmLine(D), names = CT.target.split(' '), n = names.length, pts = [], k, W, H = 260;
+  for (k = 0; k < n; k++) pts.push({ x: 170 + k * CTM_SP, y: CTM_CY + 46 * Math.sin(k * 1.15) + 18 * Math.sin(k * 2.4 + 1) });
+  W = 170 + (n - 1) * CTM_SP + 170;
+  var all = pts.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+  var svg = '<svg class="ctm-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
+    '<polyline class="ctm-base" points="' + all + '"/><polyline class="ctm-prog" id="ctm-prog" points=""/>';
+  names.forEach(function (nm, i) {
+    var xf = L ? ctmXfer(L, nm) : [], p = pts[i];
+    svg += '<g class="ctm-s' + (xf.length ? ' xf' : '') + '" id="ctm-s' + i + '">' +
+      (xf.length ? '<circle class="ctm-xo" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="14"/><circle class="ctm-xi" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7"/>'
+                 : '<circle class="ctm-dot" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="9"/>') +
+      '<text x="' + p.x.toFixed(1) + '" y="' + (p.y + 36).toFixed(1) + '" text-anchor="middle">' + ctEsc(nm) + '</text></g>';
+  });
+  svg += '</svg>';
+  var tc = ctmText(D.color);
+  var train = '<div class="ctm-train" id="ctm-train"><div class="ctm-train-in"><svg viewBox="0 0 48 48" width="52" height="52">' +
+    '<rect x="6" y="8" width="36" height="29" rx="9" fill="' + D.color + '" stroke="#fff" stroke-width="3"/>' +
+    '<rect x="11" y="13" width="11" height="10" rx="3" fill="' + tc + '"/><rect x="26" y="13" width="11" height="10" rx="3" fill="' + tc + '"/>' +
+    '<circle cx="16" cy="30" r="2.6" fill="' + tc + '"/><circle cx="32" cy="30" r="2.6" fill="' + tc + '"/>' +
+    '<rect x="12" y="38" width="7" height="4" rx="1.5" fill="#fff"/><rect x="29" y="38" width="7" height="4" rx="1.5" fill="#fff"/></svg></div></div>';
+  document.getElementById('ct-code').innerHTML =
+    '<div class="ctm-stage" id="ctm-stage" style="--lc:' + D.color + ';--lcl:' + ctmLight(D.color) + ';--lct:' + tc + '">' +
+      '<div class="ctm-world nofx" id="ctm-world" style="width:' + W + 'px;height:' + H + 'px">' + svg + train + '</div>' +
+      '<div class="ctm-top"><span class="ctm-line">' + ctIcon(D) + ' <b>' + ctEsc(D.name) + '</b>' + (L && L.sub ? ' <small>' + ctEsc(L.sub) + '</small>' : '') + '</span>' +
+        '<span class="ctm-count"><b id="ctm-cur">1</b> / ' + n + '역</span></div>' +
+      '<div class="ctm-hud" id="ctm-hud"></div>' +
+    '</div>';
+  document.getElementById('ctm-stage').style.backgroundImage = CTM_BG;
+  CTM.key = key; CTM.pts = pts; CTM.n = n; CTM.els = [];
+  for (k = 0; k < n; k++) CTM.els.push(document.getElementById('ctm-s' + k));
+}
+
+/* 지금 치는 역이 항상 화면 한가운데 오도록 지도를 밀어요 */
+function ctmCamera(ci) {
+  var st = document.getElementById('ctm-stage'), w = document.getElementById('ctm-world'), p = CTM.pts[ci];
+  if (!st || !w || !p) return;
+  var sw = st.clientWidth || 700;
+  w.style.transform = 'translate(' + Math.round(sw / 2 - p.x) + 'px,' + Math.round(CTM_CY + 6 - p.y) + 'px)';
+  st.style.backgroundPosition = Math.round((sw / 2 - p.x) * 0.5) + 'px ' + Math.round((CTM_CY - p.y) * 0.5) + 'px';
+}
+window.addEventListener('resize', function () { if (CTM.n && CT.lang && CT_DATA[CT.lang] && CT_DATA[CT.lang].track === 'subway') ctmCamera(CTM.ci || 0); });
+
+function ctRenderMetro() {
+  var D = CT_DATA[CT.lang], inp = document.getElementById('ct-inp');
+  if (!D || !inp) return;
+  var key = CT.lang + '|' + CT.idx, fresh = false;
+  if (CTM.key !== key || !document.getElementById('ctm-stage')) { ctmBuild(D, key); fresh = true; }
+  var v = inp.value, t = CT.target, names = t.split(' '), offs = [], p = 0, n = names.length, k, j;
+  names.forEach(function (nm) { offs.push(p); p += nm.length + 1; });
+  var compIdx = CT.comp && v.length ? v.length - 1 : -1;
+  var ci = 0;
+  for (k = 0; k < n; k++) { if (v.length >= offs[k]) ci = k; }
+  CTM.ci = ci;
+  var doneN = CT.done ? n : ci;
+  /* 한 역(이름 + 뒤 띄어쓰기)을 치는 동안 틀린 글자가 있었는지 */
+  function missed(s) {
+    var from = offs[s], to = Math.min(v.length, offs[s] + names[s].length + 1);
+    for (var i = from; i < to; i++) { if (i === compIdx) continue; if (!ctEq(i, v[i])) return true; }
+    return false;
+  }
+
+  /* 지도: 지나온 역은 칠해지고, 지금 역은 커지고, 열차가 거기 서 있어요 */
+  var pts = CTM.pts, prog = [];
+  for (k = 0; k < n; k++) {
+    var cls = 'ctm-s' + (CTM.els[k].getAttribute('class').indexOf(' xf') > -1 ? ' xf' : '') + (k < doneN ? (missed(k) ? ' done miss' : ' done') : (k === ci ? ' cur' : ''));
+    CTM.els[k].setAttribute('class', cls);
+    if (k <= (CT.done ? n - 1 : ci)) prog.push(pts[k].x.toFixed(1) + ',' + pts[k].y.toFixed(1));
+  }
+  document.getElementById('ctm-prog').setAttribute('points', prog.length > 1 ? prog.join(' ') : '');
+  var tr = document.getElementById('ctm-train'), tp = pts[CT.done ? n - 1 : ci];
+  tr.style.left = (tp.x - 26) + 'px'; tr.style.top = (tp.y - 62) + 'px';
+  ctmCamera(CT.done ? n - 1 : ci);
+  if (fresh) { var wd = document.getElementById('ctm-world'); setTimeout(function () { wd.classList.remove('nofx'); }, 60); }
+  document.getElementById('ctm-cur').textContent = Math.min(doneN + (CT.done ? 0 : 1), n);
+
+  /* 하단 바: 이전 역 | 지금 칠 역 | 다음 역 */
+  var L = ctmLine(D), nm = names[CT.done ? n - 1 : ci], cidx = CT.done ? n - 1 : ci, chars = '';
+  for (j = 0; j < nm.length; j++) {
+    var i2 = offs[cidx] + j, st = '';
+    if (i2 < v.length) st = i2 === compIdx ? (ctEq(i2, v[i2]) ? 'comp ok' : 'comp') : (ctEq(i2, v[i2]) ? 'ok' : 'bad');
+    else if (i2 === v.length && !CT.done) st = 'cur';
+    chars += '<span class="ctm-ch ' + st + '">' + ctEsc(nm[j]) + '</span>';
+  }
+  var prevN = cidx > 0 ? names[cidx - 1] : null, nextN = cidx < n - 1 ? names[cidx + 1] : null;
+  var prevBad = prevN && !CT.done && missed(cidx - 1) && v.length >= offs[cidx];
+  function cd(name) { return L ? '<span class="ctm-cd">' + ctmCode(L, name) + '</span>' : ''; }
+  var prevH = '<div class="ctm-pill prev' + (prevN ? '' : ' none') + (prevBad ? ' bad' : '') + '"><span class="ctm-arr">←</span>' +
+    '<span class="ctm-pi">' + (prevN ? cd(prevN) : '') + '<span class="ctm-pn"><small>이전 역</small><b>' + (prevN ? ctEsc(prevN) : '출발') + '</b></span></span></div>';
+  var nextH = '<div class="ctm-pill next' + (nextN ? '' : ' none') + '">' +
+    '<span class="ctm-pi"><span class="ctm-pn"><small>다음 역</small><b>' + (nextN ? ctEsc(nextN) : '종착') + '</b></span>' + (nextN ? cd(nextN) : '') + '</span><span class="ctm-arr">→</span></div>';
+  var waitSp = !CT.done && !CT.comp && cidx < n - 1 && v.length === offs[cidx] + nm.length;
+  var xf = L ? ctmXfer(L, nm) : [], tag;
+  if (CT.done) tag = '<span class="ctm-tag go">🎉 종착역 도착!</span>';
+  else if (waitSp) tag = '<span class="ctm-tag go"><kbd>Space</kbd> 다음 역으로 출발</span>';
+  else if (xf.length) tag = '<span class="ctm-tag">환승 ' + xf.map(ctmBadge).join('') + '</span>';
+  else tag = '';
+  var fs = nm.length > 7 ? 30 : nm.length > 5 ? 38 : 46;
+  document.getElementById('ctm-hud').innerHTML = prevH +
+    '<div class="ctm-center">' + tag + '<span class="ctm-cbadge">' + (L ? ctmCode(L, nm) : '') + '</span>' +
+      '<span class="ctm-nm" style="--fs:' + fs + 'px;--len:' + nm.length + '">' + chars + '</span></div>' + nextH;
+}
+
 /* ---------- 그리기 ---------- */
 function ctRender() {
+  if (CT_DATA[CT.lang] && CT_DATA[CT.lang].track === 'subway') { ctRenderMetro(); return; }
   var v = document.getElementById('ct-inp').value, t = CT.target, html = '', i = 0, term = CT.term;
   var lines = t.split('\n'), last = lines.length - 1;
   var compIdx = CT.comp && v.length ? v.length - 1 : -1;   /* 한글을 조합하는 중인 글자 */
@@ -719,7 +864,7 @@ function ctRender() {
       if (i < v.length) st = i === compIdx ? 'comp' : (ctEq(i, v[i]) ? 'ok' : 'bad');
       else if (i === v.length && !CT.done) st = 'cur';
       var cl = 'ct-c ' + CT.colors[i] + (st ? ' ' + st : '');
-      var tp = (st === 'bad' && !isNl && v[i] && v[i] !== ' ' && v[i] !== c) ? ' data-t="' + ctEsc(v[i]).replace(/"/g, '&quot;') + '"' : '';
+      var tp = (st === 'bad' && !CT.kr && !isNl && v[i] && v[i] !== ' ' && v[i] !== c) ? ' data-t="' + ctEsc(v[i]).replace(/"/g, '&quot;') + '"' : '';
       if (isNl) html += '<span class="' + cl + ' nl">↵</span>';
       else if (c === ' ' && st === 'bad') html += '<span class="' + cl + '">·</span>';
       else html += '<span class="' + cl + '"' + tp + '>' + ctEsc(c) + '</span>';

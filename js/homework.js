@@ -76,7 +76,7 @@ function openHomework() {
   document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
   document.getElementById('homework').classList.add('active');
   document.getElementById('hw-room-pill').textContent = me.room + ' 방';
-  PJ.deckId = null;
+  PJ.deckId = null; PJ.leaving = false;
   PJ.chatTracker = { lastSig: null, pending: [] };
   var l = pjLocal();
   if (l.decks) PJ.decks = l.decks;
@@ -84,14 +84,75 @@ function openHomework() {
   pjShowPane();
   pjRenderDecks();
   pjRenderFiles();
-  startGameMembersBar();
-  if (typeof ssRenderBar === 'function') ssRenderBar();
   pjPoll();
   clearInterval(PJ.poll); PJ.poll = setInterval(pjPoll, 1500);
   pjPollChat();
   clearInterval(PJ.chatPoll); PJ.chatPoll = setInterval(pjPollChat, 1300);
 }
 
+/* ---------------- 나가기: 내용을 저장할지 날릴지 물어봐요 ----------------
+   과제방은 게임 · 화면 공유 · 후원이 없는 방이라, 나가면 방 자체를 나가요(첫 화면으로).
+   - 저장하고 나가기: 발표 자료 · 자료실 · 채팅이 그대로 남아서, 같은 방 코드로 들어오면 이어서 해요.
+   - 저장 안 하고 나가기: 이 방의 발표 자료 · 자료실 · 채팅을 전부 지워요 (같이 하던 친구들 화면에서도 사라져요). */
+function hwCounts() {
+  var d = ((PJ.decks && PJ.decks.items) || []).length, f = ((PJ.files && PJ.files.items) || []).length;
+  return { decks: d, files: f };
+}
+function hwLeave() {
+  pjFlushSave();
+  var c = hwCounts();
+  var box = chatModal(
+    '<div class="chat-modal-title">📚 과제방에서 나갈까요?</div>' +
+    '<div class="chat-modal-sub">지금 이 방에는 발표 자료 <b>' + c.decks + '</b>개 · 자료실 <b>' + c.files + '</b>개 · 채팅이 있어요.<br>내용을 어떻게 할까요?</div>' +
+    '<div class="chat-modal-btns hw-leave-btns">' +
+    '<button type="button" class="btn btn-primary" data-act="save">💾 저장하고 나가기</button>' +
+    '<button type="button" class="btn btn-danger" data-act="discard">🗑 저장 안 하고 나가기 (내용 날리기)</button>' +
+    '<button type="button" class="btn btn-ghost" data-act="stay">계속 작업하기</button></div>');
+  box.querySelector('[data-act="save"]').onclick = function () { box.style.display = 'none'; hwFinishLeave(true); };
+  box.querySelector('[data-act="stay"]').onclick = function () { box.style.display = 'none'; };
+  box.querySelector('[data-act="discard"]').onclick = function () {
+    box.style.display = 'none';
+    chatConfirmBox('정말 내용을 날릴까요?', '발표 자료 ' + c.decks + '개 · 자료실 ' + c.files + '개 · 채팅이 모두 지워지고, 같은 방 친구들 화면에서도 사라져요. 되돌릴 수 없어요.', '네, 날릴래요', function () { hwFinishLeave(false); });
+  };
+}
+function hwFinishLeave(keep) {
+  PJ.leaving = true;
+  var done = function () {
+    closeHomework();
+    if (typeof coinToast === 'function') coinToast(keep ? '💾 저장했어요 · 같은 방 코드로 들어오면 이어서 할 수 있어요' : '🗑 내용을 날렸어요');
+    backToModeSelect();
+  };
+  if (keep) { pjFlushSave(); done(); return; }
+  hwWipe().then(done, done);
+}
+/* 이 방의 발표 자료 · 자료실 · 채팅 · (이 기기에 있던 사본)을 전부 지워요 */
+function hwWipe() {
+  var jobs = [];
+  var decks = pjMergeList(PJ.decks, null), files = pjMergeList(PJ.files, null);
+  var dels = [];
+  decks.items.forEach(function (d) {
+    dels.push(d.id);
+    jobs.push(DBget(pjK('pj_d_' + d.id)).then(function (dk) {
+      var p = [];
+      ((dk && dk.order) || []).forEach(function (sid) { p.push(DBset(pjK('pj_s_' + d.id + '_' + sid), null)); });
+      p.push(DBset(pjK('pj_d_' + d.id), null));
+      return Promise.all(p);
+    }));
+  });
+  jobs.push(DBset(pjK('pj_decks'), { items: [], del: (decks.del || []).concat(dels).slice(-300) }));
+  var fdels = [];
+  files.items.forEach(function (f) { fdels.push(f.id); if (f.fileId) jobs.push(DBset(chatFileKey(f.fileId), null)); });
+  jobs.push(DBset(pjK('pj_files'), { items: [], del: (files.del || []).concat(fdels).slice(-300) }));
+  jobs.push(DBget(pjChatKey()).then(function (st) {
+    try { chatDeleteFilesOf((st && st.messages) || []); } catch (e) {}
+    return DBset(pjChatKey(), { messages: [] });
+  }));
+  /* 이 기기의 사본도 비워요 (안 비우면 다음에 들어올 때 다시 채워져요) */
+  try { localStorage.setItem(pjLocalKey(), '{}'); } catch (e) {}
+  PJ.decks = null; PJ.files = null; PJ.deckId = null;
+  return Promise.all(jobs.map(function (j) { return Promise.resolve(j).catch(function () {}); }));
+}
+/* 화면을 닫고 정리 (방은 hwFinishLeave에서 나가요) */
 function closeHomework() {
   pjFlushSave();
   pjReleaseLock();
@@ -99,13 +160,8 @@ function closeHomework() {
   clearInterval(PJ.chatPoll); PJ.chatPoll = null;
   clearInterval(PJ.lockT); PJ.lockT = null;
   PJ.deckId = null;
-  stopGameMembersBar();
   document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
   document.getElementById('home').classList.add('active');
-  /* 과제하기 모드: 방에 그대로 있으면서 게임 화면으로 (화면 공유도 계속돼요).
-     게임 화면 위쪽의 '📚 과제방으로 돌아가기'로 다시 들어올 수 있어요 */
-  var bb = document.getElementById('btn-back-hw');
-  if (bb) bb.style.display = (typeof HW_MODE !== 'undefined' && HW_MODE) ? '' : 'none';
 }
 /* core.js의 방 나가기에서 부르는 정리용 (예전 이름 호환) */
 var HW_POLL = null, HW_THREAD_POLL = null, HW_FOCUS_TICK = null;
@@ -140,6 +196,7 @@ function pjPoll() {
   }
   Promise.all(jobs).then(function (r) {
     PJ_POLL_BUSY = false;
+    if (PJ.leaving) return;
     var l = pjLocal();
     /* 발표 자료 목록 */
     var decks = pjMergeList(r[0], l.decks);
@@ -662,6 +719,7 @@ function pjUploadFiles(fileList) {
 function pjChatKey() { return pjK('pj_chat'); }
 function pjPollChat() {
   DBget(pjChatKey()).then(function (st) {
+    if (PJ.leaving) return;
     var msgs = (st && st.messages) || [];
     PJ.chatCount = msgs.length ? msgs[msgs.length - 1].ts : 0;
     var l = pjLocal();

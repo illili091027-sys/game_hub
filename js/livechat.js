@@ -106,8 +106,9 @@ function sayText(text) {
 /* ---------- 후원 ---------- */
 function donateOpen(toPid) {
   if (!roomJoined) { alert('방에 들어가야 후원할 수 있어요!'); return; }
-  /* 후원은 화면공유 채팅에서만 */
-  if (!LC.mode) { coinToast('후원은 화면공유 채팅에서 할 수 있어요'); return; }
+  /* 후원은 화면공유 채팅 또는 소통방에서만 */
+  if (typeof HW_MODE !== 'undefined' && HW_MODE) return;   /* 과제방은 후원 없음 */
+  if (!LC.mode && !(typeof socActive === 'function' && socActive())) { coinToast('후원은 소통방이나 화면공유 채팅에서 할 수 있어요'); return; }
   var others = (roomPlayersList || []).filter(function (p) { return p.id !== myPlayerId; });
   if (!others.length) { coinToast('후원할 친구가 아직 없어요'); return; }
   var have = walletCoins();
@@ -358,7 +359,7 @@ function lcPopIn() {
 /* 지금 상황에 맞게 채팅창을 붙였다 뗐다 */
 function lcSync() {
   var viewer = document.getElementById('ss-viewer');
-  var viewing = !!(SS && SS.view && viewer && viewer.style.display !== 'none' && !viewer.classList.contains('mini'));
+  var viewing = !!(SS && SS.view && viewer && viewer.style.display !== 'none' && !viewer.classList.contains('mini') && !viewer.classList.contains('soc-inline'));
   var sharing = !!(SS && SS.share);
   var mode = viewing ? 'view' : (sharing ? 'share' : null);
   if (mode === LC.mode) return;
@@ -394,7 +395,7 @@ function coinPillSync() {
     document.body.appendChild(el);
     walletRender();
   }
-  el.style.display = (roomJoined && playMode === 'online') || playMode === 'solo' ? '' : 'none';
+  el.style.display = ((roomJoined && playMode === 'online' && !(typeof HW_MODE !== 'undefined' && HW_MODE)) || playMode === 'solo') ? '' : 'none';
   el.classList.toggle('solo', playMode === 'solo');
 }
 (function lcLoop() {
@@ -403,6 +404,7 @@ function coinPillSync() {
     if (roomJoined && !wasJoined) { DON_WATCH.joinedAt = Date.now(); }
     wasJoined = roomJoined;
     coinPillSync();
+    if (typeof HW_MODE !== 'undefined' && HW_MODE) { if (LC.pip) lcPopIn(); if (LC.el) { LC.el.remove(); LC.el = null; LC.mode = null; } return; }   /* 과제방: 후원 · 화면공유 채팅 없음 */
     if (!roomJoined) { if (LC.pip) lcPopIn(); if (LC.el) { LC.el.remove(); LC.el = null; LC.mode = null; } return; }
     lcSync();
     n++;
