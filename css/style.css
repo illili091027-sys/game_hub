@@ -2351,6 +2351,36 @@ body:has(#homework.active) #game-members-bar { display: none !important; }
 .acc-admin-num { width: 80px; padding: 6px 8px; border-radius: 10px; border: 1.5px solid var(--boardLine); background: rgba(0,0,0,0.05); color: var(--chalk); font-family: inherit; font-size: 14px; }
 .acc-btn.warn { border-color: #e8584a; color: #c0392b; }
 .acc-admin-empty { padding: 20px; text-align: center; color: var(--chalkDim); }
+.acc-admin-body { display: flex; flex-direction: column; gap: 12px; overflow: auto; min-height: 0; padding-right: 2px; }
+.acc-admin-body > .acc-admin-list { overflow: visible; }
+.acc-atabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.acc-atabs button { padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--boardLine); background: transparent; color: var(--chalk); font-family: inherit; font-size: 14px; cursor: pointer; }
+.acc-atabs button.on { background: #1d1d1b; color: #fff; border-color: #1d1d1b; }
+.acc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.acc-stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--boardLine); background: rgba(255,255,255,0.55); }
+.acc-stat small { color: var(--chalkDim); font-size: 12px; }
+.acc-stat b { font-size: 24px; line-height: 1.2; }
+.acc-stat em { font-style: normal; color: var(--chalkDim); font-size: 12px; }
+.acc-sect { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--boardLine); background: rgba(255,255,255,0.4); }
+.acc-sect > b { font-size: 15px; }
+.acc-bars { display: flex; align-items: flex-end; gap: 10px; height: 100px; }
+.acc-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; }
+.acc-bar i { display: block; width: 100%; max-width: 38px; border-radius: 6px 6px 2px 2px; background: #6b8f71; }
+.acc-bar span { font-size: 12px; }
+.acc-bar small { color: var(--chalkDim); font-size: 11px; white-space: nowrap; }
+.acc-kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 14px; }
+.acc-kv > span:nth-child(odd) { color: var(--chalkDim); }
+.acc-kv small { color: var(--chalkDim); }
+.acc-note { color: var(--chalkDim); font-size: 12px; line-height: 1.5; }
+.acc-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: rgba(0,0,0,0.08); color: var(--chalk); font-size: 11px; font-weight: normal; vertical-align: middle; }
+.acc-pill.red { background: #fde4e1; color: #c0392b; }
+.acc-pill.green { background: #dff3e2; color: #2e7d46; }
+.acc-sel { padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--boardLine); background: rgba(0,0,0,0.05); color: var(--chalk); font-family: inherit; font-size: 14px; }
+.acc-admin-row.banned { background: rgba(232,88,74,0.07); border-color: rgba(232,88,74,0.45); }
+.acc-logrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--boardLine); background: rgba(255,255,255,0.5); font-size: 14px; }
+.acc-logt { color: var(--chalkDim); font-size: 12px; min-width: 76px; }
+.acc-logd { color: var(--chalkDim); font-size: 13px; }
+@media (max-width: 560px) { .acc-admin-card { padding: 12px; } .acc-stat b { font-size: 20px; } }
 
 /* ===================== 💬 소통방 ===================== */
 .mode-btn.mode-soc { border-color: rgba(111,195,223,0.7); }
