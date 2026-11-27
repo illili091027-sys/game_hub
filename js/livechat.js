@@ -123,9 +123,9 @@ function donateOpen(toPid) {
     '<div class="donate-title">💸 후원하기 <span class="donate-have">내 분필 ' + CHALK_IMG + ' <b class="coin-balance">' + have + '</b></span></div>' +
     '<div class="donate-label">누구에게?</div>' +
     '<div class="donate-to">' + others.map(function (p, i) { return '<button type="button" class="donate-chip' + ((toPid ? p.id === toPid : i === 0) ? ' on' : '') + '" data-pid="' + p.id + '">' + esc(p.name) + '</button>'; }).join('') + '</div>' +
-    '<div class="donate-label">얼마나?</div>' +
-    '<div class="donate-amts">' + [10, 30, 50, 100].map(function (a, i) { return '<button type="button" class="donate-chip amt' + (i === 0 ? ' on' : '') + '" data-a="' + a + '">' + CHALK_IMG + ' ' + a + '</button>'; }).join('') +
-    '<input type="number" id="donate-custom" min="1" placeholder="직접" /></div>' +
+    '<div class="donate-label">🎁 선물 고르기 <small>(비쌀수록 길고 화려해요)</small></div>' +
+    '<div class="gift-grid">' + giftGridHtml('', 'heart') + '</div>' +
+    '<div class="donate-amts"><span class="donate-or">선물 없이 분필만</span><input type="number" id="donate-custom" min="1" placeholder="직접" /></div>' +
     '<div class="donate-label">후원 메시지 <small>(목소리로 읽어줘요)</small></div>' +
     '<input type="text" id="donate-msg" maxlength="60" placeholder="예: 그림 너무 잘 그린다ㅋㅋ" />' +
     '<div class="donate-err" id="donate-err"></div>' +
@@ -133,18 +133,18 @@ function donateOpen(toPid) {
     '</div>';
   box.style.display = 'flex';
   var pick = function (sel, cls) { box.querySelectorAll(sel).forEach(function (b) { b.onclick = function () { box.querySelectorAll(sel).forEach(function (x) { x.classList.toggle('on', x === b); }); if (cls) document.getElementById('donate-custom').value = ''; }; }); };
-  pick('.donate-to .donate-chip'); pick('.donate-amts .donate-chip', true);
-  document.getElementById('donate-custom').oninput = function () { box.querySelectorAll('.donate-amts .donate-chip').forEach(function (x) { x.classList.remove('on'); }); };
+  pick('.donate-to .donate-chip'); pick('.gift-grid .gift-tile', true);
+  document.getElementById('donate-custom').oninput = function () { box.querySelectorAll('.gift-grid .gift-tile').forEach(function (x) { x.classList.remove('on'); }); };
   document.getElementById('donate-cancel').onclick = function () { box.style.display = 'none'; };
   var msgIn = document.getElementById('donate-msg');
   msgIn.onkeydown = function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('donate-send').click(); } };
   document.getElementById('donate-send').onclick = function () {
     var toB = box.querySelector('.donate-to .donate-chip.on');
-    var amtB = box.querySelector('.donate-amts .donate-chip.on');
-    var amt = amtB ? +amtB.getAttribute('data-a') : Math.floor(+document.getElementById('donate-custom').value || 0);
+    var gB = box.querySelector('.gift-grid .gift-tile.on'), gift = gB ? giftById(gB.getAttribute('data-gift')) : null;
+    var amt = gift ? gift.price : Math.floor(+document.getElementById('donate-custom').value || 0);
     var err = document.getElementById('donate-err');
     if (!toB) { err.textContent = '받을 친구를 골라요!'; return; }
-    if (!(amt > 0)) { err.textContent = '분필 개수를 정해요!'; return; }
+    if (!(amt > 0)) { err.textContent = '선물을 고르거나 분필 개수를 정해요!'; return; }
     if (amt > walletCoins()) { err.textContent = '분필이 모자라요 😢 (게임에서 이기면 분필을 받아요)'; return; }
     var to = toB.getAttribute('data-pid'), toName = toB.textContent;
     var msg = msgIn.value.trim().slice(0, 60);
@@ -154,15 +154,18 @@ function donateOpen(toPid) {
     var w = walletLoad(); w.got[id] = Date.now(); walletSave(w);
     chatPushMessage(groupChatKey(), {
       id: id, pid: myPlayerId, name: me.name, ts: Date.now(),
-      text: '💸 ' + toName + '님에게 분필 ' + amt + '개 후원!' + (msg ? ' “' + msg + '”' : ''),
-      don: { to: to, toName: toName, amount: amt, msg: msg }
+      text: donateText(toName, amt, gift, msg),
+      don: { to: to, toName: toName, amount: amt, msg: msg, gift: gift ? gift.id : '' }
     }).then(function () { if (typeof groupPoll === 'function') groupPoll(); lcPoll(true); });
-    donateAlert({ name: me.name, toName: toName, amount: amt, msg: msg });
+    donateAlert({ name: me.name, toName: toName, amount: amt, msg: msg, gift: gift ? gift.id : '' });
     box.style.display = 'none';
   };
 }
 
-/* 후원 알림: 화면 위에 크게 + 목소리 (여러 개 오면 차례대로) */
+function donateText(toName, amt, gift, msg) {
+  return '💸 ' + toName + '님에게 ' + (gift ? '🎁' + gift.name + ' (분필 ' + amt + '개)' : '분필 ' + amt + '개') + ' 후원!' + (msg ? ' “' + msg + '”' : '');
+}
+/* 후원 알림: 화면 위에 크게 + 목소리 + 선물 영상 (여러 개 오면 차례대로) */
 var DON_QUEUE = [], DON_BUSY = false;
 function donateAlert(d) { DON_QUEUE.push(d); if (!DON_BUSY) donateNext(); }
 function donateNext() {
@@ -172,11 +175,17 @@ function donateNext() {
   var el = document.getElementById('donate-alert');
   if (!el) { el = document.createElement('div'); el.id = 'donate-alert'; el.className = 'donate-alert'; }
   var host = overlayHost(); if (el.parentNode !== host) host.appendChild(el);
-  el.innerHTML = '<div class="da-coins">' + CHALK_IMG + CHALK_IMG + CHALK_IMG + '</div><div class="da-head"><b>' + esc(d.name) + '</b>님이 <b>' + esc(d.toName) + '</b>님에게<br><span class="da-amt">분필 ' + d.amount + '개</span> 후원!</div>' + (d.msg ? '<div class="da-msg">“' + esc(d.msg) + '”</div>' : '');
+  var gift = (typeof giftById === 'function' && d.gift) ? giftById(d.gift) : null;
+  /* 방송 후원 알림 느낌: 움짤 + "닉네임님 선물 후원" + 테두리 글씨 메시지 */
+  el.className = 'donate-alert stream';
+  el.innerHTML = (gift ? giftAlertImg(gift) : '<div class="da-coins">' + CHALK_IMG + CHALK_IMG + CHALK_IMG + '</div>') +
+    '<div class="da-head"><span class="da-name">' + esc(d.name) + '</span>님 ' + (gift ? '<span class="da-amt">🎁' + esc(gift.name) + '</span> <span class="da-sub">(' + CHALK_IMG + d.amount + ')</span>' : '<span class="da-amt">' + CHALK_IMG + d.amount + '개</span>') + ' 후원' +
+    '<div class="da-to">→ ' + esc(d.toName) + '님에게</div></div>' + (d.msg ? '<div class="da-msg">' + esc(d.msg) + '</div>' : '');
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   if (typeof mmSound === 'function') mmSound('catch');
-  setTimeout(function () { sayText(d.name + '님, ' + '분필 ' + d.amount + '개 후원. ' + (d.msg || '')); }, 500);
-  setTimeout(function () { el.classList.remove('show'); setTimeout(donateNext, 400); }, 5200);
+  var dur = gift ? giftPlay(gift.id, host, '', true) : 0;
+  setTimeout(function () { sayText(d.name + '님, ' + (gift ? gift.name + ' 선물' : '분필 ' + d.amount + '개') + ' 후원. ' + (d.msg || '')); }, 500);
+  setTimeout(function () { el.classList.remove('show'); setTimeout(donateNext, 400); }, Math.max(5200, dur));
 }
 
 /* 방 채팅을 지켜보다가 새 후원이 오면 알림 + (나한테 온 거면) 분필 받기 */
@@ -191,7 +200,7 @@ function donateCheck(messages) {
       w.coins += Math.max(0, Math.floor(m.don.amount || 0));
     }
     /* 방에 들어오기 전에 있던 옛날 후원은 알림 없이 기록만 */
-    if (m.ts > DON_WATCH.joinedAt - 5000 && Date.now() - m.ts < 60000) donateAlert({ name: m.name, toName: m.don.toName, amount: m.don.amount, msg: m.don.msg });
+    if (m.ts > DON_WATCH.joinedAt - 5000 && Date.now() - m.ts < 60000) donateAlert({ name: m.name, toName: m.don.toName, amount: m.don.amount, msg: m.don.msg, gift: m.don.gift });
   });
   if (changed) walletSave(w);
 }
@@ -227,7 +236,7 @@ function lcRender(el, msgs, force) {
     if (m.deleted) return '';
     var body = m.type === 'file' ? '📎 ' + esc(m.fileName || '파일') : esc(m.text || '');
     if (m.to) body = '<i class="lc-wh">🤫 ' + (m.pid === myPlayerId ? esc(m.toName || '') + '님에게' : '귓속말') + '</i> ' + body;
-    if (m.don) return '<div class="lc-m don"><b>' + esc(m.name) + '</b> → ' + esc(m.don.toName) + ' ' + CHALK_IMG + m.don.amount + (m.don.msg ? '<br>“' + esc(m.don.msg) + '”' : '') + '</div>';
+    if (m.don) { var dg = (typeof giftById === 'function' && m.don.gift) ? giftById(m.don.gift) : null; return '<div class="lc-m don"><b>' + esc(m.name) + '</b> → ' + esc(m.don.toName) + ' ' + (dg ? '🎁' + esc(dg.name) + ' ' : '') + CHALK_IMG + m.don.amount + (m.don.msg ? '<br>“' + esc(m.don.msg) + '”' : '') + '</div>'; }
     return '<div class="lc-m' + (m.pid === myPlayerId ? ' me' : '') + '"><b>' + esc(m.name || '?') + '</b> ' + body + '</div>';
   }).join('') || '<div class="lc-empty">채팅이 여기 실시간으로 올라와요</div>';
   if (stick || force) list.scrollTop = list.scrollHeight;
@@ -254,7 +263,8 @@ function lcDonate(el, msg) {
   var to = info.by, toName = info.name || (SS.view && SS.view.name) || '친구';
   if (!to || to === myPlayerId) { coinToast('지금 화면을 공유하는 친구에게만 후원할 수 있어요'); return; }
   var on = el.querySelector('.lc-amt.on'), custom = Math.floor(+el.querySelector('.lc-amt-custom').value || 0);
-  var amt = custom > 0 ? custom : (on ? +on.getAttribute('data-a') : 0);
+  var gift = (custom > 0 || !on) ? null : giftById(on.getAttribute('data-gift'));
+  var amt = custom > 0 ? custom : (gift ? gift.price : 0);
   if (!(amt > 0)) { coinToast('후원할 분필을 골라요'); return; }
   if (amt > walletCoins()) { coinToast('분필이 모자라요 😢 (게임에서 이기면 받아요)'); return; }
   msg = String(msg || '').slice(0, 60);
@@ -262,10 +272,10 @@ function lcDonate(el, msg) {
   var id = chatNewId(), w = walletLoad(); w.got[id] = Date.now(); walletSave(w);
   chatPushMessage(groupChatKey(), {
     id: id, pid: myPlayerId, name: me.name, ts: Date.now(),
-    text: '💸 ' + toName + '님에게 분필 ' + amt + '개 후원!' + (msg ? ' “' + msg + '”' : ''),
-    don: { to: to, toName: toName, amount: amt, msg: msg }
+    text: donateText(toName, amt, gift, msg),
+    don: { to: to, toName: toName, amount: amt, msg: msg, gift: gift ? gift.id : '' }
   }).then(function () { lcPoll(true); if (typeof groupPoll === 'function') groupPoll(); });
-  donateAlert({ name: me.name, toName: toName, amount: amt, msg: msg });
+  donateAlert({ name: me.name, toName: toName, amount: amt, msg: msg, gift: gift ? gift.id : '' });
   el.querySelector('.lc-input').value = ''; el.querySelector('.lc-amt-custom').value = '';
   lcSetDon(el, false);
 }
@@ -274,8 +284,8 @@ function lcBuild(mode, inPip) {
   el.className = 'lc-box' + (inPip ? ' in-pip' : '');
   el.innerHTML = '<div class="lc-head"><span class="lc-grip">⠿</span> <span class="lc-title">💬 실시간 채팅</span><span class="lc-badge" style="display:none"></span> <span class="hw-spacer"></span>' + (inPip ? '' : '<input type="range" class="lc-op" min="20" max="100" title="투명도">') + '<button type="button" class="lc-don" title="화면 공유하는 친구에게 후원">💸 후원</button><button type="button" class="lc-pop">' + (inPip ? '⤓ 사이트로' : '⧉ 따로') + '</button>' + ('<button type="button" class="lc-min" title="작게 내리기 (다시 누르면 올라와요)">—</button>') + '</div>' +
     '<div class="lc-list"></div>' +
-    '<div class="lc-donbar" style="display:none"><div class="lc-amts">' + [10, 30, 50, 100].map(function (a, i) { return '<button type="button" class="lc-amt' + (i === 0 ? ' on' : '') + '" data-a="' + a + '">' + CHALK_IMG + a + '</button>'; }).join('') +
-    '<input type="number" class="lc-amt-custom" min="1" placeholder="직접" /></div><div class="lc-have">내 분필 ' + CHALK_IMG + ' <b class="coin-balance">0</b></div></div>' +
+    '<div class="lc-donbar" style="display:none"><div class="lc-amts gift-strip">' + giftGridHtml('lc-amt', 'heart') + '</div><div class="lc-amts">' +
+    '<span class="lc-or">분필만</span><input type="number" class="lc-amt-custom" min="1" placeholder="직접" /></div><div class="lc-have">내 분필 ' + CHALK_IMG + ' <b class="coin-balance">0</b></div></div>' +
     '<div class="lc-row"><input type="text" class="lc-input" maxlength="300" placeholder="채팅 입력 (엔터)" autocomplete="off" /><button type="button" class="lc-send">➤</button></div>';
   el.querySelector('.lc-send').onclick = function () { lcSend(el); };
   el.querySelector('.lc-input').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); lcSend(el); } e.stopPropagation(); });

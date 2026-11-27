@@ -56,6 +56,7 @@ window.addEventListener('load', function () {
       <button class="mode-btn" onclick="chooseMode('online')">친구랑 온라인으로<span>같은 방 코드로 같이 플레이</span></button>
       <button class="mode-btn mode-casino" onclick="chooseCasinoMode()">🎰 도박방<span>분필로 홀짝 · 주사위 · 사다리 · 슬롯 · 야바위</span></button>
       <button class="mode-btn mode-soc" onclick="chooseSocialMode()">💬 소통방<span>화면 공유 · 채팅 · 같이 게임 · 후원</span></button>
+      <button class="mode-btn mode-heal" onclick="chooseHealMode()">🌿 힐링 공간<span>어항 · 별 · 고양이 낮잠 · 물고기 · 햄스터 · 오리</span></button>
       <button class="mode-btn mode-hw" onclick="chooseHomeworkMode()">📚 과제하기<span>채팅하며 같이 PPT 만들기 · 자료 공유</span></button>
     </div>
     <button class="mode-back" id="mode-back" style="display:none" onclick="backToModeSelect()">← 모드 다시 고르기</button>
@@ -204,6 +205,13 @@ window.addEventListener('load', function () {
         <div class="game-desc" id="desc-wheelrace">내가 그린 바퀴로 달려요! 모양과 크기에 따라 주행이 달라지는 물리 레이싱. 친구들과 기록으로 겨뤄요.</div>
       </button>
       <!-- 혼자하기 전용 -->
+      <button class="game-card" id="card-pancake" onclick="cardClicked('pancake')">
+        <div class="game-card-top">
+          <div class="game-icon">🥞</div>
+          <div class="game-name">그림 팬케이크</div>
+        </div>
+        <div class="game-desc" id="desc-pancake">반죽으로 그림을 그리고, 노릇해지면 반죽을 부어 덮고, 거품이 터지면 휙 뒤집어요! 내 그림이 새겨진 팬케이크 완성.</div>
+      </button>
       <button class="game-card" id="card-wordsearch" onclick="cardClicked('wordsearch')">
         <div class="game-card-top">
           <div class="game-icon">1</div>
@@ -255,6 +263,52 @@ window.addEventListener('load', function () {
         <div class="game-desc" id="desc-baby">고른 캐릭터가 구름을 밟고 통통 튀어 하늘 높이 올라가요!</div>
       </button>
       <div class="card-hint">💡 카드를 오른쪽 클릭(휴대폰은 길게 누르기)하면 설명이 나와요</div>
+    </div>
+
+    <div class="card-grid heal-grid" id="heal-grid" style="display:none">
+      <div class="heal-head">🌿 힐링 공간 <span>점수도 승패도 없어요. 천천히 쉬다 가요</span></div>
+      <button class="game-card" id="card-aquarium" onclick="cardClicked('aquarium')">
+        <div class="game-card-top">
+          <div class="game-icon">🐠</div>
+          <div class="game-name">어항</div>
+        </div>
+        <div class="game-desc" id="desc-aquarium">물고기를 그려서 넣으면, 내 물고기와 다른 친구들이 그린 물고기가 한 수조에서 함께 헤엄쳐요. 내 물고기가 지나가면 반가워요!</div>
+      </button>
+      <button class="game-card" id="card-stars" onclick="cardClicked('stars')">
+        <div class="game-card-top">
+          <div class="game-icon">🌌</div>
+          <div class="game-name">별을 남기는 밤</div>
+        </div>
+        <div class="game-desc" id="desc-stars">밤하늘에 한 줄 소원을 적으면 별 하나가 떠올라요. 다른 사람들의 소원 별도 반짝반짝 읽어 볼 수 있어요.</div>
+      </button>
+      <button class="game-card" id="card-catnap" onclick="cardClicked('catnap')">
+        <div class="game-card-top">
+          <div class="game-icon">🐈</div>
+          <div class="game-name">고양이 낮잠 협회</div>
+        </div>
+        <div class="game-desc" id="desc-catnap">고양이들이 새근새근 자고 있어요. 이름을 지어 주고 이불이나 베개를 놓아 주세요. 모두 같이 돌보는 고양이예요.</div>
+      </button>
+      <button class="game-card" id="card-fishzen" onclick="cardClicked('fishzen')">
+        <div class="game-card-top">
+          <div class="game-icon">🐟</div>
+          <div class="game-name">물고기 멍때리기</div>
+        </div>
+        <div class="game-desc" id="desc-fishzen">작은 어항 속 물고기 한 마리. 밥을 주고, 조명을 켜고, 그냥 헤엄치는 걸 멍하니 구경해요.</div>
+      </button>
+      <button class="game-card" id="card-hamster" onclick="cardClicked('hamster')">
+        <div class="game-card-top">
+          <div class="game-icon">🐹</div>
+          <div class="game-name">햄스터 출근시키기</div>
+        </div>
+        <div class="game-desc" id="desc-hamster">버튼을 누르면 햄찌가 출근해요! 하루 한 번 출근 도장을 찍고 퇴근하면 작은 월급을 받아요.</div>
+      </button>
+      <button class="game-card" id="card-duckwalk" onclick="cardClicked('duckwalk')">
+        <div class="game-card-top">
+          <div class="game-icon">🦆</div>
+          <div class="game-name">오리 산책시키기</div>
+        </div>
+        <div class="game-desc" id="desc-duckwalk">누른 곳으로 오리가 뒤뚱뒤뚱 걸어가요. 연못, 빗물 웅덩이, 빵 부스러기가 있어요.</div>
+      </button>
     </div>
 
     <div class="home-footer" id="home-footer" style="display:none"></div>
@@ -1154,6 +1208,78 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="pancake" class="view">
+  <div class="wrap pc-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="pc-room-pill">혼자 하기</span>
+    </div>
+    <h2 class="game-heading">🥞 그림 팬케이크</h2>
+    <div id="pc-root"></div>
+  </div>
+</div>
+
+<div id="aquarium" class="view">
+  <div class="wrap aq-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="aq-room-pill">어항</span>
+    </div>
+    <h2 class="game-heading">🐠 어항</h2>
+    <div id="aq-root"></div>
+  </div>
+</div>
+
+<div id="stars" class="view">
+  <div class="wrap sk-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="sk-room-pill">별을 남기는 밤</span>
+    </div>
+    <div id="sk-root"></div>
+  </div>
+</div>
+
+<div id="catnap" class="view">
+  <div class="wrap cz-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="cn-room-pill">고양이 낮잠 협회</span>
+    </div>
+    <div id="cn-root"></div>
+  </div>
+</div>
+
+<div id="fishzen" class="view">
+  <div class="wrap cz-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="fz-room-pill">물고기 멍때리기</span>
+    </div>
+    <div id="fz-root"></div>
+  </div>
+</div>
+
+<div id="hamster" class="view">
+  <div class="wrap cz-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="hm-room-pill">햄스터 출근시키기</span>
+    </div>
+    <div id="hm-root"></div>
+  </div>
+</div>
+
+<div id="duckwalk" class="view">
+  <div class="wrap cz-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="dw-room-pill">오리 산책시키기</span>
+    </div>
+    <div id="dw-root"></div>
+  </div>
+</div>
+
 <div id="blockpop" class="view">
   <div class="wrap bp-wrap">
     <div class="topbar">
@@ -1498,6 +1624,7 @@ window.addEventListener('load', function () {
 <script src="js/manuals.js"></script>
 <script src="js/channels.js"></script>
 <script src="js/screenshare.js"></script>
+<script src="js/gifts.js"></script>
 <script src="js/livechat.js"></script>
 <script src="js/tables.js"></script>
 <script src="data/bento-levels.js"></script>
@@ -1512,6 +1639,10 @@ window.addEventListener('load', function () {
 <script src="js/ballz.js"></script>
 <script src="js/matter.min.js"></script>
 <script src="js/wheelrace.js"></script>
+<script src="js/pancake.js"></script>
+<script src="js/aquarium.js"></script>
+<script src="js/stars.js"></script>
+<script src="js/cozy.js"></script>
 <script src="js/account.js"></script>
 <script src="js/pptx-writer.js"></script>
 <script src="js/homework.js"></script>

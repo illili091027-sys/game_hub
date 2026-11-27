@@ -1,13 +1,18 @@
 /* 🛞 바퀴 레이스 (온라인, 1~10명)
    내가 그린 모양이 진짜 바퀴가 되어 달려요. Matter.js(js/matter.min.js) 물리 엔진 사용.
    - 방장이 스테이지를 고르면 모두 같은 코스를 달려요. 각자 자기 바퀴를 그려서 기록(시간)으로 겨뤄요.
-   - 상태 키: roomKey('wheelrace') = { stage }  (방장만 씀)
-              roomKey('wr_' + 내id)  = { stage, prog, fin }  (각자 씀: 진행률 0~1, 완주 시간 ms)
+   - 상태 키: roomKey('wheelrace') = { stage, round }  (방장만 씀. round 가 바뀌면 모두 동시에 3·2·1 출발)
+              roomKey('wr_' + 내id)  = { stage, r, q, 차/바퀴 위치, 바퀴 모양, prog, fin }  (각자 0.2초마다 씀)
+   - 친구들 차는 같은 코스 위에 반투명 '고스트'로 함께 달려요(서로 부딪히진 않아요).
    - 코인·자동차·바퀴색·스테이지 기록은 localStorage 'gamehub_wheelrace' 에 저장돼요. */
 
-var WR_W = 900, WR_H = 420, WR = null, WR_RAF = null, WR_POLL = null, WR_PUB = null, WR_KEYH = null;
+var WR_W = 900, WR_H = 420, WR = null, WR_RAF = null, WR_NET = null, WR_KEYH = null, WR_NET_N = 0;
 var WR_SAVE_KEY = 'gamehub_wheelrace';
 var WR_CARS = [{ n: '빨강이', c: '#ef5350', p: 0 }, { n: '노랑 택시', c: '#ffca28', p: 60 }, { n: '파랑 번개', c: '#42a5f5', p: 150 }, { n: '핑크 몽글', c: '#f48fb1', p: 300 }];
+var WR_TAGS = ['#1e88e5', '#8e24aa', '#00897b', '#f4511e', '#d81b60', '#3949ab', '#6d4c41', '#43a047', '#00acc1', '#fb8c00'];
+function wrTagColor(id) {
+  if (/^bot\d/.test(id)) return ['#1e88e5', '#d81b60', '#fb8c00'][(+id.slice(3) - 1) % 3];
+  var i = (roomPlayersList || []).map(function (p) { return p.id; }).indexOf(id); return WR_TAGS[(i < 0 ? 0 : i) % WR_TAGS.length]; }
 var WR_COLORS = ['#455a64', '#ff7043', '#26a69a', '#ab47bc', '#ffd54f', '#5c6bc0'];
 
 /* 코스 만들기 문법: f 평지 | s 경사(길이, 높이변화) | b 울퉁불퉁(길이, 크기) | st 계단(칸수, 폭, 높이)
@@ -32,37 +37,42 @@ function wrSaveLoad() {
 function wrSaveStore() { try { localStorage.setItem(WR_SAVE_KEY, JSON.stringify(WR.save)); } catch (e) {} }
 
 /* ---------- 바퀴 도형 변환 ---------- */
-/* 마우스/터치로 그린 점들(raw)을 닫힌 도형으로 바꿔요. 실패하면 문자열(안내 문구)을 돌려줘요. */
+/* 마우스/터치로 그린 선(raw)을 그대로 바퀴로 써요. 안을 채우지 않고, 열린 선이면 열린 선 그대로예요.
+   실패하면 문자열(안내 문구)을 돌려줘요. 결과: { pts, closed } */
 function wrMakeWheel(raw) {
-  if (!raw || raw.length < 8) return '조금 더 길게 그려 주세요!';
+  if (!raw || raw.length < 4) return '조금 더 길게 그려 주세요!';
   var i, n = raw.length, minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
   raw.forEach(function (p) { minx = Math.min(minx, p.x); maxx = Math.max(maxx, p.x); miny = Math.min(miny, p.y); maxy = Math.max(maxy, p.y); });
-  if (Math.min(maxx - minx, maxy - miny) < 26) return '너무 작아요! 더 크게 그려 주세요.';
-  var pts = raw.concat([raw[0]]), segLen = [], total = 0;      /* 끝점을 시작점에 이어서 자동으로 닫기 */
-  for (i = 0; i < n; i++) { var l = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); segLen.push(l); total += l; }
-  var N = 30, out = [], step = total / N, acc = 0, k = 0;     /* 일정한 간격으로 30개 점 뽑기 */
-  for (i = 0; i < N; i++) {
-    var target = i * step;
-    while (k < n - 1 && acc + segLen[k] < target) { acc += segLen[k]; k++; }
-    var t = segLen[k] ? (target - acc) / segLen[k] : 0;
+  var size = Math.max(maxx - minx, maxy - miny);
+  if (size < 30) return '너무 작아요! 더 크게 그려 주세요.';
+  /* 끝점이 시작점 바로 옆이면 닫힌 모양, 아니면 그린 그대로 열린 선 */
+  var closed = Math.hypot(raw[n - 1].x - raw[0].x, raw[n - 1].y - raw[0].y) < Math.max(14, size * 0.12);
+  var pts = closed ? raw.concat([raw[0]]) : raw.slice(), segLen = [], total = 0;
+  for (i = 0; i < pts.length - 1; i++) { var l = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); segLen.push(l); total += l; }
+  if (total < 30) return '조금 더 길게 그려 주세요!';
+  /* 선을 따라 일정한 간격으로 점 뽑기 (모양은 그대로 유지) */
+  var N = Math.max(8, Math.min(48, Math.round(total / 7))), cnt = closed ? N : N + 1, step = total / N, out = [], acc = 0, k = 0;
+  for (i = 0; i < cnt; i++) {
+    var target = Math.min(total, i * step);
+    while (k < segLen.length - 1 && acc + segLen[k] < target) { acc += segLen[k]; k++; }
+    var t = segLen[k] ? Math.min(1, (target - acc) / segLen[k]) : 0;
     out.push({ x: pts[k].x + (pts[k + 1].x - pts[k].x) * t, y: pts[k].y + (pts[k + 1].y - pts[k].y) * t });
   }
-  var sm = out.map(function (p, j) { var a = out[(j + N - 1) % N], b = out[(j + 1) % N]; return { x: a.x * 0.2 + p.x * 0.6 + b.x * 0.2, y: a.y * 0.2 + p.y * 0.6 + b.y * 0.2 }; });
-  var A = 0, cx = 0, cy = 0;                                    /* 면적 중심(무게중심) 구하기 */
-  for (i = 0; i < N; i++) { var p1 = sm[i], p2 = sm[(i + 1) % N], cr = p1.x * p2.y - p2.x * p1.y; A += cr; cx += (p1.x + p2.x) * cr; cy += (p1.y + p2.y) * cr; }
-  if (Math.abs(A) < 1) return '모양이 너무 납작해요!';
-  cx /= 3 * A; cy /= 3 * A;
-  var rel = sm.map(function (p) { return { x: p.x - cx, y: p.y - cy }; });
-  var ext = 0, mn = 1e9;
-  rel.forEach(function (p) { var d = Math.hypot(p.x, p.y); ext = Math.max(ext, d); mn = Math.min(mn, d); });
+  /* 선의 무게중심(길이 기준) = 바퀴 축 */
+  var L = 0, cx = 0, cy = 0, M = out.length, segs = closed ? M : M - 1;
+  for (i = 0; i < segs; i++) { var a = out[i], b = out[(i + 1) % M], ll = Math.hypot(b.x - a.x, b.y - a.y); L += ll; cx += (a.x + b.x) / 2 * ll; cy += (a.y + b.y) / 2 * ll; }
+  cx /= L; cy /= L;
+  var rel = out.map(function (p) { return { x: p.x - cx, y: p.y - cy }; }), ext = 0;
+  rel.forEach(function (p) { ext = Math.max(ext, Math.hypot(p.x, p.y)); });
+  if (ext < 1) return '모양을 다시 그려 주세요!';
   var sc = Math.max(13, Math.min(46, ext * 0.4)) / ext;         /* 그린 크기가 곧 바퀴 크기 (반지름 13~46) */
-  return { pts: rel.map(function (p) { return { x: +(p.x * sc).toFixed(2), y: +(p.y * sc).toFixed(2) }; }), R: +(ext * sc).toFixed(1), round: Math.round(mn / ext * 100) };
+  return { pts: rel.map(function (p) { return { x: +(p.x * sc).toFixed(2), y: +(p.y * sc).toFixed(2) }; }), closed: closed };
 }
 function wrCirclePts(R) { var o = []; for (var i = 0; i < 28; i++) { var a = i / 28 * Math.PI * 2; o.push({ x: +(Math.cos(a) * R).toFixed(2), y: +(Math.sin(a) * R).toFixed(2) }); } return o; }
-function wrWheelInfo(pts) {
-  var R = 0, mn = 1e9, area = 0, N = pts.length;
-  pts.forEach(function (p, i) { var d = Math.hypot(p.x, p.y); R = Math.max(R, d); mn = Math.min(mn, d); var q = pts[(i + 1) % N]; area += Math.abs(p.x * q.y - q.x * p.y) / 2; });
-  return { R: R, round: Math.round(mn / R * 100), mass: area };
+function wrWheelInfo(w) {
+  var pts = w.pts, R = 0, mn = 1e9, len = 0, N = pts.length;
+  pts.forEach(function (p, i) { var d = Math.hypot(p.x, p.y); R = Math.max(R, d); mn = Math.min(mn, d); if (w.closed || i < N - 1) { var q = pts[(i + 1) % N]; len += Math.hypot(q.x - p.x, q.y - p.y); } });
+  return { R: R, round: Math.round(mn / R * 100), len: len, closed: !!w.closed };
 }
 
 /* ---------- 코스 ---------- */
@@ -80,7 +90,7 @@ function wrBuildTrack(def) {
     else if (t === 'm') { gates.push({ x: x, y: y, ph: gates.length * 1.7 }); }
     else if (t === 't') { ceils.push({ x0: x, x1: x + o[1], y: y - o[2] }); }
   });
-  go(x + 300, y); segs.push(cur);
+  go(x + 500, y); go(x, y - 400); segs.push(cur);   /* 결승선 뒤 평지 + 끝 벽 */
   /* 일직선으로 이어진 점은 하나로 합쳐요 → 바퀴가 이음매에 걸려 덜컹대는 것을 막아요 */
   segs = segs.map(function (s) {
     var r = [s[0]];
@@ -103,22 +113,143 @@ function wrGroundY(segs, px) {
 }
 
 /* ---------- 물리 월드 ---------- */
-function wrMakeWheelBody(pts, x, y, color) {
-  var M = Matter, parts = [], N = pts.length;
-  for (var i = 0; i < N; i++) {
-    var p = pts[i], q = pts[(i + 1) % N];
-    if (Math.abs(p.x * q.y - q.x * p.y) < 0.5) continue;        /* 면적 없는 삼각형은 버려요 */
-    parts.push(M.Bodies.fromVertices(x + (p.x + q.x) / 3, y + (p.y + q.y) / 3, [[{ x: 0, y: 0 }, { x: p.x, y: p.y }, { x: q.x, y: q.y }]]));
+var WR_LINE = 6;   /* 바퀴 선 두께 */
+function wrMakeWheelBody(w, x, y) {
+  var M = Matter, parts = [], pts = w.pts, N = pts.length, segs = w.closed ? N : N - 1;
+  for (var i = 0; i < segs; i++) {
+    var p = pts[i], q = pts[(i + 1) % N], l = Math.hypot(q.x - p.x, q.y - p.y);
+    if (l < 0.5) continue;
+    parts.push(M.Bodies.rectangle(x + (p.x + q.x) / 2, y + (p.y + q.y) / 2, l + WR_LINE * 0.6, WR_LINE, { angle: Math.atan2(q.y - p.y, q.x - p.x), chamfer: { radius: WR_LINE / 2 - 0.5 } }));
   }
-  var w = M.Body.create({ parts: parts, friction: 1, frictionStatic: 1.2, restitution: 0.05, frictionAir: 0.002 });
-  w.parts.forEach(function (pt) { pt.friction = 1; pt.frictionStatic = 1.2; pt.restitution = 0.05; });
-  M.Body.setDensity(w, 0.0013);
-  return w;
+  var b = M.Body.create({ parts: parts, friction: 1, frictionStatic: 1.2, restitution: 0.05, frictionAir: 0.002 });
+  b.parts.forEach(function (pt) { pt.friction = 1; pt.frictionStatic = 1.2; pt.restitution = 0.05; });
+  var R = wrWheelInfo(w).R;
+  M.Body.setMass(b, 0.0013 * Math.PI * R * R * 0.85);         /* 큰 바퀴일수록 무거워요 */
+  /* 선 모양 그대로의 회전 관성 (축에서 먼 선일수록 무겁게 돌아요) */
+  var r2 = 0; pts.forEach(function (p) { r2 += p.x * p.x + p.y * p.y; }); r2 /= N;
+  M.Body.setInertia(b, b.mass * Math.max(r2, R * R * 0.3));
+  return b;
 }
+
+/* 자동차에 바퀴를 (다시) 달아요. 달리는 도중에도 멈추지 않고 바로 바뀌어요.
+   reset = { x, y(지면 높이) } 를 주면 그 자리에 똑바로 다시 세워요. */
+function wrAttachWheels(reset, rc) {
+  var M = Matter, W = rc || WR, world = WR.engine.world, car = W.car, newR = W.wheelInfo.R, av = 0;
+  if (W.wl) { av = W.wl.angularVelocity; M.Composite.remove(world, [W.cl, W.cr, W.wl, W.wr]); }
+  if (reset) {
+    M.Body.setAngle(car, 0); M.Body.setAngularVelocity(car, 0); M.Body.setVelocity(car, { x: 0, y: 0 });
+    M.Body.setPosition(car, { x: reset.x, y: reset.y - newR - 4 - W.anc[0].y });
+    av = 0;
+  } else if (W.curR && newR > W.curR) {
+    M.Body.setPosition(car, { x: car.position.x, y: car.position.y - (newR - W.curR) - 3 });
+  }
+  var ca = Math.cos(car.angle), sa = Math.sin(car.angle), made = W.anc.map(function (a) {
+    var off = { x: a.x * ca - a.y * sa, y: a.x * sa + a.y * ca };
+    var wb = wrMakeWheelBody(W.wheel, car.position.x + off.x, car.position.y + off.y);
+    wrCarFilter(wb);
+    M.Body.setVelocity(wb, { x: car.velocity.x, y: car.velocity.y }); M.Body.setAngularVelocity(wb, av);
+    var con = M.Constraint.create({ bodyA: car, pointA: off, bodyB: wb, pointB: { x: 0, y: 0 }, length: 0, stiffness: 0.55, damping: 0.25 });
+    return { b: wb, c: con };
+  });
+  W.wl = made[0].b; W.wr = made[1].b; W.cl = made[0].c; W.cr = made[1].c; W.curR = newR;
+  M.Composite.add(world, [W.wl, W.wr, W.cl, W.cr]);
+}
+
+/* 떨어지거나 뒤집히면 멈추지 않고 x 근처 땅 위에 다시 세워요 */
+function wrRespawn(x, why, rc) {
+  var tr = WR.track, gy = null, xx = Math.max(WR.startX, x), R = rc || WR;
+  while (xx > WR.startX && (gy = wrGroundY(tr.segs, xx)) === null) xx -= 20;
+  if (gy === null) { xx = WR.startX; gy = wrGroundY(tr.segs, xx) || 0; }
+  wrAttachWheels({ x: xx, y: gy }, R);
+  R.flip = 0; R.stuck = 0; R.safeY = gy;
+  if (!rc) { WR.toast = why; WR.toastT = 110; }
+}
+/* 자동차끼리는 부딪히지 않고 땅·장애물에만 닿아요 (모든 차: category 2, mask 1) */
+function wrCarFilter(b) { [b].concat(b.parts).forEach(function (p) { p.collisionFilter.group = 0; p.collisionFilter.category = 0x0002; p.collisionFilter.mask = 0x0001; }); }
+/* 차체 만들기 (나 · 봇 공용) */
+function wrMakeCarBody(sx, sy) {
+  var M = Matter;
+  var base = M.Bodies.rectangle(sx, sy - 10, 84, 18, { chamfer: { radius: 6 } });
+  var cab = M.Bodies.rectangle(sx - 8, sy - 27, 46, 16, { chamfer: { radius: 5 } });
+  var car = M.Body.create({ parts: [base, cab], friction: 0.5, frictionAir: 0.004 });
+  M.Body.setDensity(car, 0.0016); wrCarFilter(car);
+  return { car: car, base: base, cab: cab };
+}
+
+/* ---------- 🤖 봇 (Scribble Rider처럼 지형을 보고 바퀴를 바꿔 그려요) ---------- */
+var WR_BOT_DEF = [
+  { name: '🤖 번개봇', c: '#42a5f5', wc: '#1565c0', pref: 'circle', react: 10, miss: 0.08, maxW: 0.165 },
+  { name: '🤖 몽글봇', c: '#f48fb1', wc: '#ad1457', pref: 'hex', react: 22, miss: 0.18, maxW: 0.158 },
+  { name: '🤖 씽씽봇', c: '#ffca28', wc: '#ef6c00', pref: 'oval', react: 34, miss: 0.28, maxW: 0.152 }
+];
+function wrPolyPts(n, R, sx, sy, rot) { var o = []; for (var i = 0; i < n; i++) { var a = (rot || 0) + i / n * Math.PI * 2; o.push({ x: +(Math.cos(a) * R * (sx || 1)).toFixed(2), y: +(Math.sin(a) * R * (sy || 1)).toFixed(2) }); } return o; }
+function wrBotWheel(kind) {
+  if (kind === 'small') return { pts: wrPolyPts(20, 14), closed: true };
+  if (kind === 'big') return { pts: wrPolyPts(28, 40), closed: true };
+  if (kind === 'hex') return { pts: wrPolyPts(6, 27), closed: true };
+  if (kind === 'oval') return { pts: wrPolyPts(24, 30, 1, 0.72), closed: true };
+  if (kind === 'tri') return { pts: wrPolyPts(3, 32, 1, 1, -Math.PI / 2), closed: true };
+  if (kind === 'arc') return { pts: wrPolyPts(18, 30).slice(0, 13), closed: false };
+  return { pts: wrPolyPts(28, 26), closed: true };
+}
+function wrBotSetWheel(b, kind) {
+  if (b.kind === kind) return;
+  b.kind = kind; b.wheel = wrBotWheel(kind); b.wheelInfo = wrWheelInfo(b.wheel); b.cool = 50;
+  wrAttachWheels(null, b);
+}
+/* 앞쪽 지형을 보고 원하는 바퀴 고르기 */
+function wrBotThink(b) {
+  var tr = WR.track, x0 = b.car.position.x, g0 = wrGroundY(tr.segs, x0), want = b.pref, i;
+  var low = tr.ceils.some(function (c) { return c.x1 > x0 - 40 && c.x0 < x0 + 260; });
+  if (low) want = 'small';
+  else {
+    var rise = 0, gap = false;
+    for (i = 40; i <= 280; i += 20) { var g = wrGroundY(tr.segs, x0 + i); if (g === null) gap = true; else if (g0 !== null) rise = Math.max(rise, g0 - g); }
+    if (gap || rise > 26 || tr.gates.some(function (gt) { return gt.x > x0 && gt.x < x0 + 220; })) want = 'big';
+  }
+  if (Math.random() < b.miss) want = ['circle', 'hex', 'oval', 'tri', 'big'][Math.floor(Math.random() * 5)];   /* 가끔 실수도 해요 */
+  return want;
+}
+function wrMakeBots(list) {
+  WR.bots = [];
+  if (myPlayerId !== roomHostId) return;                          /* 봇은 방장 화면에서 움직이고, 친구들은 고스트로 봐요 */
+  (list || []).forEach(function (bi, i) {
+    var d = WR_BOT_DEF[i % WR_BOT_DEF.length], R = 26, sx = WR.startX, sy = -R - 2, cb = wrMakeCarBody(sx, sy);
+    var b = { id: bi.id, name: bi.name, c: d.c, wc: d.wc, pref: d.pref, react: d.react, miss: d.miss, maxW: d.maxW, car: cb.car, wl: null, curR: 0,
+      anc: WR.anc, kind: '', think: d.react, cool: 0, safeY: 0, flip: 0, stuck: 0, lastX: sx, fin: 0 };
+    Matter.Composite.add(WR.engine.world, b.car);
+    b.kind = d.pref; b.wheel = wrBotWheel(d.pref); b.wheelInfo = wrWheelInfo(b.wheel);
+    wrAttachWheels({ x: sx, y: wrGroundY(WR.track.segs, sx) || 0 }, b);
+    WR.bots.push(b);
+  });
+}
+function wrBotStep(b) {
+  var cp = b.car.position;
+  if (b.fin) { [b.car, b.wl, b.wr].forEach(function (x) { Matter.Body.setVelocity(x, { x: x.velocity.x * 0.95, y: x.velocity.y }); Matter.Body.setAngularVelocity(x, x.angularVelocity * 0.93); }); return; }
+  wrDrive(b);
+  if (b.cool > 0) b.cool--;
+  if (--b.think <= 0) { b.think = b.react + Math.floor(Math.random() * 12); var w = wrBotThink(b); if (b.cool <= 0) wrBotSetWheel(b, w); }
+  var gy = wrGroundY(WR.track.segs, cp.x);
+  if (gy !== null && cp.y < gy + 5) b.safeY = gy;
+  if (Math.cos(b.car.angle) < -0.3) b.flip++; else b.flip = 0;
+  if (Math.abs(cp.x - b.lastX) < 0.25) b.stuck++; else { b.stuck = 0; b.lastX = cp.x; }
+  if (cp.x >= WR.track.finishX) b.fin = Math.max(1, Math.round(WR.rt));
+  else if (cp.y > b.safeY + 320 || cp.y > WR.track.killY) wrRespawn(cp.x - 160, '', b);
+  else if (b.flip > 60) wrRespawn(cp.x, '', b);
+  else if (b.stuck > 80) { b.stuck = 0; b.cool = 0; wrBotSetWheel(b, ['big', 'tri', 'hex', 'oval', 'small', 'circle'][Math.floor(Math.random() * 6)]); }
+}
+/* 자동으로 앞으로! 바퀴가 무거울수록(큰 바퀴일수록) 천천히 힘을 받아요 */
+function wrDrive(rc) {
+  [rc.wl, rc.wr].forEach(function (w) {
+    var maxW = rc.maxW || 0.17;
+    if (w.angularVelocity < maxW) w.torque += w.inertia * 1.9e-4 * Math.max(0, 1 - w.angularVelocity / maxW);
+  });
+}
+function wrBotProg(b) { return b.fin ? 1 : Math.max(0, Math.min(1, (b.car.position.x - WR.startX) / (WR.track.finishX - WR.startX))); }
 
 function wrLoadStage(idx) {
   var M = Matter, def = WR_STAGES[idx];
-  WR.stage = idx; WR.state = 'ready'; WR.t = 0; WR.got = 0; WR.flip = 0; WR.stuck = 0; WR.lastX = 0; WR.jumpCd = 0; WR.msg = '';
+  WR.stage = idx; WR.state = WR.round ? 'count' : 'wait'; WR.cd = 180; WR.ghosts = {}; WR.finRank = 0; WR.goT = 0; WR.toast = ''; WR.toastT = 0; WR.wl = null; WR.curR = 0; WR.t = 0; WR.got = 0; WR.flip = 0; WR.stuck = 0; WR.lastX = 0; WR.jumpCd = 0; WR.msg = '';
   WR.engine = M.Engine.create({ positionIterations: 10, velocityIterations: 8 });
   WR.engine.gravity.y = 1.25;
   var tr = WR.track = wrBuildTrack(def), world = WR.engine.world;
@@ -135,20 +266,15 @@ function wrLoadStage(idx) {
   tr.gates.forEach(function (g) { g.body = M.Bodies.rectangle(g.x, g.y - 60, 30, 120, { isStatic: true, friction: 0.2 }); M.Composite.add(world, g.body); });
   tr.ceils.forEach(function (c) { c.body = M.Bodies.rectangle((c.x0 + c.x1) / 2, c.y - 100, c.x1 - c.x0, 200, { isStatic: true, friction: 0.2 }); M.Composite.add(world, c.body); });
   /* 자동차: 차체 + 지붕, 바퀴 2개를 핀으로 연결 (살짝 출렁이는 서스펜션) */
-  var pts = WR.wheel.pts, R = WR.wheelInfo.R, sx = 120, sy = -R - 2, grp = M.Body.nextGroup(true);
-  var base = M.Bodies.rectangle(sx, sy - 10, 84, 18, { chamfer: { radius: 6 }, collisionFilter: { group: grp } });
-  var cab = M.Bodies.rectangle(sx - 8, sy - 27, 46, 16, { chamfer: { radius: 5 }, collisionFilter: { group: grp } });
-  var car = M.Body.create({ parts: [base, cab], friction: 0.5, frictionAir: 0.004 });
-  M.Body.setDensity(car, 0.0016);
-  var wl = wrMakeWheelBody(pts, sx - 32, sy), wr = wrMakeWheelBody(pts, sx + 32, sy);
-  [wl, wr].forEach(function (w) { w.collisionFilter.group = grp; w.parts.forEach(function (p) { p.collisionFilter.group = grp; }); });
-  car.collisionFilter.group = grp;
-  M.Composite.add(world, [car, wl, wr,
-    M.Constraint.create({ bodyA: car, pointA: { x: wl.position.x - car.position.x, y: wl.position.y - car.position.y }, bodyB: wl, pointB: { x: 0, y: 0 }, length: 0, stiffness: 0.55, damping: 0.25 }),
-    M.Constraint.create({ bodyA: car, pointA: { x: wr.position.x - car.position.x, y: wr.position.y - car.position.y }, bodyB: wr, pointB: { x: 0, y: 0 }, length: 0, stiffness: 0.55, damping: 0.25 })]);
+  var R = WR.wheelInfo.R, sx = 120, sy = -R - 2, cb = wrMakeCarBody(sx, sy), car = cb.car, base = cb.base, cab = cb.cab;
+  M.Composite.add(world, car);
+  WR.car = car; WR.startX = sx;
+  WR.anc = [{ x: sx - 32 - car.position.x, y: sy - car.position.y }, { x: sx + 32 - car.position.x, y: sy - car.position.y }];
   WR.offB = { x: base.position.x - car.position.x, y: base.position.y - car.position.y };
   WR.offC = { x: cab.position.x - car.position.x, y: cab.position.y - car.position.y };
-  WR.car = car; WR.wl = wl; WR.wr = wr; WR.startX = sx;
+  wrAttachWheels();
+  WR.safeY = 0; WR.lastX = sx; WR.rt = 0;
+  wrMakeBots(WR.botList);
   WR.cam = { x: sx - WR_W * 0.3, y: sy - WR_H * 0.62 };
   tr.coins.forEach(function (c) { c.got = false; });
 }
@@ -156,62 +282,86 @@ function wrLoadStage(idx) {
 /* 한 프레임(1/60초) 진행 */
 function wrStep() {
   var M = Matter, W = WR;
+  if (W.toastT > 0) W.toastT--;
+  if (W.goT > 0) W.goT--;
+  if (W.state === 'count') { if (--W.cd <= 0) { W.state = 'run'; W.goT = 45; W.lastX = W.car.position.x; } }
+  if (W.state === 'run' || W.state === 'done') { W.rt += 1000 / 60; (W.bots || []).forEach(wrBotStep); }
   if (W.state === 'run') {
     W.t += 1000 / 60; W.jumpCd = Math.max(0, W.jumpCd - 1);
-    [W.wl, W.wr].forEach(function (w) {                          /* 바퀴를 굴리는 힘: 바퀴가 무거울수록(큰 바퀴일수록) 천천히 힘을 받아요 */
-      var maxW = 0.17;
-      if (w.angularVelocity < maxW) w.torque += w.inertia * 1.9e-4 * Math.max(0, 1 - w.angularVelocity / maxW);
-    });
-    W.track.gates.forEach(function (g) { var s = (Math.sin(W.t / 1000 * 0.9 + g.ph) + 1) / 2; M.Body.setPosition(g.body, { x: g.x, y: g.y - 60 - s * 150 }); });
+    wrDrive(W);
     var cp = W.car.position;
     W.track.coins.forEach(function (c) { if (!c.got && Math.hypot(c.x - cp.x, c.y - cp.y) < 40) { c.got = true; W.got++; } });
+    var gy = wrGroundY(W.track.segs, cp.x);
+    if (gy !== null && cp.y < gy + 5) W.safeY = gy;
     if (Math.cos(W.car.angle) < -0.3) W.flip++; else W.flip = 0;
     if (Math.abs(cp.x - W.lastX) < 0.25) W.stuck++; else { W.stuck = 0; W.lastX = cp.x; }
     if (cp.x >= W.track.finishX) wrFinish();
-    else if (cp.y > W.track.killY) wrFail('구덩이에 빠졌어요!');
-    else if (W.flip > 70) wrFail('뒤집혔어요!');
-    else if (W.stuck > 300) wrFail('걸려서 못 움직여요!');
+    else if (cp.y > W.safeY + 320 || cp.y > W.track.killY) wrRespawn(cp.x - 160, '구덩이에 빠졌어요! 조금 뒤에서 계속 가요');
+    else if (W.flip > 60) wrRespawn(cp.x, '뒤집혀서 다시 세웠어요!');
+    else if (W.stuck > 150) { W.toast = '걸렸어요! 다른 바퀴를 그려 봐요 ✏️'; W.toastT = 20; }
   }
+  if (W.state === 'done') [W.car, W.wl, W.wr].forEach(function (b) { Matter.Body.setVelocity(b, { x: b.velocity.x * 0.95, y: b.velocity.y }); Matter.Body.setAngularVelocity(b, b.angularVelocity * 0.93); });
+  W.track.gates.forEach(function (g) { var s = (Math.sin(W.t / 1000 * 0.9 + g.ph) + 1) / 2; M.Body.setPosition(g.body, { x: g.x, y: g.y - 60 - s * 150 }); });
   M.Engine.update(W.engine, 1000 / 60);
-  var tx = W.car.position.x - WR_W * 0.3 + Math.max(0, W.car.velocity.x) * 8, ty = W.car.position.y - WR_H * 0.62;
+  var fx = W.car.position.x, fy = W.car.position.y, fv = Math.max(0, W.car.velocity.x);
+  if (W.state === 'done') {                                       /* 도착하면 아직 달리는 친구를 따라가며 구경해요 */
+    var best = null, now = performance.now();
+    Object.keys(W.ghosts).forEach(function (id) { var g = W.ghosts[id]; if (g.fin) return; var ps = wrGhostPose(g, now); if (ps && (!best || ps.x > best.x)) best = ps; });
+    (W.bots || []).forEach(function (b) { if (!b.fin && (!best || b.car.position.x > best.x)) best = { x: b.car.position.x, y: b.car.position.y }; });
+    if (best) { fx = best.x; fy = best.y; fv = 4; }
+  }
+  var tx = fx - WR_W * 0.3 + fv * 8, ty = fy - WR_H * 0.62;
   W.cam.x += (tx - W.cam.x) * 0.1; W.cam.y += (ty - W.cam.y) * 0.08;
 }
 
 function wrProg() { return WR ? Math.max(0, Math.min(1, (WR.car.position.x - WR.startX) / (WR.track.finishX - WR.startX))) : 0; }
 
 function wrFinish() {
-  WR.state = 'done'; var ms = Math.round(WR.t), earn = (WR.stage + 1) * 10 + WR.got * 5, S = WR.save, key = String(WR.stage), nb = !S.best[key] || ms < S.best[key];
+  WR.state = 'done'; var ms = Math.round(WR.t), S = WR.save, key = String(WR.stage), nb = !S.best[key] || ms < S.best[key];
+  var ahead = 0, total = 1;
+  Object.keys(WR.ghosts).forEach(function (id) { total++; var g = WR.ghosts[id]; if (g.fin && g.fin < ms) ahead++; });
+  (WR.bots || []).forEach(function (b) { total++; if (b.fin && b.fin < ms) ahead++; });
+  WR.finRank = ahead + 1; WR.finMs = ms; WR.finNew = nb;
+  WR.earn = (WR.stage + 1) * 10 + WR.got * 5 + (total > 1 ? (total - WR.finRank) * 10 : 0);
   if (nb) S.best[key] = ms;
-  S.coins += earn; wrSaveStore(); wrPublish(true);
-  WR.msg = '<div class="wr-ov-t">🏁 도착!</div><div>기록 <b>' + (ms / 1000).toFixed(2) + '초</b>' + (nb ? ' · 👑 새 최고 기록' : '') + '</div><div>코인 +' + earn + ' (모은 코인 ' + WR.got + '개)</div>' +
-    '<div class="wr-ov-b"><button class="btn btn-primary" onclick="wrRetry()">↻ 바퀴 바꿔 다시</button>' + (myPlayerId === roomHostId && WR.stage < WR_STAGES.length - 1 ? '<button class="btn btn-ghost" onclick="wrHostStage(' + (WR.stage + 1) + ')">다음 스테이지 ▶</button>' : '') + '</div>';
+  S.coins += WR.earn; wrSaveStore(); wrPublish(true);
   wrUiRefresh();
 }
-function wrFail(why) {
-  if (WR.state !== 'run') return;
-  WR.state = 'fail';
-  WR.msg = '<div class="wr-ov-t">💥 ' + why + '</div><div>바퀴 모양을 바꿔서 다시 도전해요!</div><div class="wr-ov-b"><button class="btn btn-primary" onclick="wrRetry(true)">↻ 바로 재도전</button></div>';
-  wrPublish();
+function wrDoneHtml() {
+  var host = myPlayerId === roomHostId, medal = ['🥇', '🥈', '🥉'][WR.finRank - 1] || '🏁';
+  var list = (WR.rows || []).map(function (r, i) {
+    return '<div class="wr-res' + (r.id === myPlayerId ? ' me' : '') + '"><span>' + (i + 1) + '등</span><i style="background:' + r.c + '"></i><b>' + esc(r.name || '?') + '</b><em>' + (r.fin ? (r.fin / 1000).toFixed(2) + '초' : '달리는 중 ' + Math.round(r.prog * 100) + '%') + '</em></div>';
+  }).join('');
+  return '<div class="wr-ov-card"><div class="wr-ov-t">' + medal + ' ' + WR.finRank + '등으로 도착!</div>' +
+    '<div class="wr-ov-s">기록 <b>' + (WR.finMs / 1000).toFixed(2) + '초</b>' + (WR.finNew ? ' · 👑 내 최고 기록' : '') + ' · 코인 +' + WR.earn + '</div>' +
+    '<div class="wr-res-list">' + list + '</div>' +
+    '<div class="wr-ov-b">' + (host ? '<button class="btn btn-primary" onclick="wrRetry()">🔁 한 판 더</button>' + (WR.stage < WR_STAGES.length - 1 ? '<button class="btn btn-ghost" onclick="wrHostStage(' + (WR.stage + 1) + ')">다음 코스 ▶</button>' : '') : '<span class="wr-ov-wait">방장이 다음 판을 시작하면 바로 출발해요</span>') + '</div></div>';
 }
 
 /* ---------- 화면 조작 ---------- */
-function wrRetry(go) { if (!WR) return; wrLoadStage(WR.stage); if (go) WR.state = 'run'; wrPublish(); wrUiRefresh(); }
-function wrStart() { if (!WR) return; if (WR.state !== 'ready') wrLoadStage(WR.stage); WR.state = 'run'; wrUiRefresh(); }
+/* 새 레이스(방장만): round 를 올리면 모두 동시에 3·2·1 출발해요 */
+function wrNewRace(stage) {
+  if (!WR || myPlayerId !== roomHostId) return;
+  WR.round = (WR.round || 0) + 1;
+  var n = WR.save.bots === false ? 0 : Math.max(0, 4 - (roomPlayersList || []).length);   /* 모자란 자리는 봇으로 채워 4대가 같이 달려요 */
+  WR.botList = []; for (var i = 0; i < n; i++) WR.botList.push({ id: 'bot' + (i + 1), name: WR_BOT_DEF[i].name });
+  DBset(roomKey('wheelrace'), { stage: stage, round: WR.round, bots: WR.botList, at: Date.now() });
+  wrLoadStage(stage); wrPublish(true); wrUiRefresh();
+}
+function wrRetry() { if (WR) wrNewRace(WR.stage); }
+function wrToggleBots() { if (!WR || myPlayerId !== roomHostId) return; WR.save.bots = WR.save.bots === false; wrSaveStore(); wrNewRace(WR.stage); }
 function wrJump() {
   if (!WR || WR.state !== 'run' || WR.jumpCd > 0) return;
   WR.jumpCd = 70; Matter.Body.setVelocity(WR.car, { x: WR.car.velocity.x, y: Math.min(WR.car.velocity.y, 0) - 7 });
 }
 function wrSetWheel(w) {
-  WR.wheel = w; WR.wheelInfo = wrWheelInfo(w.pts); WR.save.wheel = w.pts; wrSaveStore();
-  wrLoadStage(WR.stage); wrUiRefresh(); wrPublish();
+  WR.wheel = { pts: w.pts, closed: !!w.closed }; WR.wheelInfo = wrWheelInfo(WR.wheel); WR.save.wheel2 = WR.wheel; wrSaveStore();
+  if (WR.car) wrAttachWheels();                                 /* 멈추지 않고 바로 교체 */
+  wrUiRefresh();
 }
 function wrDrawClear() { WR.raw = []; WR.drawErr = ''; }
-function wrDefaultWheel() { wrSetWheel({ pts: wrCirclePts(26) }); WR.drawErr = ''; }
-function wrHostStage(i) {
-  if (myPlayerId !== roomHostId) return;
-  DBset(roomKey('wheelrace'), { stage: i, at: Date.now() });
-  if (WR.stage !== i) { wrLoadStage(i); wrPublish(); wrUiRefresh(); }
-}
+function wrDefaultWheel() { wrSetWheel({ pts: wrCirclePts(26), closed: true }); WR.drawErr = ''; }
+function wrHostStage(i) { wrNewRace(i); }
 function wrPickCar(i) {
   var S = WR.save, c = WR_CARS[i];
   if (S.owned.indexOf(i) === -1) { if (S.coins < c.p) { WR.drawErr = '코인이 부족해요! (' + c.p + ' 필요)'; wrUiRefresh(); return; } S.coins -= c.p; S.owned.push(i); }
@@ -221,65 +371,130 @@ function wrPickColor(c) { WR.save.color = c; wrSaveStore(); wrUiRefresh(); }
 function wrToggleShop() { WR.shop = !WR.shop; wrUiRefresh(); }
 
 /* ---------- 온라인 동기화 ---------- */
-function wrPublish(force) {
-  if (!WR || playMode !== 'online') return;
-  var t = Date.now(); if (!force && WR.lastPub && t - WR.lastPub < 450) return; WR.lastPub = t;
-  DBset(roomKey('wr_' + myPlayerId), { stage: WR.stage, prog: WR.state === 'done' ? 1 : +wrProg().toFixed(3), fin: WR.state === 'done' ? Math.round(WR.t) : 0, c: WR_CARS[WR.save.car].c });
+function wrR(v) { return Math.round(v * 10) / 10; }
+function wrPayload(rc, done, fin, c, wc) {
+  var wp = []; rc.wheel.pts.forEach(function (p) { wp.push(wrR(p.x), wrR(p.y)); });
+  var car = rc.car;
+  return {
+    stage: WR.stage, r: WR.round || 0, q: (rc.seq = (rc.seq || 0) + 1),
+    x: wrR(car.position.x), y: wrR(car.position.y), a: +car.angle.toFixed(3),
+    w1: [wrR(rc.wl.position.x), wrR(rc.wl.position.y), +rc.wl.angle.toFixed(2)], w2: [wrR(rc.wr.position.x), wrR(rc.wr.position.y), +rc.wr.angle.toFixed(2)],
+    wp: wp, wcl: rc.wheel.closed ? 1 : 0, wc: wc, c: c,
+    prog: done ? 1 : +((car.position.x - WR.startX) / (WR.track.finishX - WR.startX)).toFixed(3), fin: done ? fin : 0
+  };
 }
-function wrPoll() {
+function wrPublish() {
+  if (!WR || !WR.car) return;
+  var done = WR.state === 'done';
+  DBset(roomKey('wr_' + myPlayerId), wrPayload(WR, done, WR.finMs, WR_CARS[WR.save.car].c, WR.save.color));
+  (WR.bots || []).forEach(function (b) { DBset(roomKey('wr_' + b.id), wrPayload(b, !!b.fin, b.fin, b.c, b.wc)); });
+}
+function wrNetTick() {
   if (!WR) return;
-  DBget(roomKey('wheelrace')).then(function (st) {
-    if (!WR || !st || typeof st.stage !== 'number') return;
-    if (st.stage !== WR.stage && st.stage >= 0 && st.stage < WR_STAGES.length) { wrLoadStage(st.stage); wrPublish(true); wrUiRefresh(); }
+  WR_NET_N++;
+  wrPublish();
+  if (WR_NET_N % 3 === 1) DBget(roomKey('wheelrace')).then(function (st) {   /* 방장이 고른 코스·판 번호 */
+    if (!WR || !st || typeof st.stage !== 'number' || st.stage < 0 || st.stage >= WR_STAGES.length) return;
+    var rd = st.round || 0;
+    if (rd !== WR.round || st.stage !== WR.stage) { WR.round = rd; WR.botList = st.bots || []; wrLoadStage(st.stage); wrUiRefresh(); }
   });
-  var pids = (roomPlayersList || []).map(function (p) { return p.id; });
+  var host = myPlayerId === roomHostId, bl = WR.botList || [];
+  var pids = (roomPlayersList || []).map(function (p) { return p.id; }).concat(host ? [] : bl.map(function (b) { return b.id; }));
   DBgetPrefix('wr_', pids).then(function (all) {
     if (!WR) return;
+    var now = performance.now(), names = {};
+    (roomPlayersList || []).forEach(function (p) { names[p.id] = p.name; });
+    if (!host) bl.forEach(function (b) { names[b.id] = b.name; });
+    Object.keys(WR.ghosts).forEach(function (id) { if (!all[id] || !names[id]) delete WR.ghosts[id]; });
+    Object.keys(all).forEach(function (id) {
+      if (id === myPlayerId || !names[id]) return;
+      var d = all[id];
+      if (!d || d.stage !== WR.stage || (d.r || 0) !== (WR.round || 0) || typeof d.x !== 'number') { delete WR.ghosts[id]; return; }
+      var g = WR.ghosts[id] || (WR.ghosts[id] = { buf: [] });
+      g.name = names[id]; g.tag = wrTagColor(id); g.c = d.c || '#999'; g.wc = d.wc || '#455a64'; g.prog = d.prog || 0; g.fin = d.fin || 0;
+      if (d.wp && d.wp.length >= 6) { var pts = []; for (var i = 0; i + 1 < d.wp.length; i += 2) pts.push({ x: d.wp[i], y: d.wp[i + 1] }); g.wheel = { pts: pts, closed: !!d.wcl }; }
+      if (d.q !== g.q) { g.q = d.q; g.buf.push({ t: now, x: d.x, y: d.y, a: d.a, w1: d.w1, w2: d.w2 }); if (g.buf.length > 8) g.buf.shift(); }
+    });
     var rows = (roomPlayersList || []).map(function (p) {
-      var d = (p.id === myPlayerId) ? { stage: WR.stage, prog: WR.state === 'done' ? 1 : wrProg(), fin: WR.state === 'done' ? Math.round(WR.t) : 0, c: WR_CARS[WR.save.car].c } : all[p.id];
-      var ok = d && d.stage === WR.stage;
-      return { id: p.id, name: p.name, prog: ok ? d.prog || 0 : 0, fin: ok ? d.fin || 0 : 0, c: (d && d.c) || '#999' };
+      if (p.id === myPlayerId) return { id: p.id, name: p.name, prog: WR.state === 'done' ? 1 : wrProg(), fin: WR.state === 'done' ? WR.finMs : 0, c: wrTagColor(p.id) };
+      var g = WR.ghosts[p.id];
+      return { id: p.id, name: p.name, prog: g ? g.prog : 0, fin: g ? g.fin : 0, c: wrTagColor(p.id) };
+    });
+    bl.forEach(function (bi) {
+      var b = (WR.bots || []).filter(function (x) { return x.id === bi.id; })[0], g = WR.ghosts[bi.id];
+      rows.push({ id: bi.id, name: bi.name, prog: b ? wrBotProg(b) : g ? g.prog : 0, fin: b ? b.fin : g ? g.fin : 0, c: wrTagColor(bi.id) });
     });
     rows.sort(function (a, b) { if (a.fin && b.fin) return a.fin - b.fin; if (a.fin) return -1; if (b.fin) return 1; return b.prog - a.prog; });
     WR.rows = rows;
     renderRankBoard('wr-rank', rows.map(function (r) { return { name: r.name, isMe: r.id === myPlayerId, label: r.fin ? '🏁 ' + (r.fin / 1000).toFixed(2) + '초' : '🛞 ' + Math.round(r.prog * 100) + '%' }; }));
+    if (WR.state === 'done') wrUiRefresh();
   });
+}
+/* 친구 차 위치: 0.3초 전 모습을 두 샘플 사이에서 부드럽게 이어 그려요 */
+function wrGhostPose(g, now) {
+  var b = g.buf; if (!b.length) return null;
+  var rt = now - 320, i = b.length - 1;
+  if (rt >= b[i].t) return b[i];
+  while (i > 0 && b[i - 1].t > rt) i--;
+  if (i === 0) return b[0];
+  var A = b[i - 1], B = b[i], k = (rt - A.t) / (B.t - A.t || 1);
+  function L(u, v) { return u + (v - u) * k; }
+  return { x: L(A.x, B.x), y: L(A.y, B.y), a: L(A.a, B.a), w1: [L(A.w1[0], B.w1[0]), L(A.w1[1], B.w1[1]), L(A.w1[2], B.w1[2])], w2: [L(A.w2[0], B.w2[0]), L(A.w2[1], B.w2[1]), L(A.w2[2], B.w2[2])] };
+}
+/* 지금 내 등수 */
+function wrLiveRank() {
+  var W = WR, mine = W.state === 'done' ? 1 : wrProg(), ahead = 0, total = 1;
+  Object.keys(W.ghosts).forEach(function (id) {
+    var g = W.ghosts[id]; total++;
+    if (W.state === 'done') { if (g.fin && g.fin < W.finMs) ahead++; }
+    else if (g.fin || g.prog > mine) ahead++;
+  });
+  (W.bots || []).forEach(function (b) {
+    total++;
+    if (W.state === 'done') { if (b.fin && b.fin < W.finMs) ahead++; }
+    else if (b.fin || wrBotProg(b) > mine) ahead++;
+  });
+  return { rank: ahead + 1, total: total };
 }
 
 /* ---------- 화면(DOM) ---------- */
 function startWheelRaceGame() {
   stopWheelRaceGame();
   var save = wrSaveLoad();
-  WR = { save: save, raw: [], drawErr: '', shop: false, rows: [], acc: 0, spin: 0, wheel: { pts: (save.wheel && save.wheel.length > 5) ? save.wheel : wrCirclePts(26) } };
-  WR.wheelInfo = wrWheelInfo(WR.wheel.pts);
+  var sw = save.wheel2;
+  WR = { save: save, raw: [], drawErr: '', shop: false, rows: [], acc: 0, spin: 0, wheel: (sw && sw.pts && sw.pts.length > 3) ? { pts: sw.pts, closed: !!sw.closed } : { pts: wrCirclePts(26), closed: true } };
+  WR.wheelInfo = wrWheelInfo(WR.wheel);
   document.getElementById('wr-root').innerHTML =
-    '<div class="wr-bar"><span>🪙 <b id="wr-coins">0</b></span><span id="wr-stagename"></span><span>⏱ <b id="wr-time">0.00</b></span></div>' +
-    '<div class="wr-track"><div class="wr-track-line"></div><div id="wr-dots"></div><span class="wr-flag">🏁</span></div>' +
+    '<div class="wr-bar"><span>🪙 <b id="wr-coins">0</b></span><span id="wr-stagename"></span>' +
+      '<div class="wr-track"><div class="wr-track-line"></div><div id="wr-dots"></div><span class="wr-flag">🏁</span></div><span>⏱ <b id="wr-time">0.00</b></span></div>' +
     '<div class="wr-board"><canvas id="wr-canvas" class="wr-canvas"></canvas><div id="wr-ov" class="wr-ov" style="display:none"></div></div>' +
-    '<div id="wr-stages" class="wr-stages"></div>' +
-    '<div class="wr-pad">' +
+    '<div class="wr-bottom">' +
       '<div class="wr-pad-draw"><canvas id="wr-draw" width="240" height="240" class="wr-drawcv"></canvas><div class="wr-pad-hint">✏️ 여기에 바퀴를 그려요</div></div>' +
       '<div class="wr-pad-side"><canvas id="wr-prev" width="120" height="120" class="wr-prevcv"></canvas><div id="wr-info" class="wr-info"></div>' +
-        '<div class="wr-colors" id="wr-colors"></div></div></div>' +
-    '<div id="wr-err" class="wr-err"></div>' +
-    '<div class="wr-btns"><button class="btn btn-ghost" onclick="wrDrawClear();wrUiRefresh()">🗑 지우기</button><button class="btn btn-ghost" onclick="wrDefaultWheel()">⚪ 기본 원</button>' +
-      '<button class="btn btn-primary" id="wr-go" onclick="wrStart()">🏁 출발!</button><button class="btn btn-ghost" onclick="wrRetry()">↻ 처음 위치</button>' +
-      '<button class="btn btn-ghost" id="wr-jump" onclick="wrJump()">🦘 점프</button><button class="btn btn-ghost" onclick="wrToggleShop()">🎨 꾸미기</button></div>' +
-    '<div id="wr-shop" class="wr-shop" style="display:none"></div>' +
-    '<div class="wr-rank-wrap"><div class="wr-rank-title">🏆 이번 코스 순위</div><div id="wr-rank"></div></div>' +
-    '<p class="wr-help">💡 바퀴를 그리면 바로 자동차에 달려요. 크기·모양에 따라 달리는 느낌이 완전히 달라요! (스페이스: 점프 · R: 재도전)</p>';
+        '<div class="wr-colors" id="wr-colors"></div></div>' +
+      '<div class="wr-ctrl">' +
+        '<div id="wr-stages" class="wr-stages"></div>' +
+        '<div id="wr-err" class="wr-err"></div>' +
+        '<div class="wr-btns"><button class="btn btn-ghost" onclick="wrDefaultWheel()">⚪ 기본 원</button>' +
+          '<button class="btn btn-ghost" id="wr-jump" onclick="wrJump()">🦘 점프</button><button class="btn btn-ghost" id="wr-again" onclick="wrRetry()">🔁 새 레이스</button><button class="btn btn-ghost" id="wr-bots" onclick="wrToggleBots()">🤖 봇</button>' +
+          '<button class="btn btn-ghost" onclick="wrToggleShop()">🎨 꾸미기</button></div>' +
+        '<div id="wr-shop" class="wr-shop" style="display:none"></div>' +
+        '<div class="wr-rank-wrap"><div class="wr-rank-title">🏆 이번 코스 순위</div><div id="wr-rank"></div></div>' +
+        '<p class="wr-help">💡 그린 선 그대로 바퀴가 돼요. 달리는 중에 다시 그리면 바로 바뀌어요! (스페이스: 점프 · 방장 R: 새 레이스)</p>' +
+      '</div>' +
+    '</div>';
   var cv = document.getElementById('wr-canvas'), dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = WR_W * dpr; cv.height = WR_H * dpr; WR.dpr = dpr;
   WR.ctx = cv.getContext('2d'); WR.dctx = document.getElementById('wr-draw').getContext('2d'); WR.pctx = document.getElementById('wr-prev').getContext('2d');
   wrSetupDraw();
-  wrLoadStage(0);
-  var starter = (myPlayerId === roomHostId) ? DBset(roomKey('wheelrace'), { stage: 0, at: Date.now() }) : Promise.resolve();
-  starter.then(function () { wrPoll(); WR_POLL = setInterval(wrPoll, 800); });
-  WR_PUB = setInterval(function () { if (WR && WR.state === 'run') wrPublish(); }, 500);
+  WR.round = 0; wrLoadStage(0);
+  /* 방장은 들어오자마자 새 판을 열어요 → 모두 함께 3·2·1 */
+  var starter = (myPlayerId === roomHostId) ? DBget(roomKey('wheelrace')).then(function (st) { if (!WR) return; WR.round = (st && st.round) || 0; wrNewRace(0); }) : Promise.resolve();
+  starter.then(function () { WR_NET_N = 0; wrNetTick(); WR_NET = setInterval(wrNetTick, 200); });
   WR_KEYH = function (e) {
     if (!WR || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return;
-    if (e.code === 'Space') { e.preventDefault(); if (WR.state === 'ready') wrStart(); else wrJump(); }
-    else if (e.key === 'r' || e.key === 'R') wrRetry(WR.state !== 'ready');
+    if (e.code === 'Space') { e.preventDefault(); wrJump(); }
+    else if ((e.key === 'r' || e.key === 'R') && myPlayerId === roomHostId) wrRetry();
   };
   document.addEventListener('keydown', WR_KEYH);
   wrUiRefresh();
@@ -296,7 +511,7 @@ function startWheelRaceGame() {
 }
 function stopWheelRaceGame() {
   if (WR_RAF) cancelAnimationFrame(WR_RAF); WR_RAF = null;
-  clearInterval(WR_POLL); clearInterval(WR_PUB); WR_POLL = WR_PUB = null;
+  clearInterval(WR_NET); WR_NET = null;
   if (WR_KEYH) document.removeEventListener('keydown', WR_KEYH); WR_KEYH = null;
   WR = null;
 }
@@ -324,9 +539,9 @@ function wrUiRefresh() {
   $('wr-stages').innerHTML = WR_STAGES.map(function (s, i) {
     var b = S.best[String(i)];
     return '<button class="wr-chip' + (i === WR.stage ? ' on' : '') + '"' + (host ? ' onclick="wrHostStage(' + i + ')"' : ' disabled') + '>' + (i + 1) + (b ? '<small>' + (b / 1000).toFixed(1) + 's</small>' : '') + '</button>';
-  }).join('') + '<div class="wr-hint">' + esc(WR_STAGES[WR.stage].hint) + (host ? '' : ' · 스테이지는 방장이 골라요') + '</div>';
+  }).join('') + '<div class="wr-hint">' + esc(WR_STAGES[WR.stage].hint) + (host ? ' · 코스를 누르면 모두 새로 출발해요' : ' · 코스는 방장이 골라요') + '</div>';
   var inf = WR.wheelInfo;
-  $('wr-info').innerHTML = '반지름 <b>' + inf.R.toFixed(0) + '</b><br>둥근 정도 <b>' + inf.round + '%</b><br>무게 <b>' + (inf.mass / 100).toFixed(0) + '</b>';
+  $('wr-info').innerHTML = '반지름 <b>' + inf.R.toFixed(0) + '</b> · 둥근 <b>' + inf.round + '%</b><br>' + (inf.closed ? '닫힌 모양' : '열린 선');
   $('wr-colors').innerHTML = WR_COLORS.map(function (c) { return '<button class="wr-cdot' + (c === S.color ? ' on' : '') + '" style="background:' + c + '" onclick="wrPickColor(\'' + c + '\')"></button>'; }).join('');
   $('wr-err').textContent = WR.drawErr || '';
   var sh = $('wr-shop'); sh.style.display = WR.shop ? 'flex' : 'none';
@@ -335,32 +550,37 @@ function wrUiRefresh() {
     return '<button class="wr-car' + (S.car === i ? ' on' : '') + '" onclick="wrPickCar(' + i + ')"><i style="background:' + c.c + '"></i>' + c.n + '<small>' + (S.car === i ? '사용 중' : own ? '장착' : '🪙 ' + c.p) + '</small></button>';
   }).join('');
   var ov = $('wr-ov');
-  if (WR.msg && (WR.state === 'done' || WR.state === 'fail')) { ov.innerHTML = WR.msg; ov.style.display = 'flex'; } else ov.style.display = 'none';
-  $('wr-go').disabled = WR.state === 'run';
+  if (WR.state === 'done') { ov.innerHTML = wrDoneHtml(); ov.style.display = 'flex'; } else ov.style.display = 'none';
+  $('wr-again').style.display = host ? '' : 'none';
+  $('wr-bots').style.display = host ? '' : 'none';
+  $('wr-bots').textContent = WR.save.bots === false ? '🤖 봇 대결 꺼짐' : '🤖 봇 대결 켜짐';
 }
 function wrHudTick() {
   var t = document.getElementById('wr-time'); if (t) t.textContent = (WR.t / 1000).toFixed(2);
   var d = document.getElementById('wr-dots');
-  if (d && WR.rows) d.innerHTML = WR.rows.map(function (r) { return '<span class="wr-dot' + (r.id === myPlayerId ? ' me' : '') + '" style="left:' + (r.fin ? 100 : r.prog * 100) + '%;background:' + r.c + '" title="' + esc(r.name) + '">' + esc((r.name || '?').slice(0, 1)) + '</span>'; }).join('');
+  if (d && WR.rows) d.innerHTML = WR.rows.map(function (r) { return '<span class="wr-dot' + (r.id === myPlayerId ? ' me' : '') + '" style="left:' + (r.fin ? 100 : r.prog * 100) + '%;background:' + r.c + '" title="' + esc(r.name) + '">' + esc(Array.from(String(r.name || '?').replace(/^🤖\s*/, '') || '?')[0]) + '</span>'; }).join('');
 }
 
 /* ---------- 그리기 ---------- */
-function wrPoly(ctx, pts) { ctx.beginPath(); pts.forEach(function (p, i) { if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }); ctx.closePath(); }
-function wrDrawWheelAt(ctx, pts, color, angle) {
-  ctx.save(); ctx.rotate(angle);
-  wrPoly(ctx, pts); ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#263238'; ctx.lineJoin = 'round'; ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, 0, 5, 0, 7); ctx.fillStyle = '#eceff1'; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(pts[0].x * 0.8, pts[0].y * 0.8); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 3; ctx.stroke();
+function wrPath(ctx, w) { ctx.beginPath(); w.pts.forEach(function (p, i) { if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }); if (w.closed) ctx.closePath(); }
+/* 그린 선 그대로 (안은 비워 둬요) */
+function wrDrawWheelAt(ctx, w, color, angle, lw) {
+  lw = lw || WR_LINE;
+  ctx.save(); ctx.rotate(angle); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  wrPath(ctx, w); ctx.lineWidth = lw + 3; ctx.strokeStyle = '#263238'; ctx.stroke();
+  ctx.lineWidth = lw - 1; ctx.strokeStyle = color; ctx.stroke();
+  ctx.beginPath(); ctx.arc(w.pts[0].x, w.pts[0].y, lw * 0.35, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 0, 4, 0, 7); ctx.fillStyle = '#263238'; ctx.fill();
   ctx.restore();
 }
 function wrDrawPreview() {
   var c = WR.pctx, S = WR.save, inf = WR.wheelInfo;
-  c.clearRect(0, 0, 120, 120); c.save(); c.translate(60, 60); var k = 52 / Math.max(inf.R, 20); c.scale(k, k);
-  wrDrawWheelAt(c, WR.wheel.pts, S.color, WR.spin * 2.2); c.restore();
+  c.clearRect(0, 0, 120, 120); c.save(); c.translate(60, 60); var k = 50 / Math.max(inf.R, 20); c.scale(k, k);
+  wrDrawWheelAt(c, WR.wheel, S.color, WR.spin * 2.2); c.restore();
   var d = WR.dctx; d.clearRect(0, 0, 240, 240);
   d.strokeStyle = 'rgba(0,0,0,.07)'; d.lineWidth = 1; d.beginPath(); d.moveTo(120, 0); d.lineTo(120, 240); d.moveTo(0, 120); d.lineTo(240, 120); d.stroke();
-  if (WR.raw.length > 1) { d.beginPath(); WR.raw.forEach(function (p, i) { if (i) d.lineTo(p.x, p.y); else d.moveTo(p.x, p.y); }); d.strokeStyle = '#ff7043'; d.lineWidth = 5; d.lineCap = 'round'; d.lineJoin = 'round'; d.stroke(); d.setLineDash([6, 6]); d.lineTo(WR.raw[0].x, WR.raw[0].y); d.lineWidth = 2; d.stroke(); d.setLineDash([]); }
-  else { d.save(); d.translate(120, 120); d.globalAlpha = 0.25; var kk = 100 / Math.max(inf.R, 20); d.scale(kk, kk); wrPoly(d, WR.wheel.pts); d.fillStyle = S.color; d.fill(); d.restore(); }
+  if (WR.raw.length > 1) { d.beginPath(); WR.raw.forEach(function (p, i) { if (i) d.lineTo(p.x, p.y); else d.moveTo(p.x, p.y); }); d.strokeStyle = '#ff7043'; d.lineWidth = 5; d.lineCap = 'round'; d.lineJoin = 'round'; d.stroke(); }
+  else { d.save(); d.translate(120, 120); d.globalAlpha = 0.3; var kk = 100 / Math.max(inf.R, 20); d.scale(kk, kk); wrPath(d, WR.wheel); d.lineWidth = 5 / kk; d.lineCap = 'round'; d.lineJoin = 'round'; d.strokeStyle = S.color; d.stroke(); d.restore(); }
 }
 function wrDraw() {
   var ctx = WR.ctx, W = WR, tr = W.track, cx = W.cam.x, cy = W.cam.y, i;
@@ -390,20 +610,84 @@ function wrDraw() {
   var fx = tr.finishX, fy = wrGroundY(tr.segs, fx); if (fy !== null) { ctx.fillStyle = '#455a64'; ctx.fillRect(fx - 3, fy - 130, 6, 130); for (var r = 0; r < 4; r++) for (var q = 0; q < 4; q++) { ctx.fillStyle = (r + q) % 2 ? '#fff' : '#212121'; ctx.fillRect(fx + 3 + q * 14, fy - 130 + r * 14, 14, 14); } }
   /* 코인 */
   tr.coins.forEach(function (c) { if (c.got) return; var bob = Math.sin(W.spin * 4 + c.x) * 3; ctx.beginPath(); ctx.arc(c.x, c.y + bob, 11, 0, 7); ctx.fillStyle = '#ffd54f'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#f9a825'; ctx.stroke(); ctx.fillStyle = '#f9a825'; ctx.fillRect(c.x - 2, c.y + bob - 5, 4, 10); });
-  /* 자동차 */
-  var car = W.car, S = W.save, cc = WR_CARS[S.car].c;
-  ctx.save(); ctx.translate(car.position.x, car.position.y); ctx.rotate(car.angle);
-  var ob = W.offB, oc = W.offC;
-  ctx.lineWidth = 3; ctx.strokeStyle = '#263238'; ctx.fillStyle = cc;
+  /* 친구들 차 (반투명 고스트 + 이름표) */
+  var now = performance.now(), offs = [];
+  Object.keys(W.ghosts).forEach(function (id) {
+    var g = W.ghosts[id], ps = wrGhostPose(g, now); if (!ps) return;
+    var sx = ps.x - cx, sy = ps.y - cy;
+    if (sx < -60 || sx > WR_W + 60) { offs.push({ g: g, dx: ps.x - W.car.position.x, sy: sy }); return; }
+    ctx.globalAlpha = 0.55;
+    wrDrawCar(ctx, { x: ps.x, y: ps.y, a: ps.a }, [{ x: ps.w1[0], y: ps.w1[1], a: ps.w1[2] }, { x: ps.w2[0], y: ps.w2[1], a: ps.w2[2] }], g.c, g.wheel || W.wheel, g.wc);
+    ctx.globalAlpha = 1;
+    wrNameTag(ctx, ps.x, ps.y - 62, g.name, g.tag);
+  });
+  (W.bots || []).forEach(function (b) {
+    var p = b.car.position, sx = p.x - cx, sy = p.y - cy;
+    if (sx < -60 || sx > WR_W + 60) { offs.push({ g: { name: b.name, tag: wrTagColor(b.id) }, dx: p.x - W.car.position.x, sy: sy }); return; }
+    ctx.globalAlpha = 0.6;
+    wrDrawCar(ctx, { x: p.x, y: p.y, a: b.car.angle }, [b.wl, b.wr].map(function (w) { return { x: w.position.x, y: w.position.y, a: w.angle }; }), b.c, b.wheel, b.wc);
+    ctx.globalAlpha = 1;
+    wrNameTag(ctx, p.x, p.y - 62, b.name, wrTagColor(b.id));
+  });
+  /* 내 차 */
+  var car = W.car, S = W.save;
+  wrDrawCar(ctx, { x: car.position.x, y: car.position.y, a: car.angle }, [W.wl, W.wr].map(function (w) { return { x: w.position.x, y: w.position.y, a: w.angle }; }), WR_CARS[S.car].c, W.wheel, S.color);
+  if (Object.keys(W.ghosts).length || (W.bots || []).length) wrNameTag(ctx, car.position.x, car.position.y - 62, '나', wrTagColor(myPlayerId));
+  ctx.restore();
+  /* 화면 밖 친구들 화살표 */
+  ctx.font = 'bold 13px sans-serif'; ctx.textBaseline = 'middle';
+  var usedY = [];
+  offs.forEach(function (o) {
+    var right = o.dx > 0, y = Math.max(96, Math.min(WR_H - 30, o.sy - 40));
+    while (usedY.some(function (u) { return u.r === right && Math.abs(u.y - y) < 30; })) y += 30;
+    usedY.push({ r: right, y: y }); var x = right ? WR_W - 8 : 8, label = o.g.name + ' ' + (right ? '+' : '-') + Math.round(Math.abs(o.dx) / 10) + 'm';
+    var tw = ctx.measureText(label).width + 30;
+    ctx.fillStyle = o.g.tag; rr(ctx, right ? x - tw : x, y - 13, tw, 26, 13); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = right ? 'right' : 'left'; ctx.fillText((right ? '' : '◀ ') + label + (right ? ' ▶' : ''), right ? x - 8 : x + 8, y + 1);
+  });
+  /* 실시간 등수 */
+  if (W.state !== 'wait') {
+    var lr = wrLiveRank();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 44px sans-serif'; ctx.lineWidth = 6; ctx.strokeStyle = '#fff';
+    var rk = lr.rank + '등'; ctx.strokeText(rk, 16, 58); ctx.fillStyle = lr.rank === 1 ? '#f9a825' : '#37474f'; ctx.fillText(rk, 16, 58);
+    var rw = ctx.measureText(rk).width;
+    ctx.font = 'bold 20px sans-serif'; ctx.lineWidth = 4; ctx.strokeText('/ ' + lr.total + '명', 24 + rw, 56); ctx.fillStyle = '#546e7a'; ctx.fillText('/ ' + lr.total + '명', 24 + rw, 56);
+  }
+  /* 진행 바 */
+  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, 0, WR_W, 6); ctx.fillStyle = '#ff7043'; ctx.fillRect(0, 0, WR_W * wrProg(), 6);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (W.state === 'wait') { ctx.font = 'bold 24px sans-serif'; ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.strokeText('방장이 레이스를 열면 다 같이 출발해요…', WR_W / 2, WR_H * 0.4); ctx.fillStyle = '#37474f'; ctx.fillText('방장이 레이스를 열면 다 같이 출발해요…', WR_W / 2, WR_H * 0.4); }
+  if (W.state === 'count' || W.goT > 0) {
+    var label = W.state === 'count' ? String(Math.ceil(W.cd / 60)) : '출발!', fr = W.state === 'count' ? (W.cd % 60) / 60 : W.goT / 45;
+    ctx.save(); ctx.translate(WR_W / 2, WR_H * 0.42); var sc = 1 + (1 - fr) * 0.25; ctx.scale(sc, sc);
+    ctx.font = 'bold ' + (W.state === 'count' ? 120 : 90) + 'px sans-serif'; ctx.lineWidth = 10; ctx.strokeStyle = '#fff'; ctx.strokeText(label, 0, 0);
+    ctx.fillStyle = W.state === 'count' ? '#ff7043' : '#43a047'; ctx.fillText(label, 0, 0); ctx.restore();
+    if (W.state === 'count') { ctx.font = 'bold 18px sans-serif'; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillText('출발 전에 바퀴를 그려도 돼요!', WR_W / 2, WR_H * 0.42 + 90); }
+  }
+  if (W.toastT > 0 && W.toast) {
+    ctx.font = 'bold 20px sans-serif'; var tw = ctx.measureText(W.toast).width + 36;
+    ctx.fillStyle = 'rgba(38,50,56,.8)'; rr(ctx, WR_W / 2 - tw / 2, 22, tw, 40, 20); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillText(W.toast, WR_W / 2, 43);
+  }
+  ctx.textBaseline = 'alphabetic';
+}
+function wrDrawCar(ctx, body, wheels, color, wheel, wcolor) {
+  var W = WR, ob = W.offB, oc = W.offC;
+  ctx.save(); ctx.translate(body.x, body.y); ctx.rotate(body.a);
+  ctx.lineWidth = 3; ctx.strokeStyle = '#263238'; ctx.fillStyle = color;
   rr(ctx, ob.x - 42, ob.y - 9, 84, 18, 7); ctx.fill(); ctx.stroke();
   rr(ctx, oc.x - 23, oc.y - 8, 46, 16, 6); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#e1f5fe'; rr(ctx, oc.x - 18, oc.y - 5, 15, 10, 3); ctx.fill(); rr(ctx, oc.x + 1, oc.y - 5, 15, 10, 3); ctx.fill();
   ctx.fillStyle = '#fff59d'; ctx.beginPath(); ctx.arc(ob.x + 38, ob.y, 4, 0, 7); ctx.fill();
   ctx.restore();
-  [W.wl, W.wr].forEach(function (w) { ctx.save(); ctx.translate(w.position.x, w.position.y); wrDrawWheelAt(ctx, W.wheel.pts, S.color, w.angle); ctx.restore(); });
-  ctx.restore();
-  /* 진행 바 */
-  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, 0, WR_W, 6); ctx.fillStyle = '#ff7043'; ctx.fillRect(0, 0, WR_W * wrProg(), 6);
-  if (W.state === 'ready') { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('바퀴를 그리고 🏁 출발!을 눌러요', WR_W / 2, 60); }
+  wheels.forEach(function (w) { ctx.save(); ctx.translate(w.x, w.y); wrDrawWheelAt(ctx, wheel, wcolor, w.a); ctx.restore(); });
+}
+function wrNameTag(ctx, x, y, name, color) {
+  ctx.save(); ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  var t = String(name || '?').slice(0, 8), w = ctx.measureText(t).width + 16;
+  ctx.fillStyle = color; rr(ctx, x - w / 2, y - 11, w, 22, 11); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - 5, y + 10); ctx.lineTo(x + 5, y + 10); ctx.lineTo(x, y + 16); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillText(t, x, y + 1); ctx.restore();
 }
 function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }

@@ -466,7 +466,7 @@ if (document.getElementById('in-server').value) {
 var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-catch', 'card-wasd', 'card-yang', 'card-land', 'card-wheelrace'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
-var SOLO_ONLY_CARD_IDS = ['card-ballz', 'card-codetype', 'card-blockpop', 'card-pzshop', 'card-bento', 'card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
+var SOLO_ONLY_CARD_IDS = ['card-pancake', 'card-ballz', 'card-codetype', 'card-blockpop', 'card-pzshop', 'card-bento', 'card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
 
 /* 첫 화면의 '📚 과제하기': 온라인 입장 화면을 그대로 쓰되, 지난번 과제방 코드/이름을 채워 두고
    입장하면 바로 과제방이 열려요. (과제방은 매번 같은 방 코드로 들어와야 목록이 이어져요) */
@@ -478,6 +478,15 @@ function chooseCasinoMode() {
   HW_MODE = false; SOC_MODE = false;
   playMode = null;
   enterGame('casino');
+}
+
+/* 첫 화면의 '🌿 힐링 공간': 게임이 아닌 쉬어 가는 놀이들만 따로 모아 보여줘요 (혼자 하기처럼 바로 들어가요) */
+function chooseHealMode() {
+  chooseMode('solo');
+  document.getElementById('card-grid').style.display = 'none';
+  var g = document.getElementById('heal-grid'); g.style.display = '';
+  g.querySelectorAll('.game-card').forEach(function (card, i) { card.style.setProperty('--c', CARD_COLORS[(i + 3) % CARD_COLORS.length]); });
+  document.getElementById('home-footer').textContent = '힐링 공간이에요. 어항 · 별 · 고양이는 서버에 연결돼 있으면 모두와 함께 봐요.';
 }
 
 /* 첫 화면의 '💬 소통방': 온라인 입장 화면을 그대로 쓰고, 입장하면 바로 소통방이 열려요 */
@@ -515,6 +524,7 @@ function chooseMode(mode) {
   document.body.classList.toggle('is-online', mode === 'online');
   document.getElementById('mode-select').style.display = 'none';
   document.getElementById('mode-back').style.display = '';
+  var hg = document.getElementById('heal-grid'); if (hg) hg.style.display = 'none';
   document.getElementById('home-footer').style.display = '';
   if (mode === 'solo') {
     me.name = '나';
@@ -588,6 +598,7 @@ function backToModeSelect() {
   document.getElementById('mode-select').style.display = '';
   document.getElementById('mode-back').style.display = 'none';
   document.getElementById('card-grid').style.display = 'none';
+  document.getElementById('heal-grid').style.display = 'none';
   document.getElementById('btn-join-room').style.display = 'none';
   document.getElementById('lobby-panel').style.display = 'none';
   document.getElementById('online-id-box').style.display = 'none';
@@ -597,7 +608,7 @@ function backToModeSelect() {
 }
 
 var ONLINE_ONLY_GAME_IDS = ['bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'catch', 'wasd', 'yang', 'land', 'wheelrace'];
-var SOLO_ONLY_GAME_IDS = ['ballz', 'casino', 'codetype', 'blockpop', 'pzshop', 'bento', 'sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
+var SOLO_ONLY_GAME_IDS = ['pancake', 'ballz', 'casino', 'codetype', 'blockpop', 'pzshop', 'bento', 'sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
    바로 게임 화면으로 들어가버리는 문제가 있었습니다. 그래서 온라인 모드에서는 실제 게임 로직을
@@ -852,7 +863,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pzshop: 'ps-room-pill', blockpop: 'bp-room-pill', codetype: 'ct-room-pill', casino: 'cs-room-pill', ballz: 'bz-room-pill', wheelrace: 'wr-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pzshop: 'ps-room-pill', blockpop: 'bp-room-pill', codetype: 'ct-room-pill', casino: 'cs-room-pill', ballz: 'bz-room-pill', wheelrace: 'wr-room-pill', pancake: 'pc-room-pill', aquarium: 'aq-room-pill', stars: 'sk-room-pill', catnap: 'cn-room-pill', fishzen: 'fz-room-pill', hamster: 'hm-room-pill', duckwalk: 'dw-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = gameId === 'casino' ? '도박방' : (playMode === 'solo' ? '혼자 하기' : (me.room + ' 방'));
@@ -884,6 +895,13 @@ function enterGame(gameId) {
     else if (gameId === 'casino') startCasinoGame();
     else if (gameId === 'ballz') startBallzGame();
     else if (gameId === 'wheelrace') startWheelRaceGame();
+    else if (gameId === 'pancake') startPancakeGame();
+    else if (gameId === 'aquarium') startAquarium();
+    else if (gameId === 'stars') startStarsNight();
+    else if (gameId === 'catnap') startCatNap();
+    else if (gameId === 'fishzen') startFishZen();
+    else if (gameId === 'hamster') startHamster();
+    else if (gameId === 'duckwalk') startDuckWalk();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
@@ -984,6 +1002,10 @@ function goHome() {
   if (typeof stopCasinoGame === 'function') stopCasinoGame();
   if (typeof stopBallzGame === 'function') stopBallzGame();
   if (typeof stopWheelRaceGame === 'function') stopWheelRaceGame();
+  if (typeof stopPancakeGame === 'function') stopPancakeGame();
+  if (typeof stopAquarium === 'function') stopAquarium();
+  if (typeof stopStarsNight === 'function') stopStarsNight();
+  if (typeof stopCozy === 'function') stopCozy();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';

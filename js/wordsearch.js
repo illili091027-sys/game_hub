@@ -161,7 +161,8 @@ function wsDrawHighlights() {
     html += wsLineSvg(w.r, w.c, w.r + w.dr * len, w.c + w.dc * len, w.color, 'ws-found-line');
   });
   var sel = WS.drag || (WS.anchor ? { r0: WS.anchor.r, c0: WS.anchor.c, r1: WS.anchor.r, c1: WS.anchor.c } : null);
-  if (sel) html += wsLineSvg(sel.r0, sel.c0, sel.r1, sel.c1, 'rgba(245,243,231,0.55)', 'ws-sel-line');
+  /* 드래그 중인 선: 밝은 배경에서도 잘 보이게 진한 주황 테두리 + 반투명 채움 */
+  if (sel) html += wsLineSvg(sel.r0, sel.c0, sel.r1, sel.c1, '#e65100', 'ws-sel-edge') + wsLineSvg(sel.r0, sel.c0, sel.r1, sel.c1, '#ffb74d', 'ws-sel-line');
   svg.innerHTML = html;
 }
 
