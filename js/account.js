@@ -135,7 +135,23 @@ function accGateOn() { return ACC_REQUIRE_LOGIN && !ACC.token && !(ACC.guest && 
    비밀번호를 치고 들어가면 가입한 사용자가 전부 뜨고, 사람마다
    분필 개수 조절 · 비밀번호 0000 초기화를 할 수 있어요.
    (비밀번호는 서버가 확인해요. 서버를 켤 때 ADMIN_KEY 로 정한 비밀번호예요) */
-function accHtmlAdmin() { return ''; }   /* 예전 작은 관리자 칸은 없앴어요 → accRenderAdmin() */
+function accHtmlAdmin() { return ''; }
+/* 🛠 관리자 모드: 관리자 비밀번호로 들어간 뒤 켜면, 힐링 공간의 별 · 물고기 · 고양이를 누구 것이든 지울 수 있어요.
+   이 탭(창)을 닫거나 끄기 전까지 유지돼요 (sessionStorage). */
+var ADMIN_MODE = (function () { try { return sessionStorage.getItem('gamehub_admin_mode') === '1'; } catch (e) { return false; } })();
+function adminModeSet(on) {
+  ADMIN_MODE = !!on;
+  try { sessionStorage.setItem('gamehub_admin_mode', ADMIN_MODE ? '1' : '0'); } catch (e) {}
+  adminBadge(); if (ACC.admin) accRender();
+  if (typeof coinToast === 'function') coinToast(ADMIN_MODE ? '🛠 관리자 모드 켜짐 · 별 · 물고기 · 고양이를 지울 수 있어요' : '관리자 모드 꺼짐');
+}
+function adminBadge() {
+  var b = document.getElementById('admin-badge');
+  if (!ADMIN_MODE) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'admin-badge'; b.className = 'admin-badge'; document.body.appendChild(b); }
+  b.innerHTML = '🛠 관리자 모드 <button onclick="adminModeSet(false)">끄기</button>';
+}
+document.addEventListener('DOMContentLoaded', adminBadge);   /* 예전 작은 관리자 칸은 없앴어요 → accRenderAdmin() */
 function accAdminModal() {
   var m = document.getElementById('acc-admin-modal');
   if (!m) {
@@ -151,7 +167,7 @@ function accRenderAdmin() {
   m.style.display = 'flex';
   var tab = ACC.adminTab || 'dash';
   var h = '<div class="acc-admin-card"><div class="acc-admin-head"><b>🔧 관리자</b><span class="hw-spacer"></span>' +
-    (ACC.adminOk ? '<button class="btn btn-ghost" onclick="accAdminRefresh()">↻ 새로고침</button>' : '') +
+    (ACC.adminOk ? '<button class="btn ' + (ADMIN_MODE ? 'btn-primary' : 'btn-ghost') + '" onclick="adminModeSet(' + (!ADMIN_MODE) + ')">🛠 관리자 모드 ' + (ADMIN_MODE ? '끄기' : '켜기') + '</button><button class="btn btn-ghost" onclick="accAdminRefresh()">↻ 새로고침</button>' : '') +
     '<button class="btn btn-ghost" onclick="accAdminOpen(false)">닫기 ✕</button></div>';
   if (!ACC.adminOk) {
     h += '<div class="acc-admin-login"><p>관리자 비밀번호를 치면 관리 화면이 열려요.</p>' +

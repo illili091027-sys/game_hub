@@ -398,5 +398,7 @@ function csCup(i) {
     csCupHelp(hit ? '찾았다! 🎯' : '공은 여기 있었어요!');
     var mult = (CS_YB[Y.level] || CS_YB.normal).mult;
     csSettle(stake, hit ? mult : 0, '공을 찾았어요! ×' + mult, '엉뚱한 컵이었어요!');
+    /* 2초 뒤 컵을 다시 내리고 공도 치워요 (끝난 뒤 공이 계속 보이지 않게) */
+    csLater(function () { if (CS.yb) return; for (var k = 0; k < 3; k++) { var c = csEl('cs-cup' + k); if (c) c.classList.remove('lift'); } csLater(function () { if (CS.yb) return; for (var k = 0; k < 3; k++) { var c = csEl('cs-cup' + k); if (c) c.classList.remove('has'); } }, 400); }, 2000);
   }, 650);
 }

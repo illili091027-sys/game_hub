@@ -228,7 +228,8 @@ function tblOwnerStart(gameId) {
   if (gameId && TBL_GAMES[gameId]) t.game = gameId;
   var g = TBL_GAMES[t.game];
   var n = (t.members || []).length;
-  if (n < g.min) { coinToast(g.n + '은(는) ' + g.min + '명 이상이 필요해요'); return; }
+  var need = (n === 1 && typeof botSupports === 'function' && botSupports(t.game)) ? 1 : g.min;   /* 🤖 혼자면 봇과 함께 */
+  if (n < need) { coinToast(g.n + '은(는) ' + g.min + '명 이상이 필요해요'); return; }
   if (t.team && t.team.on) tblEnsureTeams(t);
   t.status = 'play'; t.seq = (t.seq || 0) + 1;
   DBset(tblKey('tbl_' + myPlayerId), t).then(function () { tblFollowTable(t); });
@@ -330,7 +331,7 @@ function tblRenderMine(t) {
   var g = TBL_GAMES[t.game] || { n: t.game, min: 1 };
   var owner = t.owner === myPlayerId;
   var h = '<div class="tbl-mine"><div class="tbl-mine-title">' + esc(g.n) + ' <small>테이블</small>' + (TBL.spectate ? ' <span class="tbl-tag">👀 구경 중</span>' : '') + '</div>';
-  h += '<div class="tbl-mine-sub">' + (t.status === 'play' ? '🔴 게임 중' : '🟢 대기 중') + ' · ' + t.members.length + '/' + t.max + '명 · 최소 ' + g.min + '명</div>';
+  h += '<div class="tbl-mine-sub">' + (t.status === 'play' ? '🔴 게임 중' : '🟢 대기 중') + ' · ' + t.members.length + '/' + t.max + '명 · 최소 ' + g.min + '명' + (typeof botSupports === 'function' && botSupports(t.game) ? ' · 🤖 혼자면 봇과 함께' : '') + '</div>';
   if (t.team && t.team.on) {
     tblEnsureTeams(t);
     h += '<div class="tbl-teams">';
@@ -351,7 +352,7 @@ function tblRenderMine(t) {
   if (t.specs.length) h += '<div class="tbl-specs">👀 구경: ' + t.specs.map(function (id) { return esc(tblName(id)); }).join(', ') + '</div>';
   if (owner && g.team) h += '<label class="tbl-teamtoggle"><input type="checkbox" ' + (t.team && t.team.on ? 'checked' : '') + ' onchange="tblToggleTeam(this.checked)"> 팀전으로 하기</label>';
   h += '<div class="tbl-btns">';
-  if (owner) h += '<button class="btn btn-primary" onclick="tblOwnerStart()"' + (t.members.length < g.min ? ' disabled' : '') + '>▶ ' + (t.seq ? '한 판 더' : '시작') + '</button>';
+  if (owner) h += '<button class="btn btn-primary" onclick="tblOwnerStart()"' + (t.members.length < ((t.members.length === 1 && typeof botSupports === 'function' && botSupports(t.game)) ? 1 : g.min) ? ' disabled' : '') + '>▶ ' + (t.seq ? '한 판 더' : '시작') + '</button>';
   else if (!TBL.spectate) h += '<div class="tbl-wait">⏳ ' + esc(tblName(t.owner)) + '님이 시작하면 같이 시작해요</div>';
   h += '<button class="btn btn-ghost" onclick="tblLeave()">' + (owner ? '테이블 닫기' : '나가기') + '</button></div>';
   h += '<div class="tbl-hint">💬 채팅창의 <b>🎮 테이블</b> 탭은 이 테이블 사람들끼리만 보여요</div></div>';

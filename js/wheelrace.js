@@ -16,16 +16,50 @@ function wrTagColor(id) {
 var WR_COLORS = ['#455a64', '#ff7043', '#26a69a', '#ab47bc', '#ffd54f', '#5c6bc0'];
 
 /* 코스 만들기 문법: f 평지 | s 경사(길이, 높이변화) | b 울퉁불퉁(길이, 크기) | st 계단(칸수, 폭, 높이)
-   g 구덩이(폭) | w 벽(높이, 폭) | m 오르내리는 문 | t 좁은 통로(길이, 천장 높이) */
+   g 구덩이(폭) | w 벽(높이, 폭) | m 오르내리는 문 | t 좁은 통로(길이, 천장 높이)
+   ice 미끄러운 얼음(길이) | mud 끈적한 진흙(길이) | boost 부스터(길이) | tramp 트램펄린(길이) | ss 시소(길이) | spin 빙글빙글 풍차 */
+var WR_THEMES = {
+  grass:  { sky: ['#8fd3ff', '#e8f7ff'], sun: '#fff176', hill: '#b9e6a8', ground: '#a9794f', top: '#5fc45a' },
+  snow:   { sky: ['#b8d8f2', '#f4fbff'], sun: '#ffffff', hill: '#e3f0fa', ground: '#9fb4c7', top: '#ffffff', snow: true },
+  desert: { sky: ['#ffd59a', '#fff3d6'], sun: '#fff3b0', hill: '#f1c27d', ground: '#d9a066', top: '#f4c26b' },
+  night:  { sky: ['#1b2350', '#3d4a8a'], sun: '#fff6d6', hill: '#2d3a6b', ground: '#4b3f5e', top: '#6fd18a', stars: true },
+  candy:  { sky: ['#ffc6e5', '#fff0f8'], sun: '#fff59d', hill: '#ffd1ea', ground: '#c48bd6', top: '#ff8fc8' },
+  lava:   { sky: ['#5a1f1f', '#c0532b'], sun: '#ffcc80', hill: '#7a2e2e', ground: '#3e2723', top: '#ff7043', embers: true }
+};
 var WR_STAGES = [
-  { name: '동네 한 바퀴', hint: '평지와 작은 언덕 · 동그란 바퀴가 안정적!', ops: [['f', 500], ['b', 300, 6], ['f', 200], ['s', 300, -50], ['f', 300], ['s', 300, 50], ['f', 400], ['b', 240, 7], ['f', 400]] },
-  { name: '가파른 언덕', hint: '오르막과 내리막 · 바퀴가 클수록 힘차게!', ops: [['f', 400], ['s', 500, -150], ['f', 200], ['s', 400, 120], ['f', 200], ['s', 600, -200], ['f', 200], ['s', 500, 230], ['f', 500]] },
-  { name: '계단 거리', hint: '계단을 넘으려면 큰 바퀴가 유리해요', ops: [['f', 400], ['st', 4, 130, 18], ['f', 200], ['st', 4, 150, 28], ['f', 200], ['s', 400, 150], ['f', 400]] },
-  { name: '점프대와 구덩이', hint: '구덩이를 뛰어넘어요 · 🦘 점프 버튼도 써 봐요', ops: [['f', 400], ['s', 220, -50], ['g', 40], ['f', 300], ['s', 220, -50], ['g', 60], ['f', 300], ['s', 160, -60], ['g', 90], ['f', 500]] },
-  { name: '울퉁불퉁 산길', hint: '덜컹덜컹 · 네모 바퀴도 의외로 갈 수 있어요', ops: [['f', 300], ['b', 600, 14], ['f', 150], ['w', 20, 60], ['b', 500, 16], ['f', 150], ['w', 26, 60], ['b', 400, 12], ['s', 300, -80], ['b', 400, 14], ['f', 400]] },
-  { name: '무빙 게이트', hint: '오르내리는 문 타이밍을 봐요 · 좁은 통로엔 작은 바퀴', ops: [['f', 400], ['m'], ['f', 400], ['m'], ['f', 250], ['t', 550, 80], ['f', 100], ['b', 300, 8], ['m'], ['f', 400], ['s', 300, -80], ['f', 300], ['w', 20, 60], ['f', 500]] },
-  { name: '끝판왕 코스', hint: '모든 지형이 한꺼번에! 바퀴를 바꿔 가며 도전', ops: [['f', 300], ['s', 400, -100], ['b', 400, 12], ['g', 70], ['f', 250], ['st', 3, 120, 22], ['f', 200], ['m'], ['f', 300], ['t', 450, 84], ['s', 400, 140], ['b', 400, 16], ['w', 22, 60], ['f', 300], ['s', 300, -80], ['g', 80], ['f', 500]] }
+  { theme: 'grass', name: '동네 한 바퀴', hint: '평지와 작은 언덕 · 동그란 바퀴가 안정적!', ops: [['f', 500], ['b', 300, 6], ['f', 200], ['s', 300, -50], ['f', 300], ['s', 300, 50], ['f', 400], ['b', 240, 7], ['f', 400]] },
+  { theme: 'snow', name: '가파른 언덕', hint: '오르막과 내리막 · 바퀴가 클수록 힘차게!', ops: [['f', 400], ['s', 500, -150], ['f', 200], ['s', 400, 120], ['f', 200], ['s', 600, -200], ['f', 200], ['s', 500, 230], ['f', 500]] },
+  { theme: 'desert', name: '계단 거리', hint: '계단을 넘으려면 큰 바퀴가 유리해요', ops: [['f', 400], ['st', 4, 130, 18], ['f', 200], ['st', 4, 150, 28], ['f', 200], ['s', 400, 150], ['f', 400]] },
+  { theme: 'grass', name: '점프대와 구덩이', hint: '구덩이를 휙 뛰어넘어요 · 속도를 내려면 큰 바퀴!', ops: [['f', 400], ['s', 220, -50], ['g', 40], ['f', 300], ['s', 220, -50], ['g', 60], ['f', 300], ['s', 160, -60], ['g', 90], ['f', 500]] },
+  { theme: 'desert', name: '울퉁불퉁 산길', hint: '덜컹덜컹 · 네모 바퀴도 의외로 갈 수 있어요', ops: [['f', 300], ['b', 600, 14], ['f', 150], ['w', 20, 60], ['b', 500, 16], ['f', 150], ['w', 26, 60], ['b', 400, 12], ['s', 300, -80], ['b', 400, 14], ['f', 400]] },
+  { theme: 'night', name: '무빙 게이트', hint: '오르내리는 문 타이밍을 봐요 · 좁은 통로엔 작은 바퀴', ops: [['f', 400], ['m'], ['f', 400], ['m'], ['f', 250], ['t', 550, 80], ['f', 100], ['b', 300, 8], ['m'], ['f', 400], ['s', 300, -80], ['f', 300], ['w', 20, 60], ['f', 500]] },
+  { theme: 'lava', name: '끝판왕 코스', hint: '모든 지형이 한꺼번에! 바퀴를 바꿔 가며 도전', ops: [['f', 300], ['s', 400, -100], ['b', 400, 12], ['g', 70], ['f', 250], ['st', 3, 120, 22], ['f', 200], ['m'], ['f', 300], ['t', 450, 84], ['s', 400, 140], ['b', 400, 16], ['w', 22, 60], ['f', 300], ['s', 300, -80], ['g', 80], ['f', 500]] },
+  { theme: 'snow', name: '얼음 왕국', hint: '얼음판은 미끄러워요 · 울퉁불퉁한 바퀴가 덜 미끄러져요', ops: [['f', 300], ['ice', 400], ['s', 300, -80], ['ice', 300], ['f', 150], ['s', 300, 80], ['ice', 500], ['st', 3, 140, 18], ['f', 150], ['ice', 300], ['f', 300]] },
+  { theme: 'grass', name: '진흙탕 농장', hint: '진흙에선 느려져요 · 노란 화살표 부스터로 슝!', ops: [['f', 300], ['mud', 400], ['f', 150], ['boost', 150], ['s', 250, -60], ['f', 200], ['mud', 300], ['b', 300, 10], ['boost', 150], ['f', 200], ['mud', 250], ['f', 300]] },
+  { theme: 'candy', name: '통통 트램펄린', hint: '트램펄린을 밟으면 통! 벽과 구덩이를 넘어가요', ops: [['f', 400], ['tramp', 100], ['f', 100], ['w', 70, 60], ['f', 300], ['tramp', 100], ['g', 150], ['f', 300], ['tramp', 100], ['f', 60], ['w', 90, 60], ['f', 250], ['b', 300, 8], ['f', 300]] },
+  { theme: 'night', name: '시소와 풍차', hint: '시소는 기울어지고 풍차는 빙글빙글 · 타이밍!', ops: [['f', 400], ['ss', 320], ['f', 250], ['spin'], ['f', 200], ['ss', 360], ['f', 200], ['spin'], ['f', 200], ['s', 300, -60], ['f', 300]] },
+  { theme: 'lava', name: '화산 탈출', hint: '부스터 · 진흙 · 트램펄린 · 풍차 · 얼음 · 시소 전부!', ops: [['f', 300], ['boost', 150], ['s', 300, -120], ['g', 60], ['f', 200], ['mud', 250], ['tramp', 100], ['f', 40], ['w', 80, 50], ['f', 250], ['spin'], ['ice', 300], ['s', 300, 120], ['f', 100], ['ss', 300], ['f', 400]] },
+  { theme: 'grass', name: '🎲 랜덤 코스', hint: '판마다 새로 만들어지는 코스! 무엇이 나올지 몰라요', random: true, ops: [] }
 ];
+/* 🎲 랜덤 코스: 같은 seed면 모두 똑같은 코스가 나와요 */
+function wrRng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function wrRandomStage(seed) {
+  var r = wrRng(seed), I = function (a, b) { return Math.round(a + r() * (b - a)); }, pick = function (a) { return a[Math.floor(r() * a.length)]; };
+  var pool = [
+    function () { return [['s', I(250, 450), -I(40, 150)]]; }, function () { return [['s', I(250, 450), I(40, 140)]]; },
+    function () { return [['b', I(300, 500), I(6, 14)]]; }, function () { return [['st', I(3, 4), I(120, 150), I(16, 26)]]; },
+    function () { return [['s', 220, -I(40, 60)], ['g', I(40, 80)]]; }, function () { return [['w', I(18, 26), 60]]; },
+    function () { return [['m']]; }, function () { return [['t', I(400, 550), I(80, 92)]]; },
+    function () { return [['ice', I(300, 500)]]; }, function () { return [['mud', I(250, 400)]]; },
+    function () { return [['boost', 150]]; }, function () { return [['f', 150], ['tramp', 100], ['f', 60], ['w', I(50, 70), 60]]; },
+    function () { return [['f', 150], ['tramp', 100], ['g', I(90, 130)]]; }, function () { return [['ss', I(300, 360)]]; }, function () { return [['spin']]; }
+  ];
+  var ops = [['f', 400]], n = I(9, 12);
+  for (var k = 0; k < n; k++) { pick(pool)().forEach(function (o) { ops.push(o); }); ops.push(['f', I(150, 260)]); }
+  ops.push(['f', 300]);
+  return { theme: pick(Object.keys(WR_THEMES)), name: '🎲 랜덤 코스', hint: WR_STAGES[WR_STAGES.length - 1].hint, ops: ops };
+}
+function wrStageDef(idx) { var d = WR_STAGES[idx]; return d.random ? wrRandomStage(WR.seed || 1) : d; }
 
 /* ---------- 저장 ---------- */
 function wrSaveLoad() {
@@ -77,7 +111,7 @@ function wrWheelInfo(w) {
 
 /* ---------- 코스 ---------- */
 function wrBuildTrack(def) {
-  var x = 0, y = 0, segs = [], cur = [[-1500, 0], [0, 0]], gates = [], ceils = [], coins = [], i;
+  var x = 0, y = 0, segs = [], cur = [[-1500, 0], [0, 0]], gates = [], ceils = [], coins = [], zones = [], sees = [], spins = [], i;
   function go(nx, ny) { x = nx; y = ny; cur.push([x, y]); }
   def.ops.forEach(function (o) {
     var t = o[0], base;
@@ -89,6 +123,9 @@ function wrBuildTrack(def) {
     else if (t === 'w') { var ww = o[2] || 60; go(x, y - o[1]); go(x + ww, y - o[1]); go(x + ww, y); }
     else if (t === 'm') { gates.push({ x: x, y: y, ph: gates.length * 1.7 }); }
     else if (t === 't') { ceils.push({ x0: x, x1: x + o[1], y: y - o[2] }); }
+    else if (t === 'ice' || t === 'mud' || t === 'boost' || t === 'tramp') { zones.push({ k: t, x0: x, x1: x + o[1], y: y }); go(x + o[1], y); }
+    else if (t === 'ss') { sees.push({ x: x + o[1] / 2, y: y - 34, len: o[1] * 0.92 }); go(x + o[1], y); }
+    else if (t === 'spin') { spins.push({ x: x + 130, y: y - 128, ph: spins.length * 1.3 }); go(x + 260, y); }
   });
   go(x + 500, y); go(x, y - 400); segs.push(cur);   /* 결승선 뒤 평지 + 끝 벽 */
   /* 일직선으로 이어진 점은 하나로 합쳐요 → 바퀴가 이음매에 걸려 덜컹대는 것을 막아요 */
@@ -99,9 +136,9 @@ function wrBuildTrack(def) {
   });
   var finishX = x - 150, maxY = -1e9;
   segs.forEach(function (s) { s.forEach(function (p) { maxY = Math.max(maxY, p[1]); }); });
-  var tr = { segs: segs, gates: gates, ceils: ceils, coins: coins, finishX: finishX, killY: maxY + 600 };
+  var tr = { segs: segs, gates: gates, ceils: ceils, coins: coins, zones: zones, sees: sees, spins: spins, finishX: finishX, killY: maxY + 600 };
   for (var cx = 500; cx < finishX - 100; cx += 230) {
-    var gy = wrGroundY(segs, cx), nearGate = gates.some(function (g) { return Math.abs(g.x - cx) < 80; });
+    var gy = wrGroundY(segs, cx), nearGate = gates.some(function (g) { return Math.abs(g.x - cx) < 80; }) || spins.some(function (g) { return Math.abs(g.x - cx) < 140; });
     if (gy !== null && !nearGate) coins.push({ x: cx, y: gy - 80, got: false });
   }
   return tr;
@@ -226,7 +263,7 @@ function wrMakeBots(list) {
 function wrBotStep(b) {
   var cp = b.car.position;
   if (b.fin) { [b.car, b.wl, b.wr].forEach(function (x) { Matter.Body.setVelocity(x, { x: x.velocity.x * 0.95, y: x.velocity.y }); Matter.Body.setAngularVelocity(x, x.angularVelocity * 0.93); }); return; }
-  wrDrive(b);
+  wrDrive(b); wrZoneFx(b);
   if (b.cool > 0) b.cool--;
   if (--b.think <= 0) { b.think = b.react + Math.floor(Math.random() * 12); var w = wrBotThink(b); if (b.cool <= 0) wrBotSetWheel(b, w); }
   var gy = wrGroundY(WR.track.segs, cp.x);
@@ -236,7 +273,26 @@ function wrBotStep(b) {
   if (cp.x >= WR.track.finishX) b.fin = Math.max(1, Math.round(WR.rt));
   else if (cp.y > b.safeY + 320 || cp.y > WR.track.killY) wrRespawn(cp.x - 160, '', b);
   else if (b.flip > 60) wrRespawn(cp.x, '', b);
-  else if (b.stuck > 80) { b.stuck = 0; b.cool = 0; wrBotSetWheel(b, ['big', 'tri', 'hex', 'oval', 'small', 'circle'][Math.floor(Math.random() * 6)]); }
+  else if (b.stuck > 240) wrNudge(b);
+  else if (b.stuck > 80 && b.stuck % 80 === 0) { b.cool = 0; wrBotSetWheel(b, ['big', 'tri', 'hex', 'oval', 'small', 'circle'][Math.floor(Math.random() * 6)]); }
+}
+/* 4초 넘게 꼼짝 못 하면 앞으로 폴짝 밀어 줘요 (레이스가 멈추지 않게) */
+function wrNudge(rc) {
+  rc.stuck = 0;
+  var x = rc.car.position.x;
+  rc.nudgeN = (rc.nudgeX != null && Math.abs(x - rc.nudgeX) < 120) ? (rc.nudgeN || 0) + 1 : 0; rc.nudgeX = x;   /* 같은 곳에서 또 막히면 더 세게 */
+  var k = 1 + Math.min(3, rc.nudgeN) * 0.35;
+  [rc.car, rc.wl, rc.wr].forEach(function (b) { Matter.Body.setVelocity(b, { x: Math.max(b.velocity.x, 5 * k), y: -10 * k }); });
+}
+/* 얼음 · 진흙 · 부스터 · 트램펄린: 바퀴가 땅에 닿아 있을 때만 */
+function wrZoneFx(rc) {
+  var M = Matter, cp = rc.car.position, z = WR.track.zones.filter(function (q) { return cp.x > q.x0 - 20 && cp.x < q.x1 + 20; })[0];
+  if (rc.tcd > 0) rc.tcd--;
+  if (!z || cp.y < z.y - (rc.curR || 26) * 2 - 60) return;
+  var all = [rc.car, rc.wl, rc.wr];
+  if (z.k === 'mud') all.forEach(function (b) { M.Body.setVelocity(b, { x: b.velocity.x * 0.93, y: b.velocity.y }); M.Body.setAngularVelocity(b, b.angularVelocity * 0.95); });
+  else if (z.k === 'boost') all.forEach(function (b) { if (b.velocity.x < 15) M.Body.setVelocity(b, { x: b.velocity.x + 0.55, y: b.velocity.y }); });
+  else if (z.k === 'tramp' && !(rc.tcd > 0)) { rc.tcd = 40; all.forEach(function (b) { M.Body.setVelocity(b, { x: Math.max(b.velocity.x, 4), y: -13 }); }); if (rc === WR) { WR.toast = '통!'; WR.toastT = 30; } }
 }
 /* 자동으로 앞으로! 바퀴가 무거울수록(큰 바퀴일수록) 천천히 힘을 받아요 */
 function wrDrive(rc) {
@@ -248,8 +304,8 @@ function wrDrive(rc) {
 function wrBotProg(b) { return b.fin ? 1 : Math.max(0, Math.min(1, (b.car.position.x - WR.startX) / (WR.track.finishX - WR.startX))); }
 
 function wrLoadStage(idx) {
-  var M = Matter, def = WR_STAGES[idx];
-  WR.stage = idx; WR.state = WR.round ? 'count' : 'wait'; WR.cd = 180; WR.ghosts = {}; WR.finRank = 0; WR.goT = 0; WR.toast = ''; WR.toastT = 0; WR.wl = null; WR.curR = 0; WR.t = 0; WR.got = 0; WR.flip = 0; WR.stuck = 0; WR.lastX = 0; WR.jumpCd = 0; WR.msg = '';
+  var M = Matter, def = wrStageDef(idx); WR.def = def; WR.theme = WR_THEMES[def.theme] || WR_THEMES.grass;
+  WR.stage = idx; WR.nextAt = 0; WR.firstFin = 0; WR.clock = 0; WR.state = WR.round ? 'count' : 'wait'; WR.cd = 180; WR.ghosts = {}; WR.finRank = 0; WR.goT = 0; WR.toast = ''; WR.toastT = 0; WR.wl = null; WR.curR = 0; WR.t = 0; WR.got = 0; WR.flip = 0; WR.stuck = 0; WR.lastX = 0; WR.jumpCd = 0; WR.msg = '';
   WR.engine = M.Engine.create({ positionIterations: 10, velocityIterations: 8 });
   WR.engine.gravity.y = 1.25;
   var tr = WR.track = wrBuildTrack(def), world = WR.engine.world;
@@ -259,11 +315,21 @@ function wrLoadStage(idx) {
       if (b[0] - a[0] < 1) continue;
       var v = [{ x: a[0] - 1, y: a[1] }, { x: b[0] + 1, y: b[1] }, { x: b[0] + 1, y: b[1] + 90 }, { x: a[0] - 1, y: a[1] + 90 }];
       var cx = (v[0].x + v[1].x + v[2].x + v[3].x) / 4, cy = (v[0].y + v[1].y + v[2].y + v[3].y) / 4;
-      var body = M.Bodies.fromVertices(cx, cy, [v], { isStatic: true, friction: 1, frictionStatic: 1.2, restitution: 0 });
+      var mx = (a[0] + b[0]) / 2, zn = tr.zones.filter(function (z) { return mx > z.x0 && mx < z.x1; })[0];
+      var ice = zn && zn.k === 'ice';
+      var body = M.Bodies.fromVertices(cx, cy, [v], { isStatic: true, friction: ice ? 0.02 : 1, frictionStatic: ice ? 0 : 1.2, restitution: 0 });
       M.Composite.add(world, body);
     }
   });
   tr.gates.forEach(function (g) { g.body = M.Bodies.rectangle(g.x, g.y - 60, 30, 120, { isStatic: true, friction: 0.2 }); M.Composite.add(world, g.body); });
+  /* 시소: 가운데 축에 매달린 널빤지 (차가 올라가면 기울어요) */
+  tr.sees.forEach(function (q) {
+    q.a0 = Math.asin(Math.min(0.9, 2 * 28 / q.len)); q.ang = -q.a0;          /* 처음엔 시작 쪽이 땅에 닿아 있어요 */
+    q.body = M.Bodies.rectangle(q.x, q.y + 6, q.len, 12, { isStatic: true, friction: 1, frictionStatic: 1.2 });
+    M.Body.setAngle(q.body, q.ang); M.Composite.add(world, q.body);
+  });
+  /* 풍차: 빙글빙글 도는 막대 */
+  tr.spins.forEach(function (q) { q.body = M.Bodies.rectangle(q.x, q.y, 230, 16, { isStatic: true, friction: 0.2 }); M.Composite.add(world, q.body); });
   tr.ceils.forEach(function (c) { c.body = M.Bodies.rectangle((c.x0 + c.x1) / 2, c.y - 100, c.x1 - c.x0, 200, { isStatic: true, friction: 0.2 }); M.Composite.add(world, c.body); });
   /* 자동차: 차체 + 지붕, 바퀴 2개를 핀으로 연결 (살짝 출렁이는 서스펜션) */
   var R = WR.wheelInfo.R, sx = 120, sy = -R - 2, cb = wrMakeCarBody(sx, sy), car = cb.car, base = cb.base, cab = cb.cab;
@@ -287,8 +353,8 @@ function wrStep() {
   if (W.state === 'count') { if (--W.cd <= 0) { W.state = 'run'; W.goT = 45; W.lastX = W.car.position.x; } }
   if (W.state === 'run' || W.state === 'done') { W.rt += 1000 / 60; (W.bots || []).forEach(wrBotStep); }
   if (W.state === 'run') {
-    W.t += 1000 / 60; W.jumpCd = Math.max(0, W.jumpCd - 1);
-    wrDrive(W);
+    W.t += 1000 / 60;
+    wrDrive(W); wrZoneFx(W);
     var cp = W.car.position;
     W.track.coins.forEach(function (c) { if (!c.got && Math.hypot(c.x - cp.x, c.y - cp.y) < 40) { c.got = true; W.got++; } });
     var gy = wrGroundY(W.track.segs, cp.x);
@@ -298,9 +364,18 @@ function wrStep() {
     if (cp.x >= W.track.finishX) wrFinish();
     else if (cp.y > W.safeY + 320 || cp.y > W.track.killY) wrRespawn(cp.x - 160, '구덩이에 빠졌어요! 조금 뒤에서 계속 가요');
     else if (W.flip > 60) wrRespawn(cp.x, '뒤집혀서 다시 세웠어요!');
-    else if (W.stuck > 150) { W.toast = '걸렸어요! 다른 바퀴를 그려 봐요 ✏️'; W.toastT = 20; }
+    else if (W.stuck > 240) { wrNudge(W); W.toast = '끙차! 살짝 밀어 줬어요 · 다른 바퀴도 그려 봐요 ✏️'; W.toastT = 90; }
+    else if (W.stuck > 120) { W.toast = '걸렸어요! 다른 바퀴를 그려 봐요 ✏️'; W.toastT = 20; }
   }
   if (W.state === 'done') [W.car, W.wl, W.wr].forEach(function (b) { Matter.Body.setVelocity(b, { x: b.velocity.x * 0.95, y: b.velocity.y }); Matter.Body.setAngularVelocity(b, b.angularVelocity * 0.93); });
+  W.clock += 1 / 60;
+  W.track.spins.forEach(function (q) { M.Body.setAngle(q.body, W.clock * 1.3 + q.ph); });
+  /* 시소: 누군가 가운데 축을 넘어가면 반대쪽으로 쿵 기울어요 */
+  W.track.sees.forEach(function (q) {
+    var target = -q.a0;
+    [W].concat(W.bots || []).forEach(function (rc) { var x = rc.car.position.x; if (x > q.x - 10 && x < q.x + q.len / 2 + 60) target = q.a0; });
+    var d = target - q.ang, stp = 1.6 / 60; q.ang += Math.max(-stp, Math.min(stp, d)); M.Body.setAngle(q.body, q.ang);
+  });
   W.track.gates.forEach(function (g) { var s = (Math.sin(W.t / 1000 * 0.9 + g.ph) + 1) / 2; M.Body.setPosition(g.body, { x: g.x, y: g.y - 60 - s * 150 }); });
   M.Engine.update(W.engine, 1000 / 60);
   var fx = W.car.position.x, fy = W.car.position.y, fv = Math.max(0, W.car.velocity.x);
@@ -332,10 +407,11 @@ function wrDoneHtml() {
   var list = (WR.rows || []).map(function (r, i) {
     return '<div class="wr-res' + (r.id === myPlayerId ? ' me' : '') + '"><span>' + (i + 1) + '등</span><i style="background:' + r.c + '"></i><b>' + esc(r.name || '?') + '</b><em>' + (r.fin ? (r.fin / 1000).toFixed(2) + '초' : '달리는 중 ' + Math.round(r.prog * 100) + '%') + '</em></div>';
   }).join('');
-  return '<div class="wr-ov-card"><div class="wr-ov-t">' + medal + ' ' + WR.finRank + '등으로 도착!</div>' +
+  var left = WR.nextAt ? Math.max(0, Math.ceil((WR.nextAt - Date.now()) / 1000)) : 0;
+  return '<div class="wr-ov-card">' + (WR.nextAt ? '<div class="wr-next">⏩ 다음 라운드까지 <b>' + (left || '…') + '</b></div>' : '') + '<div class="wr-ov-t">' + medal + ' ' + WR.finRank + '등으로 도착!</div>' +
     '<div class="wr-ov-s">기록 <b>' + (WR.finMs / 1000).toFixed(2) + '초</b>' + (WR.finNew ? ' · 👑 내 최고 기록' : '') + ' · 코인 +' + WR.earn + '</div>' +
     '<div class="wr-res-list">' + list + '</div>' +
-    '<div class="wr-ov-b">' + (host ? '<button class="btn btn-primary" onclick="wrRetry()">🔁 한 판 더</button>' + (WR.stage < WR_STAGES.length - 1 ? '<button class="btn btn-ghost" onclick="wrHostStage(' + (WR.stage + 1) + ')">다음 코스 ▶</button>' : '') : '<span class="wr-ov-wait">방장이 다음 판을 시작하면 바로 출발해요</span>') + '</div></div>';
+    '<div class="wr-ov-b">' + (host ? '<button class="btn btn-primary" onclick="wrRetry()">🔁 한 판 더</button>' + (WR.stage < WR_STAGES.length - 1 ? '<button class="btn btn-ghost" onclick="wrHostStage(' + (WR.stage + 1) + ')">다음 코스 ▶</button>' : '') : '<span class="wr-ov-wait">곧 다음 라운드가 시작돼요</span>') + '</div></div>';
 }
 
 /* ---------- 화면 조작 ---------- */
@@ -343,24 +419,22 @@ function wrDoneHtml() {
 function wrNewRace(stage) {
   if (!WR || myPlayerId !== roomHostId) return;
   WR.round = (WR.round || 0) + 1;
-  var n = WR.save.bots === false ? 0 : Math.max(0, 4 - (roomPlayersList || []).length);   /* 모자란 자리는 봇으로 채워 4대가 같이 달려요 */
+  WR.seed = Math.floor(Math.random() * 1e9) + 1;
+  var alone = (roomPlayersList || []).length <= 1, n = (WR.save.bots !== true && !alone) ? 0 : Math.max(0, 4 - (roomPlayersList || []).length);   /* 모자란 자리는 봇으로 채워 4대가 같이 달려요 */
   WR.botList = []; for (var i = 0; i < n; i++) WR.botList.push({ id: 'bot' + (i + 1), name: WR_BOT_DEF[i].name });
-  DBset(roomKey('wheelrace'), { stage: stage, round: WR.round, bots: WR.botList, at: Date.now() });
+  DBset(roomKey('wheelrace'), { stage: stage, round: WR.round, seed: WR.seed, bots: WR.botList, at: Date.now() });
   wrLoadStage(stage); wrPublish(true); wrUiRefresh();
 }
 function wrRetry() { if (WR) wrNewRace(WR.stage); }
-function wrToggleBots() { if (!WR || myPlayerId !== roomHostId) return; WR.save.bots = WR.save.bots === false; wrSaveStore(); wrNewRace(WR.stage); }
-function wrJump() {
-  if (!WR || WR.state !== 'run' || WR.jumpCd > 0) return;
-  WR.jumpCd = 70; Matter.Body.setVelocity(WR.car, { x: WR.car.velocity.x, y: Math.min(WR.car.velocity.y, 0) - 7 });
-}
+/* 다음 코스: 차례대로, 마지막(🎲 랜덤) 다음부터는 계속 새 랜덤 코스 */
+function wrNextStage() { return Math.min(WR_STAGES.length - 1, WR.stage + 1); }
+function wrToggleBots() { if (!WR || myPlayerId !== roomHostId) return; WR.save.bots = WR.save.bots !== true; wrSaveStore(); wrNewRace(WR.stage); }
 function wrSetWheel(w) {
   WR.wheel = { pts: w.pts, closed: !!w.closed }; WR.wheelInfo = wrWheelInfo(WR.wheel); WR.save.wheel2 = WR.wheel; wrSaveStore();
   if (WR.car) wrAttachWheels();                                 /* 멈추지 않고 바로 교체 */
   wrUiRefresh();
 }
 function wrDrawClear() { WR.raw = []; WR.drawErr = ''; }
-function wrDefaultWheel() { wrSetWheel({ pts: wrCirclePts(26), closed: true }); WR.drawErr = ''; }
 function wrHostStage(i) { wrNewRace(i); }
 function wrPickCar(i) {
   var S = WR.save, c = WR_CARS[i];
@@ -396,7 +470,7 @@ function wrNetTick() {
   if (WR_NET_N % 3 === 1) DBget(roomKey('wheelrace')).then(function (st) {   /* 방장이 고른 코스·판 번호 */
     if (!WR || !st || typeof st.stage !== 'number' || st.stage < 0 || st.stage >= WR_STAGES.length) return;
     var rd = st.round || 0;
-    if (rd !== WR.round || st.stage !== WR.stage) { WR.round = rd; WR.botList = st.bots || []; wrLoadStage(st.stage); wrUiRefresh(); }
+    if (rd !== WR.round || st.stage !== WR.stage) { WR.round = rd; WR.seed = st.seed || 1; WR.botList = st.bots || []; wrLoadStage(st.stage); wrUiRefresh(); }
   });
   var host = myPlayerId === roomHostId, bl = WR.botList || [];
   var pids = (roomPlayersList || []).map(function (p) { return p.id; }).concat(host ? [] : bl.map(function (b) { return b.id; }));
@@ -427,6 +501,11 @@ function wrNetTick() {
     rows.sort(function (a, b) { if (a.fin && b.fin) return a.fin - b.fin; if (a.fin) return -1; if (b.fin) return 1; return b.prog - a.prog; });
     WR.rows = rows;
     renderRankBoard('wr-rank', rows.map(function (r) { return { name: r.name, isMe: r.id === myPlayerId, label: r.fin ? '🏁 ' + (r.fin / 1000).toFixed(2) + '초' : '🛞 ' + Math.round(r.prog * 100) + '%' }; }));
+    /* 모두 도착하면(또는 첫 도착 25초 뒤) 3·2·1 하고 다음 라운드 */
+    var anyFin = rows.some(function (r) { return r.fin; }), allFin = rows.length && rows.every(function (r) { return r.fin; });
+    if (anyFin && !WR.firstFin) WR.firstFin = Date.now();
+    if (!WR.nextAt && (allFin || (WR.firstFin && Date.now() - WR.firstFin > 25000))) WR.nextAt = Date.now() + 3000;
+    if (WR.nextAt && host && Date.now() >= WR.nextAt) { WR.nextAt = 0; wrNewRace(wrNextStage()); return; }
     if (WR.state === 'done') wrUiRefresh();
   });
 }
@@ -475,12 +554,11 @@ function startWheelRaceGame() {
       '<div class="wr-ctrl">' +
         '<div id="wr-stages" class="wr-stages"></div>' +
         '<div id="wr-err" class="wr-err"></div>' +
-        '<div class="wr-btns"><button class="btn btn-ghost" onclick="wrDefaultWheel()">⚪ 기본 원</button>' +
-          '<button class="btn btn-ghost" id="wr-jump" onclick="wrJump()">🦘 점프</button><button class="btn btn-ghost" id="wr-again" onclick="wrRetry()">🔁 새 레이스</button><button class="btn btn-ghost" id="wr-bots" onclick="wrToggleBots()">🤖 봇</button>' +
+        '<div class="wr-btns"><button class="btn btn-ghost" id="wr-again" onclick="wrRetry()">🔁 새 레이스</button><button class="btn btn-ghost" id="wr-bots" onclick="wrToggleBots()">🤖 봇</button>' +
           '<button class="btn btn-ghost" onclick="wrToggleShop()">🎨 꾸미기</button></div>' +
         '<div id="wr-shop" class="wr-shop" style="display:none"></div>' +
         '<div class="wr-rank-wrap"><div class="wr-rank-title">🏆 이번 코스 순위</div><div id="wr-rank"></div></div>' +
-        '<p class="wr-help">💡 그린 선 그대로 바퀴가 돼요. 달리는 중에 다시 그리면 바로 바뀌어요! (스페이스: 점프 · 방장 R: 새 레이스)</p>' +
+        '<p class="wr-help">💡 그린 선 그대로 바퀴가 돼요. 달리는 중에 다시 그리면 바로 바뀌어요! (방장 R: 새 레이스 · 끝나면 3초 뒤 다음 라운드)</p>' +
       '</div>' +
     '</div>';
   var cv = document.getElementById('wr-canvas'), dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -493,8 +571,7 @@ function startWheelRaceGame() {
   starter.then(function () { WR_NET_N = 0; wrNetTick(); WR_NET = setInterval(wrNetTick, 200); });
   WR_KEYH = function (e) {
     if (!WR || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return;
-    if (e.code === 'Space') { e.preventDefault(); wrJump(); }
-    else if ((e.key === 'r' || e.key === 'R') && myPlayerId === roomHostId) wrRetry();
+    if ((e.key === 'r' || e.key === 'R') && myPlayerId === roomHostId) wrRetry();
   };
   document.addEventListener('keydown', WR_KEYH);
   wrUiRefresh();
@@ -535,11 +612,11 @@ function wrUiRefresh() {
   if (!WR) return;
   var S = WR.save, $ = function (id) { return document.getElementById(id); }, host = myPlayerId === roomHostId;
   $('wr-coins').textContent = S.coins;
-  $('wr-stagename').textContent = (WR.stage + 1) + '. ' + WR_STAGES[WR.stage].name;
+  $('wr-stagename').textContent = (WR_STAGES[WR.stage].random ? '' : (WR.stage + 1) + '. ') + WR.def.name;
   $('wr-stages').innerHTML = WR_STAGES.map(function (s, i) {
     var b = S.best[String(i)];
-    return '<button class="wr-chip' + (i === WR.stage ? ' on' : '') + '"' + (host ? ' onclick="wrHostStage(' + i + ')"' : ' disabled') + '>' + (i + 1) + (b ? '<small>' + (b / 1000).toFixed(1) + 's</small>' : '') + '</button>';
-  }).join('') + '<div class="wr-hint">' + esc(WR_STAGES[WR.stage].hint) + (host ? ' · 코스를 누르면 모두 새로 출발해요' : ' · 코스는 방장이 골라요') + '</div>';
+    return '<button class="wr-chip' + (i === WR.stage ? ' on' : '') + '"' + (host ? ' onclick="wrHostStage(' + i + ')"' : ' disabled') + '>' + (s.random ? '🎲' : i + 1) + (b ? '<small>' + (b / 1000).toFixed(1) + 's</small>' : '') + '</button>';
+  }).join('') + '<div class="wr-hint">' + esc(WR.def.hint) + (host ? ' · 코스를 누르면 모두 새로 출발해요' : ' · 코스는 방장이 골라요') + '</div>';
   var inf = WR.wheelInfo;
   $('wr-info').innerHTML = '반지름 <b>' + inf.R.toFixed(0) + '</b> · 둥근 <b>' + inf.round + '%</b><br>' + (inf.closed ? '닫힌 모양' : '열린 선');
   $('wr-colors').innerHTML = WR_COLORS.map(function (c) { return '<button class="wr-cdot' + (c === S.color ? ' on' : '') + '" style="background:' + c + '" onclick="wrPickColor(\'' + c + '\')"></button>'; }).join('');
@@ -553,7 +630,7 @@ function wrUiRefresh() {
   if (WR.state === 'done') { ov.innerHTML = wrDoneHtml(); ov.style.display = 'flex'; } else ov.style.display = 'none';
   $('wr-again').style.display = host ? '' : 'none';
   $('wr-bots').style.display = host ? '' : 'none';
-  $('wr-bots').textContent = WR.save.bots === false ? '🤖 봇 대결 꺼짐' : '🤖 봇 대결 켜짐';
+  $('wr-bots').textContent = (roomPlayersList || []).length <= 1 ? '🤖 혼자라 봇과 대결 중' : WR.save.bots === true ? '🤖 봇 대결 켜짐' : '🤖 봇 대결 꺼짐';
 }
 function wrHudTick() {
   var t = document.getElementById('wr-time'); if (t) t.textContent = (WR.t / 1000).toFixed(2);
@@ -585,11 +662,13 @@ function wrDrawPreview() {
 function wrDraw() {
   var ctx = WR.ctx, W = WR, tr = W.track, cx = W.cam.x, cy = W.cam.y, i;
   ctx.setTransform(W.dpr, 0, 0, W.dpr, 0, 0);
-  var g = ctx.createLinearGradient(0, 0, 0, WR_H); g.addColorStop(0, '#8fd3ff'); g.addColorStop(1, '#e8f7ff'); ctx.fillStyle = g; ctx.fillRect(0, 0, WR_W, WR_H);
-  ctx.fillStyle = '#fff176'; ctx.beginPath(); ctx.arc(780, 70, 30, 0, 7); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  var TH = W.theme || WR_THEMES.grass;
+  var g = ctx.createLinearGradient(0, 0, 0, WR_H); g.addColorStop(0, TH.sky[0]); g.addColorStop(1, TH.sky[1]); ctx.fillStyle = g; ctx.fillRect(0, 0, WR_W, WR_H);
+  if (TH.stars) { ctx.fillStyle = '#fff'; for (i = 0; i < 60; i++) { ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(W.spin * 1.5 + i)); ctx.fillRect(((i * 157 - cx * 0.05) % WR_W + WR_W) % WR_W, (i * 53) % 220, 2, 2); } ctx.globalAlpha = 1; }
+  ctx.fillStyle = TH.sun; ctx.beginPath(); ctx.arc(780, 70, 30, 0, 7); ctx.fill();
+  ctx.fillStyle = TH.stars ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.9)';
   for (i = 0; i < 6; i++) { var bx = ((i * 330 - cx * 0.2) % 1980 + 1980) % 1980 - 150, by = 50 + (i * 47) % 90; ctx.beginPath(); ctx.arc(bx, by, 22, 0, 7); ctx.arc(bx + 26, by + 6, 28, 0, 7); ctx.arc(bx + 56, by, 20, 0, 7); ctx.fill(); }
-  ctx.fillStyle = '#b9e6a8'; ctx.beginPath(); ctx.moveTo(0, WR_H);
+  ctx.fillStyle = TH.hill; ctx.beginPath(); ctx.moveTo(0, WR_H);
   for (var x = 0; x <= WR_W; x += 30) ctx.lineTo(x, 300 - cy * 0.1 + Math.sin((x + cx * 0.3) / 110) * 36 + Math.sin((x + cx * 0.3) / 47) * 10);
   ctx.lineTo(WR_W, WR_H); ctx.fill();
   ctx.save(); ctx.translate(-cx, -cy);
@@ -597,9 +676,30 @@ function wrDraw() {
   tr.segs.forEach(function (s) {
     if (s[s.length - 1][0] < cx - 50 || s[0][0] > cx + WR_W + 50) return;
     ctx.beginPath(); ctx.moveTo(s[0][0], s[0][1]); for (var j = 1; j < s.length; j++) ctx.lineTo(s[j][0], s[j][1]);
-    var last = s[s.length - 1]; ctx.lineTo(last[0], last[1] + 900); ctx.lineTo(s[0][0], s[0][1] + 900); ctx.closePath(); ctx.fillStyle = '#a9794f'; ctx.fill();
+    var last = s[s.length - 1]; ctx.lineTo(last[0], last[1] + 900); ctx.lineTo(s[0][0], s[0][1] + 900); ctx.closePath(); ctx.fillStyle = TH.ground; ctx.fill();
     ctx.beginPath(); ctx.moveTo(s[0][0], s[0][1]); for (j = 1; j < s.length; j++) ctx.lineTo(s[j][0], s[j][1]);
-    ctx.lineWidth = 12; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = '#5fc45a'; ctx.stroke();
+    ctx.lineWidth = 12; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = TH.top; ctx.stroke();
+  });
+  /* 얼음 · 진흙 · 부스터 · 트램펄린 */
+  tr.zones.forEach(function (z) {
+    if (z.x1 < cx - 50 || z.x0 > cx + WR_W + 50) return;
+    var w = z.x1 - z.x0;
+    if (z.k === 'ice') { ctx.fillStyle = 'rgba(178,235,255,.95)'; ctx.fillRect(z.x0, z.y - 7, w, 14); ctx.fillStyle = 'rgba(255,255,255,.9)'; for (var k = z.x0 + 20; k < z.x1; k += 70) ctx.fillRect(k, z.y - 4, 26, 3); }
+    else if (z.k === 'mud') { ctx.fillStyle = '#6d4c41'; ctx.fillRect(z.x0, z.y - 8, w, 16); ctx.fillStyle = '#8d6e63'; for (k = z.x0 + 15; k < z.x1; k += 45) { ctx.beginPath(); ctx.ellipse(k, z.y - 6 + Math.sin(W.spin * 2 + k) * 1.5, 10, 4, 0, 0, 7); ctx.fill(); } }
+    else if (z.k === 'boost') { ctx.fillStyle = '#ffeb3b'; ctx.fillRect(z.x0, z.y - 8, w, 16); ctx.strokeStyle = '#ff6f00'; ctx.lineWidth = 4; var off = (W.spin * 80) % 30; for (k = z.x0 + off; k < z.x1 - 10; k += 30) { ctx.beginPath(); ctx.moveTo(k, z.y - 6); ctx.lineTo(k + 10, z.y); ctx.lineTo(k, z.y + 6); ctx.stroke(); } }
+    else if (z.k === 'tramp') { ctx.strokeStyle = '#455a64'; ctx.lineWidth = 4; for (k = z.x0 + 10; k <= z.x1 - 10; k += (w - 20) / 3) { ctx.beginPath(); ctx.moveTo(k, z.y); ctx.lineTo(k, z.y - 14); ctx.stroke(); } ctx.fillStyle = '#e53935'; ctx.fillRect(z.x0, z.y - 22, w, 9); ctx.fillStyle = '#fff'; for (k = z.x0; k < z.x1; k += 20) ctx.fillRect(k, z.y - 22, 10, 9); }
+  });
+  /* 시소 */
+  tr.sees.forEach(function (q) {
+    var b = q.body; ctx.fillStyle = '#795548'; ctx.beginPath(); ctx.moveTo(q.x - 22, q.y + 34); ctx.lineTo(q.x + 22, q.y + 34); ctx.lineTo(q.x, q.y); ctx.fill();
+    ctx.save(); ctx.translate(b.position.x, b.position.y); ctx.rotate(b.angle); ctx.fillStyle = '#ffb74d'; ctx.fillRect(-q.len / 2, -6, q.len, 12); ctx.strokeStyle = '#e65100'; ctx.lineWidth = 2; ctx.strokeRect(-q.len / 2, -6, q.len, 12); ctx.restore();
+    ctx.fillStyle = '#3e2723'; ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 7); ctx.fill();
+  });
+  /* 풍차 */
+  tr.spins.forEach(function (q) {
+    ctx.fillStyle = '#90a4ae'; ctx.fillRect(q.x - 6, q.y, 12, 130);
+    ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.body.angle); ctx.fillStyle = '#7e57c2'; ctx.fillRect(-115, -8, 230, 16); ctx.fillStyle = '#ede7f6'; for (var k = -110; k < 110; k += 30) ctx.fillRect(k, -8, 12, 16); ctx.restore();
+    ctx.fillStyle = '#ffca28'; ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, 7); ctx.fill();
   });
   tr.ceils.forEach(function (c) { ctx.fillStyle = '#78909c'; ctx.fillRect(c.x0, c.y - 200, c.x1 - c.x0, 200); ctx.fillStyle = '#ffca28'; for (var xx = c.x0; xx < c.x1; xx += 40) ctx.fillRect(xx, c.y - 8, 20, 8); });
   tr.gates.forEach(function (gt) {
@@ -664,6 +764,11 @@ function wrDraw() {
     ctx.font = 'bold ' + (W.state === 'count' ? 120 : 90) + 'px sans-serif'; ctx.lineWidth = 10; ctx.strokeStyle = '#fff'; ctx.strokeText(label, 0, 0);
     ctx.fillStyle = W.state === 'count' ? '#ff7043' : '#43a047'; ctx.fillText(label, 0, 0); ctx.restore();
     if (W.state === 'count') { ctx.font = 'bold 18px sans-serif'; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillText('출발 전에 바퀴를 그려도 돼요!', WR_W / 2, WR_H * 0.42 + 90); }
+  }
+  if (W.nextAt) {
+    var lf = Math.max(0, Math.ceil((W.nextAt - Date.now()) / 1000));
+    ctx.font = 'bold 22px sans-serif'; var nt = lf ? '⏩ 다음 라운드까지 ' + lf : '⏩ 다음 라운드 준비 중…', nw = ctx.measureText(nt).width + 40;
+    ctx.fillStyle = 'rgba(255,112,67,.92)'; rr(ctx, WR_W / 2 - nw / 2, WR_H - 62, nw, 44, 22); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(nt, WR_W / 2, WR_H - 40);
   }
   if (W.toastT > 0 && W.toast) {
     ctx.font = 'bold 20px sans-serif'; var tw = ctx.measureText(W.toast).width + 36;

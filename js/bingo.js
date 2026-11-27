@@ -35,13 +35,13 @@ var BG_LAST_LINES = -1;
 function bgKey() { return roomKey('bingo'); }
 function bgMyKey() { return roomKey('bg_' + myPlayerId); }
 function bgNorm(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
-function stopBingoGame() { clearInterval(BG_POLL); BG_POLL = null; }
+function stopBingoGame() { clearInterval(BG_POLL); BG_POLL = null; if (typeof botBingoStop === 'function') botBingoStop(); }
 
 function startBingoGame() {
   stopBingoGame();
   BG_STATE = null; BG_MY = null; BG_LAST_LINES = -1;
   document.querySelectorAll('#bingo .bg-phase').forEach(function (el) { el.style.display = 'none'; });
-  var n = (roomPlayersList || []).length;
+  var n = botRoster('bingo').length;   /* 혼자면 🤖 봇이 채워요 (bots.js) */
   if (n < BG_MIN || n > BG_MAX) {
     document.getElementById('bg-error').style.display = '';
     document.getElementById('bg-error').textContent = '빙고 대작전은 ' + BG_MIN + '~' + BG_MAX + '명이 필요해요. 지금 ' + n + '명이에요.';
@@ -49,13 +49,14 @@ function startBingoGame() {
   }
   bgBuildFillGrid();
   var starter = myPlayerId === roomHostId ? bgHostInit() : Promise.resolve();
-  starter.then(function () { bgPoll(); BG_POLL = setInterval(bgPoll, 1000); });
+  starter.then(function () { bgPoll(); BG_POLL = setInterval(bgPoll, 1000); if (botCanFill('bingo')) botNotice('bingo'); });
 }
 
 function bgHostInit(topic) {
-  var order = shuffleArray((roomPlayersList || []).map(function (p) { return p.id; }));
+  var roster = botRoster('bingo');   /* 혼자면 🤖 봇 포함 */
+  var order = shuffleArray(roster.map(function (p) { return p.id; }));
   var names = {};
-  (roomPlayersList || []).forEach(function (p) { names[p.id] = p.name; });
+  roster.forEach(function (p) { names[p.id] = p.name; });
   var st = { gameId: Date.now(), order: order, names: names, topic: topic || BG_TOPICS[Math.floor(Math.random() * BG_TOPICS.length)], phase: 'fill', deadline: Date.now() + BG_FILL_SECONDS * 1000, turnIdx: 0, calls: [], winners: [] };
   return DBset(bgKey(), st);
 }
@@ -83,7 +84,7 @@ function bgPoll() {
     BG_STATE = st;
     if (topicChanged && BG_MY && !BG_MY.ready) document.querySelectorAll('#bg-fill-grid input').forEach(function (i) { i.value = ''; });
     bgRender(st);
-    if (myPlayerId === roomHostId) bgHostCheck(st);
+    if (myPlayerId === roomHostId) botBingoStep(st).then(function () { bgHostCheck(st); });   /* 🤖 봇 판 먼저 갱신 */
   });
 }
 

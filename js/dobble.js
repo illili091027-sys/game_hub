@@ -42,13 +42,14 @@ function dbRand(seed) { var s = seed % 2147483647; if (s <= 0) s += 2147483646; 
 function stopDobbleGame() {
   clearInterval(DB_POLL); DB_POLL = null;
   clearInterval(DB_HOST_POLL); DB_HOST_POLL = null;
+  if (typeof botDobbleStop === 'function') botDobbleStop();   /* 🤖 봇 */
 }
 
 function startDobbleGame() {
   stopDobbleGame();
   DB_STATE = null; DB_LOCK_UNTIL = 0; DB_MY_CLAIM = null; DB_LAST_SEQ = -1;
   document.getElementById('db-result').style.display = 'none';
-  var n = (roomPlayersList || []).length;
+  var n = botRoster('dobble').length;   /* 혼자면 🤖 봇이 채워요 (bots.js) */
   var err = document.getElementById('db-error');
   if (n < DB_MIN || n > DB_MAX) {
     err.style.display = ''; err.textContent = '얼른 버려!는 ' + DB_MIN + '~' + DB_MAX + '명이 필요해요. 지금 ' + n + '명이에요.';
@@ -59,13 +60,14 @@ function startDobbleGame() {
   starter.then(function () {
     dbPoll();
     DB_POLL = setInterval(dbPoll, 250);
-    if (myPlayerId === roomHostId) DB_HOST_POLL = setInterval(dbHostResolve, 200);
+    if (myPlayerId === roomHostId) { DB_HOST_POLL = setInterval(dbHostResolve, 200); botDobbleStart(); if (botCanFill('dobble')) botNotice('dobble'); }
   });
 }
 
 function dbHostInit() {
-  var order = shuffleArray((roomPlayersList || []).map(function (p) { return p.id; }));
-  var names = {}; (roomPlayersList || []).forEach(function (p) { names[p.id] = p.name; });
+  var roster = botRoster('dobble');   /* 혼자면 🤖 봇 포함 */
+  var order = shuffleArray(roster.map(function (p) { return p.id; }));
+  var names = {}; roster.forEach(function (p) { names[p.id] = p.name; });
   var deck = shuffleArray(DB_CARDS.map(function (_, i) { return i; }));
   var center = deck.pop();
   var per = Math.min(DB_HAND_MAX, Math.floor(deck.length / order.length));
@@ -82,6 +84,7 @@ function dbHostResolve() {
   if (myPlayerId !== roomHostId || DB_RESOLVE_BUSY || !DB_STATE || DB_STATE.phase !== 'play') return;
   DB_RESOLVE_BUSY = true;
   DBgetPrefix('db_', DB_STATE.order).then(function (claims) {
+    botDobbleClaims(claims);   /* 🤖 봇이 찾은 것도 같이 */
     return DBget(dbKey()).then(function (st) {
       if (!st || st.phase !== 'play') return;
       var best = null;

@@ -100,6 +100,7 @@ function skSubmit() {
   var pos = skPlace(), w = { id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: t, x: +pos.x.toFixed(4), y: +pos.y.toFixed(4), c: SK.color, owner: SK.owner, at: Date.now() };
   inp.value = '';
   var L = skLocal(); L.wishes.push(w); L.wishes = L.wishes.slice(-50); skLocalSave(L);
+  if (typeof czChalk === 'function') czChalk('star-wish', 1, '소원 별 반짝', 3);
   /* 빛이 아래에서 올라가 별이 돼요 */
   SK.rises.push({ w: w, x0: SK_W / 2, y0: SK_H - 40, k: 0 });
   if (skServer()) {
@@ -118,7 +119,8 @@ function skOpen(i, auto) {
   SK.open = { i: i, w: w, auto: auto, t: 0 };
   var c = document.getElementById('sk-card');
   c.innerHTML = '<div class="sk-wish">“' + esc(w.t) + '”</div><div class="sk-meta">' + (w.mine ? '✨ 내가 띄운 별' : '누군가의 별') + ' · ' + new Date(w.at).toLocaleDateString() + '</div>' +
-    (auto ? '' : '<div class="sk-act">' + (w.mine ? '<button onclick="skRemove(\'' + w.id + '\')">내 별 지우기</button>' : '<button onclick="skHide(\'' + w.id + '\')">이 별 가리기</button>') + '</div>');
+    (auto ? '' : '<div class="sk-act">' + (w.mine ? '<button onclick="skRemove(\'' + w.id + '\')">내 별 지우기</button>' : '<button onclick="skHide(\'' + w.id + '\')">이 별 가리기</button>') +
+      (typeof ADMIN_MODE !== 'undefined' && ADMIN_MODE && !w.mine ? '<button class="sk-admin" onclick="skAdminRemove(\'' + w.id + '\')">🛠 관리자: 지우기</button>' : '') + '</div>');
   var left = w.x * 100, top = w.y * 100;
   var m = SK_W < 900 ? 36 : 16; c.style.left = Math.max(m, Math.min(100 - m, left)) + '%'; c.style.top = top + '%';
   c.classList.toggle('below', w.y < 0.3); c.classList.toggle('auto', !!auto);
@@ -137,6 +139,14 @@ function skMine() {
   SK.mineGlow = 3;
   var cur = SK.open ? mine.indexOf(SK.open.i) : -1;
   skOpen(mine[(cur + 1) % mine.length], false);
+}
+/* 🛠 관리자: 누구의 별이든 하늘에서 지워요 */
+function skAdminRemove(id) {
+  if (!(typeof ADMIN_MODE !== 'undefined' && ADMIN_MODE)) return;
+  if (!confirm('관리자: 이 별을 모두의 하늘에서 지울까요?')) return;
+  skClose(); SK.wishes = SK.wishes.filter(function (w) { return w.id !== id; });
+  if (!skServer()) return;
+  skFetch().then(function (list) { if (list) return skPut(list.filter(function (w) { return w.id !== id; })); }).then(skSync);
 }
 function skHide(id) { var L = skLocal(); L.hidden[id] = 1; skLocalSave(L); skClose(); skSync(); }
 function skRemove(id) {

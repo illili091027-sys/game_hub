@@ -14,6 +14,30 @@ var AR_LEVELS = {
   4: { w: 17, h: 23, minL: 4, maxL: 18, fill: 0.97, minRay: 6, turn: 0.6,  name: '지옥' },
   5: { w: 19, h: 26, minL: 5, maxL: 22, fill: 0.975, minRay: 7, turn: 0.65, name: '끝판왕' }
 };
+/* 6단계부터: 더 크고, 더 길고, 더 꼬이고, 하트도 줄어요 (깨면 다음 단계가 하나씩 열려요) */
+var AR_MAX = 15;
+var AR_NAMES = { 6: '초월', 7: '전설', 8: '신화', 9: '불가능?', 10: '???', 11: '혼돈', 12: '심연', 13: '블랙홀', 14: '우주 끝', 15: '진짜 끝판왕' };
+for (var arL = 6; arL <= AR_MAX; arL++) {
+  var arK = arL - 5;
+  AR_LEVELS[arL] = { w: Math.min(25, 19 + arK), h: Math.min(33, 26 + Math.round(arK * 0.8)), minL: 5 + Math.floor(arK / 3), maxL: Math.min(34, 22 + arK * 2),
+    fill: Math.min(0.985, 0.975 + arK * 0.002), minRay: Math.min(12, 7 + Math.ceil(arK / 2)), turn: Math.min(0.8, 0.65 + arK * 0.02), name: AR_NAMES[arL],
+    hearts: arL >= 12 ? 1 : arL >= 8 ? 2 : 3, hints: arL >= 10 ? 1 : 2 };
+}
+AR_LEVELS[4].hints = 3; AR_LEVELS[5].hints = 2;
+function arProg() { try { return JSON.parse(localStorage.getItem('gamehub_arrows') || 'null') || { cleared: 0 }; } catch (e) { return { cleared: 0 }; } }
+function arProgSave(p) { try { localStorage.setItem('gamehub_arrows', JSON.stringify(p)); } catch (e) {} }
+/* 단계 고르기: 깬 단계 + 다음 1단계까지만 열리고, 그 다음 1단계는 🔒로 살짝 보여줘요 */
+function arRenderLevels() {
+  var g = document.getElementById('ar-lv-grid'); if (!g) return;
+  var cl = arProg().cleared, show = Math.min(AR_MAX, Math.max(3, cl + 2)), html = '';
+  for (var lv = 1; lv <= show; lv++) {
+    var c = AR_LEVELS[lv], open = lv <= cl + 1, stars = '★'.repeat(Math.min(5, Math.ceil(lv / 3))) + '☆'.repeat(5 - Math.min(5, Math.ceil(lv / 3)));
+    html += '<button class="cat-btn diff-btn' + (open ? '' : ' locked') + (lv <= cl ? ' cleared' : '') + '" ' + (open ? 'onclick="arChooseLevel(' + lv + ')"' : 'disabled') + '><span class="diff-lv">' + (open ? lv : '🔒') + '</span><span class="diff-text"><span class="diff-name">' + c.name + (lv <= cl ? ' ✅' : '') + '</span><span class="diff-info">' + c.w + '×' + c.h + ' · ❤️' + (c.hearts || 3) + '</span></span><span class="diff-stars">' + stars + '</span></button>';
+  }
+  if (show < AR_MAX) html += '<div class="ar-more">🔒 깰 때마다 더 어려운 단계가 열려요 (지금 ' + cl + ' / ' + AR_MAX + ')</div>';
+  else if (cl >= AR_MAX) html += '<div class="ar-more">👑 진짜 끝판왕까지 다 깼어요!</div>';
+  g.innerHTML = html;
+}
 var AR_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 var AR_CELL = 10;
 var AR = null;
@@ -27,6 +51,7 @@ function startArrowsGame() {
   AR = null;
   document.getElementById('ar-difficulty-select').style.display = '';
   document.getElementById('ar-game-area').style.display = 'none';
+  arRenderLevels();
 }
 
 function arChooseLevel(lv) {
@@ -211,7 +236,7 @@ function arMeasure(b) {
 
 function arGenerateHard(lv) {
   var best = null, bestScore = -1e9;
-  var tries = lv >= 4 ? 6 : 10;
+  var tries = lv >= 9 ? 3 : lv >= 4 ? 6 : 10;
   for (var t = 0; t < tries; t++) {
     var b = arGenerate(lv);
     var m = arMeasure(b);
@@ -230,7 +255,7 @@ function arNewBoard(lv, keep) {
     level: lv, w: b.w, h: b.h,
     arrows: b.arrows.map(function (a) { return { cells: a.cells.map(function (p) { return p.slice(); }), dir: a.dir.slice(), gone: false }; }),
     original: b,
-    hearts: 3, hints: 3, done: false, failed: false, busy: {}
+    hearts: AR_LEVELS[lv].hearts || 3, maxHearts: AR_LEVELS[lv].hearts || 3, hints: AR_LEVELS[lv].hints || 3, done: false, failed: false, busy: {}
   };
   document.getElementById('ar-level-label').textContent = lv + '단계 · ' + AR_LEVELS[lv].name;
   document.getElementById('ar-msg').innerHTML = '';
@@ -306,7 +331,7 @@ function arArrowShape(pts, dir) {
 
 function arUpdateHud() {
   var hearts = '';
-  for (var i = 0; i < 3; i++) hearts += i < AR.hearts ? '❤️' : '🤍';
+  for (var i = 0; i < (AR.maxHearts || 3); i++) hearts += i < AR.hearts ? '❤️' : '🤍';
   document.getElementById('ar-hearts').textContent = hearts;
   document.getElementById('ar-hint-btn').textContent = '💡 힌트 ' + AR.hints;
   document.getElementById('ar-hint-btn').disabled = AR.hints <= 0 || AR.done || AR.failed;
@@ -398,12 +423,13 @@ function arAnimTick(ts) {
 
 function arWin() {
   AR.done = true;
+  var pr = arProg(); if (AR.level > pr.cleared) { pr.cleared = AR.level; arProgSave(pr); }
   typeof soloCoin === 'function' && (soloCoin(AR.level * 5 + (AR.hearts >= 3 ? 5 : 0), AR.level + '단계 첫 클리어!', 'ar_lv_' + AR.level) || soloCoin(2, '화살표 탈출'));
   arUpdateHud();
   var msg = document.getElementById('ar-msg');
   msg.className = 'sd-msg win';
   msg.innerHTML = '🎉 ' + AR.level + '단계 클리어! (남은 하트 ' + AR.hearts + '개)' +
-    (AR.level < 5 ? '<br><button class="btn btn-primary ws-next-btn" onclick="arChooseLevel(' + (AR.level + 1) + ')">다음 단계 →</button>' : '<br>끝판왕까지 다 깼어요! 👑') +
+    (AR.level < AR_MAX ? '<br><button class="btn btn-primary ws-next-btn" onclick="arChooseLevel(' + (AR.level + 1) + ')">다음 단계 →</button>' : '<br>진짜 끝판왕까지 다 깼어요! 👑') +
     ' <button class="btn btn-ghost ws-next-btn" onclick="arNewGameBtn()">같은 단계 새 판</button>';
 }
 

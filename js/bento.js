@@ -17,6 +17,71 @@ var BT_GARNISH = ['🍋', '🌿', '🥢', '🍅', '🥒', '🍙'];
 function btSave() { try { localStorage.setItem('gamehub_bento_v2', JSON.stringify(BT_PROG)); } catch (e) {} }
 var BT_PROG = (function () { try { return JSON.parse(localStorage.getItem('gamehub_bento_v2') || 'null') || { stars: {} }; } catch (e) { return { stars: {} }; } })();
 
+/* ---------- 31단계부터: 30단계마다 더 어려운 단계가 자동으로 생겨요 ----------
+   만드는 법(항상 풀 수 있어요): ① 재료 모양을 만들고 ② 게임과 똑같은 칼질(줄 따라 끝까지)을 k번 해서 조각을 내고
+   ③ 그 조각들을 옮겨(돌리지 않고) 빈틈없이 붙인 모양이 도시락 칸이 돼요. 단계 번호가 같으면 늘 같은 단계예요. */
+var BT_GEN = {};
+var BT_TIERS = ['🍱 기본', '🔥 어려움', '💀 매우 어려움', '👹 지옥', '👑 전설'];
+function btTierName(t) { return BT_TIERS[Math.min(t, BT_TIERS.length - 1)] + (t >= BT_TIERS.length ? ' ' + (t - BT_TIERS.length + 2) : ''); }
+function btRng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function btNorm(cells) {
+  var mx = Math.min.apply(null, cells.map(function (c) { return c[0]; })), my = Math.min.apply(null, cells.map(function (c) { return c[1]; }));
+  return cells.map(function (c) { return [c[0] - mx, c[1] - my]; });
+}
+function btKey(cells) { return btNorm(cells).map(function (c) { return c[0] + ',' + c[1]; }).sort().join(';'); }
+function btGenLevel(i, salt) {
+  var tier = Math.floor(i / 30), j = i % 30, R = btRng(i * 7919 + 13 + (salt || 0) * 104729), I = function (a, b) { return a + Math.floor(R() * (b - a + 1)); };
+  /* ① 재료 모양: 가운데서부터 칸을 붙여 키워요 */
+  var N = Math.min(46, 18 + tier * 5 + Math.floor(j / 3)), cells = [[0, 0]], has = { '0,0': 1 };
+  while (cells.length < N) {
+    var c = cells[Math.floor(R() * cells.length)], d = [[1, 0], [-1, 0], [0, 1], [0, -1]][I(0, 3)], nx = c[0] + d[0], ny = c[1] + d[1], k = nx + ',' + ny;
+    if (has[k]) continue;
+    var xs = cells.map(function (q) { return q[0]; }).concat(nx), ys = cells.map(function (q) { return q[1]; }).concat(ny);
+    var lim = 4 + Math.min(4, tier);
+    if (Math.max.apply(null, xs) - Math.min.apply(null, xs) > lim || Math.max.apply(null, ys) - Math.min.apply(null, ys) > lim) continue;
+    has[k] = 1; cells.push([nx, ny]);
+  }
+  var src = btNorm(cells);
+  /* ② 게임과 같은 칼질 k번 */
+  var K = Math.min(9, 3 + tier + Math.floor(j / 10)), pieces = [src.map(function (c) { return c.slice(); })], done = 0;
+  for (var guard = 0; done < K && guard < 200; guard++) {
+    var big = pieces.filter(function (p) { return p.length >= 2; }); if (!big.length) break;
+    var pc = big[Math.floor(R() * big.length)], n = btNorm(pc);
+    var w = 1 + Math.max.apply(null, n.map(function (q) { return q[0]; })), h = 1 + Math.max.apply(null, n.map(function (q) { return q[1]; }));
+    var ax = (w > 1 && (h < 2 || R() < 0.5)) ? 0 : 1, ext = ax === 0 ? w : h; if (ext < 2) continue;
+    var line = I(1, ext - 1), mx = Math.min.apply(null, pc.map(function (q) { return q[0]; })), my = Math.min.apply(null, pc.map(function (q) { return q[1]; }));
+    var off = ax === 0 ? mx : my, A = pc.filter(function (q) { return q[ax] - off < line; }), B = pc.filter(function (q) { return q[ax] - off >= line; });
+    var made = btComps(A).concat(btComps(B));
+    pieces.splice(pieces.indexOf(pc), 1); made.forEach(function (m) { pieces.push(m); }); done++;
+  }
+  /* ③ 조각들을 빈틈없이 붙여 도시락 칸 모양 만들기 (여러 번 해 보고 가장 반듯한 것) */
+  var shapes = pieces.map(btNorm).sort(function (a, b) { return b.length - a.length; }), best = null;
+  for (var tr = 0; tr < 5; tr++) {
+    var occ = {}, placed = [], bx0 = 0, by0 = 0, bx1 = 0, by1 = 0;
+    shapes.forEach(function (sh, si) {
+      var pw = 1 + Math.max.apply(null, sh.map(function (q) { return q[0]; })), ph = 1 + Math.max.apply(null, sh.map(function (q) { return q[1]; }));
+      if (!si) { sh.forEach(function (q) { occ[q[0] + ',' + q[1]] = 1; }); placed.push([sh, [0, 0]]); bx1 = pw - 1; by1 = ph - 1; return; }
+      var pick = null, ps = 1e9;
+      for (var x = bx0 - pw; x <= bx1 + 1; x++) for (var y = by0 - ph; y <= by1 + 1; y++) {
+        var ok = true, touch = false;
+        for (var q = 0; q < sh.length && ok; q++) { var X = sh[q][0] + x, Y = sh[q][1] + y; if (occ[X + ',' + Y]) ok = false; else if (occ[(X + 1) + ',' + Y] || occ[(X - 1) + ',' + Y] || occ[X + ',' + (Y + 1)] || occ[X + ',' + (Y - 1)]) touch = true; }
+        if (!ok || !touch) continue;
+        var nx0 = Math.min(bx0, x), ny0 = Math.min(by0, y), nx1 = Math.max(bx1, x + pw - 1), ny1 = Math.max(by1, y + ph - 1);
+        var sc = (nx1 - nx0 + 1) * (ny1 - ny0 + 1) + Math.abs((nx1 - nx0) - (ny1 - ny0)) * 0.8 + R() * 1.5;
+        if (sc < ps) { ps = sc; pick = [x, y]; }
+      }
+      sh.forEach(function (q) { occ[(q[0] + pick[0]) + ',' + (q[1] + pick[1])] = 1; });
+      placed.push([sh, pick]); bx0 = Math.min(bx0, pick[0]); by0 = Math.min(by0, pick[1]); bx1 = Math.max(bx1, pick[0] + pw - 1); by1 = Math.max(by1, pick[1] + ph - 1);
+    });
+    var waste = (bx1 - bx0 + 1) * (by1 - by0 + 1) - N;
+    if (!best || waste < best.waste) best = { waste: waste, placed: placed, x0: bx0, y0: by0 };
+  }
+  var tgt = [], sol = best.placed.map(function (pl) { var pos = [pl[1][0] - best.x0, pl[1][1] - best.y0]; pl[0].forEach(function (q) { tgt.push([q[0] + pos[0], q[1] + pos[1]]); }); return [pl[0], pos]; });
+  if (btKey(tgt) === btKey(src) && (salt || 0) < 5) return btGenLevel(i, (salt || 0) + 1);   /* 처음 모양 그대로면 다시 */
+  return { src: src, tgt: tgt, p: done, sol: sol, f: Math.floor(R() * BT_FOODS.length), gen: true };
+}
+function btLv(i) { return i < BENTO_LEVELS.length ? BENTO_LEVELS[i] : (BT_GEN[i] || (BT_GEN[i] = btGenLevel(i))); }
+
 function stopBentoGame() { cancelAnimationFrame(BT_RAF); BT_RAF = null; }
 function startBentoGame() {
   stopBentoGame();
@@ -25,18 +90,23 @@ function startBentoGame() {
 function btShowLevels() {
   document.getElementById('bt-levels').style.display = '';
   document.getElementById('bt-play').style.display = 'none';
-  var total = 0;
-  var html = BENTO_LEVELS.map(function (L, i) {
-    var st = BT_PROG.stars[i] || 0; total += st;
-    var open = i === 0 || BT_PROG.stars[i - 1];
-    return '<button class="bt-lv' + (open ? '' : ' locked') + (st ? ' done' : '') + '" ' + (open ? 'onclick="btStart(' + i + ')"' : 'disabled') + '><b>' + (i + 1) + '</b><span>' + (open ? '★★★'.slice(0, st) + '<i>' + '★★★'.slice(st) + '</i>' : '🔒') + '</span></button>';
-  }).join('');
+  var total = 0, maxOpen = 0, k;
+  Object.keys(BT_PROG.stars).forEach(function (key) { var n = +key; total += BT_PROG.stars[key] || 0; if (BT_PROG.stars[key]) maxOpen = Math.max(maxOpen, n + 1); });
+  /* 처음부터 다 보여주지 않고, 깬 만큼 + 앞으로 2단계만 살짝 보여줘요 */
+  var show = Math.max(5, maxOpen + 3), html = '';
+  for (k = 0; k < show; k++) {
+    if (k % 30 === 0) html += '<div class="bt-tier">' + btTierName(k / 30) + ' <small>' + (k + 1) + '~' + (k + 30) + '단계</small></div>';
+    var st = BT_PROG.stars[k] || 0, open = k === 0 || BT_PROG.stars[k - 1];
+    html += '<button class="bt-lv' + (open ? '' : ' locked') + (st ? ' done' : '') + '" ' + (open ? 'onclick="btStart(' + k + ')"' : 'disabled') + '><b>' + (k + 1) + '</b><span>' + (open ? '★★★'.slice(0, st) + '<i>' + '★★★'.slice(st) + '</i>' : '🔒') + '</span></button>';
+  }
+  var tierEnd = (Math.floor(maxOpen / 30) + 1) * 30;
+  html += '<div class="bt-more">🔒 ' + (tierEnd - Math.min(show, tierEnd) > 0 ? '깰수록 다음 단계가 하나씩 열려요 · ' : '') + tierEnd + '단계까지 다 깨면 <b>' + btTierName(tierEnd / 30) + '</b> 30단계가 열려요!</div>';
   document.getElementById('bt-lv-grid').innerHTML = html;
-  document.getElementById('bt-total').textContent = total + ' / ' + BENTO_LEVELS.length * 3;
+  document.getElementById('bt-total').textContent = total;
 }
 
 function btStart(i) {
-  var L = BENTO_LEVELS[i];
+  var L = btLv(i);
   BT = {
     lv: i, L: L, cuts: 0, limit: L.p + 2, pieces: [], hist: [], drag: null, hover: null, hint: 0, won: false, nid: 1,
     tset: {}, cv: document.getElementById('bt-canvas')
@@ -54,7 +124,7 @@ function btStart(i) {
   cancelAnimationFrame(BT_RAF);
   BT_RAF = requestAnimationFrame(btFrame);
 }
-function btNext() { if (BT && BT.lv + 1 < BENTO_LEVELS.length) btStart(BT.lv + 1); else btShowLevels(); }
+function btNext() { if (BT) btStart(BT.lv + 1); else btShowLevels(); }
 function btRestart() { if (BT) btStart(BT.lv); }
 
 /* 조각 = 칸 목록 (왼쪽 위가 0,0이 되게 정리) */
@@ -114,7 +184,7 @@ function btHint() {
 function btStars() { return BT.cuts <= BT.L.p ? 3 : (BT.cuts <= BT.L.p + 1 ? 2 : 1); }
 function btHud() {
   var left = BT.limit - BT.cuts;
-  document.getElementById('bt-lvname').textContent = (BT.lv + 1) + '단계 · ' + BT_FOODS[BT.L.f].n;
+  document.getElementById('bt-lvname').textContent = (BT.lv + 1) + '단계 · ' + (BT.lv >= 30 ? btTierName(Math.floor(BT.lv / 30)) + ' · ' : '') + BT_FOODS[BT.L.f].n;
   document.getElementById('bt-cuts').innerHTML = '🔪 <b>' + BT.cuts + '</b> / ' + BT.limit + ' <small>(⭐⭐⭐ ' + BT.L.p + '번)</small>';
   document.getElementById('bt-cuts').classList.toggle('warn', left <= 0);
 }
@@ -201,7 +271,8 @@ function btCheckWin() {
       document.getElementById('bt-done').style.display = '';
       document.getElementById('bt-done-stars').innerHTML = '★★★'.slice(0, st) + '<i>' + '★★★'.slice(st) + '</i>';
       document.getElementById('bt-done-msg').textContent = st === 3 ? '완벽한 도시락! 🍱' : (st === 2 ? '맛있어 보여요! 한 번만 덜 잘라 볼까요?' : '완성! 칼질을 줄이면 별이 더 많아요');
-      document.getElementById('bt-done-next').style.display = BT.lv + 1 < BENTO_LEVELS.length ? '' : 'none';
+      document.getElementById('bt-done-next').style.display = '';
+      if ((BT.lv + 1) % 30 === 0) document.getElementById('bt-done-msg').textContent = '🎉 ' + (BT.lv + 1) + '단계까지 다 깼어요! ' + btTierName((BT.lv + 1) / 30) + ' 30단계가 열렸어요!';
     }, 650);
   }
 }

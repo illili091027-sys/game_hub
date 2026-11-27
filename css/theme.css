@@ -197,3 +197,11 @@ body { font-family: var(--font-body); }
 .cmsg.mine .cmsg-bubble, .cmsg.mine .cmsg-bubble * { color: #fff !important; }
 .cmsg.mine .cmsg-bubble.media { background: var(--ink); }
 .cmsg.mine .cmsg-link, .cmsg.mine .cmsg-bubble a { color: #cfe3ff !important; }
+
+/* 어두운 막대 위 버튼: 테마의 흰 바탕 때문에 흰 글씨가 안 보이던 문제 */
+.ss-viewer .ss-viewer-bar .btn-ghost,
+.pj-present-bar .btn-ghost,
+.bb-over-btns .btn-ghost { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.45); }
+.ss-viewer .ss-viewer-bar .btn-ghost:hover,
+.pj-present-bar .btn-ghost:hover { background: rgba(255,255,255,.26); }
+.ss-viewer .ss-viewer-bar .btn-ghost.on { background: rgba(242,199,68,.4); border-color: #f2c744; }

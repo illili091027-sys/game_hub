@@ -10,6 +10,14 @@ var AQ_TW = 1000, AQ_TH = 560;         /* 수조 크기 */
 var AQ_LOCAL = 'gamehub_aquarium', AQ_MAX = 150;
 var AQ_COLORS = ['#ff7043', '#ffca28', '#66bb6a', '#29b6f6', '#5c6bc0', '#ab47bc', '#ec407a', '#8d6e63', '#212121', '#ffffff'];
 var AQ_SIZES = [4, 8, 14];
+/* 🐙 수조에 원래 사는 바다 친구들 (보내 준 그림 img/pets/sea행-열.png, 10마리만 남김)
+   f: 그림 속 머리 방향 (1 오른쪽, -1 왼쪽, 0 정면이라 안 뒤집어요) · b: 바닥 친구 (모래 위) · s: 크기 */
+var AQ_SEA = [
+  { i: 'sea2-1', n: '돌고래', f: -1, s: 66 }, { i: 'sea2-4', n: '해파리', f: 0, s: 52 }, { i: 'sea4-3', n: '고래', f: 0, s: 64 },
+  { i: 'sea6-2', n: '흰동가리', f: -1, s: 50 }, { i: 'sea7-1', n: '복어', f: -1, s: 52 }, { i: 'sea7-2', n: '해마', f: 0, s: 58 },
+  { i: 'sea3-2', n: '문어', f: 0, s: 56 },
+  { i: 'sea2-3', n: '꽃게', f: 0, s: 44, b: 1, walk: 1 }, { i: 'sea7-5', n: '거북이', f: 1, s: 40, b: 1, walk: 1 }, { i: 'sea8-3', n: '불가사리', f: 0, s: 42, b: 1 }
+];
 
 /* ---------- 저장 ---------- */
 function aqLocal() { try { var d = JSON.parse(localStorage.getItem(AQ_LOCAL) || '{}') || {}; d.fish = d.fish || []; if (!d.owner) d.owner = 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); return d; } catch (e) { return { fish: [], owner: 'o' + Date.now().toString(36) }; } }
@@ -45,7 +53,7 @@ function startAquarium() {
     '<div id="aq-tank" class="aq-pane">' +
       '<div class="aq-tankbox"><canvas id="aq-tcv" class="aq-tcv"></canvas><div class="aq-pop" id="aq-pop" style="display:none"></div></div>' +
       '<div class="aq-tbar"><button class="btn btn-ghost" onclick="aqFindMine()">⭐ 내 물고기 찾기</button><button class="btn btn-ghost" id="aq-names" onclick="aqToggleNames()">🏷 이름 끄기</button>' +
-        '<button class="btn btn-ghost" onclick="AQ.bgi = 1 - AQ.bgi">🌊 배경 바꾸기</button><button class="btn btn-ghost" onclick="aqSync(true)">🔄 새로고침</button><span class="aq-tip">💡 물을 누르면 먹이를 줘요</span></div>' +
+        '<button class="btn btn-ghost" onclick="AQ.bgi = 1 - AQ.bgi">🌊 배경 바꾸기</button><button class="btn btn-ghost" id="aq-sea" onclick="aqToggleSea()">🐙 바다 친구들 숨기기</button><button class="btn btn-ghost" onclick="aqSync(true)">🔄 새로고침</button><span class="aq-tip">💡 물을 누르면 먹이를 줘요</span></div>' +
       '<div class="aq-status" id="aq-status"></div>' +
     '</div>' +
     '<div id="aq-draw" class="aq-pane" style="display:none">' +
@@ -63,6 +71,12 @@ function startAquarium() {
   aqSetupDraw(); aqSetupTank(tc);
   for (var i = 0; i < 26; i++) AQ.bubbles.push(aqNewBubble(true));
   AQ.weeds = []; for (i = 0; i < 9; i++) AQ.weeds.push({ x: 40 + i * 115 + Math.random() * 40, h: 90 + Math.random() * 120, c: ['#2e7d32', '#43a047', '#558b2f'][i % 3], ph: Math.random() * 6 });
+  AQ.sea = AQ_SEA.map(function (d, k) {
+    var im = new Image(); im.src = 'img/pets/' + d.i + '.png';
+    return { d: d, im: im, x: 60 + Math.random() * (AQ_TW - 120), y: d.b ? AQ_TH - 18 - Math.random() * 14 : 70 + Math.random() * (AQ_TH - 230),
+      vx: d.b ? (d.walk ? (Math.random() < 0.5 ? -1 : 1) * 12 : 0) : (Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 18), ty: 70 + Math.random() * (AQ_TH - 230), ph: Math.random() * 6 };
+  });
+  AQ.seaOn = true;
   aqTab('tank'); aqPick(AQ.color); aqSize(1);
   aqSync(true);
   AQ_SYNC = setInterval(function () { aqSync(false); }, 10000);
@@ -169,6 +183,7 @@ function aqSubmit() {
     if (!AQ) return;
     AQ.strokes = []; document.getElementById('aq-name').value = ''; err.textContent = '';
     aqTab('tank'); aqSync(true);
+    if (typeof czChalk === 'function') setTimeout(function () { czChalk('aq-fish', 1, '물고기 퐁당!', 3); }, 1800);   /* 퐁당 알림 뒤에 분필 알림 */
     if (typeof coinToast === 'function') coinToast(ok ? '🐟 ' + name + ' 퐁당! 모두의 수조에 들어갔어요' : '🐟 ' + name + ' 퐁당! (서버가 없어서 이 기기에만 저장)');
     setTimeout(function () { aqFindMine(f.id); }, 1200);
   };
@@ -195,6 +210,16 @@ function aqRemove(id) {
   aqFetch().then(function (list) { if (list) return aqPut(list.filter(function (f) { return !(f.id === id && f.owner === AQ.owner); })); }).then(function () { aqSync(true); });
 }
 
+/* 🛠 관리자: 누구의 물고기든 모두의 수조에서 지워요 */
+function aqAdminRemove(id) {
+  if (!(typeof ADMIN_MODE !== 'undefined' && ADMIN_MODE)) return;
+  if (!confirm('관리자: 이 물고기를 모두의 수조에서 지울까요?')) return;
+  document.getElementById('aq-pop').style.display = 'none';
+  AQ.swim = AQ.swim.filter(function (s) { return s.f.id !== id; });
+  if (!aqServer()) return;
+  aqFetch().then(function (list) { if (list) return aqPut(list.filter(function (f) { return f.id !== id; })); }).then(function () { aqSync(true); });
+}
+
 /* ---------- 수조 ---------- */
 function aqNewBubble(any) { return { x: Math.random() * AQ_TW, y: any ? Math.random() * AQ_TH : AQ_TH + 10, r: 2 + Math.random() * 5, v: 20 + Math.random() * 40, ph: Math.random() * 6 }; }
 function aqSetupTank(cv) {
@@ -203,6 +228,8 @@ function aqSetupTank(cv) {
     var hit = null;
     AQ.swim.forEach(function (s) { var sw = s.sp.w * s.scale / 2, sh = s.sp.h * s.scale / 2; if (Math.abs(x - s.x) < sw && Math.abs(y - s.y) < sh) hit = s; });
     if (hit) { aqShowPop(hit); return; }
+    var sea = null; if (AQ.seaOn) AQ.sea.forEach(function (r) { var h = r.d.s; if (Math.abs(x - r.x) < h * 0.6 && Math.abs(y - (r.d.b ? r.y - h / 2 : r.y)) < h * 0.6) sea = r; });
+    if (sea) { var pp = document.getElementById('aq-pop'); pp.innerHTML = '<b>🐚 ' + sea.d.n + '</b><span>수조에 원래 사는 바다 친구예요</span>'; pp.style.display = 'flex'; AQ.focus = -1; return; }
     document.getElementById('aq-pop').style.display = 'none';
     for (var i = 0; i < 5; i++) AQ.food.push({ x: x + (Math.random() - 0.5) * 30, y: Math.max(4, y - 10 + Math.random() * 10), v: 26 + Math.random() * 14 });   /* 먹이 톡톡 */
   });
@@ -210,7 +237,8 @@ function aqSetupTank(cv) {
 function aqShowPop(s) {
   var p = document.getElementById('aq-pop'), f = s.f;
   p.innerHTML = '<b>' + (s.mine ? '⭐ ' : '') + esc(f.name) + '</b><span>' + esc(f.by || '익명') + ' 님의 물고기 · ' + new Date(f.at).toLocaleDateString() + '</span>' +
-    (s.mine ? '<button class="btn btn-ghost" onclick="aqRemove(\'' + f.id + '\')">수조에서 빼기</button>' : '');
+    (s.mine ? '<button class="btn btn-ghost" onclick="aqRemove(\'' + f.id + '\')">수조에서 빼기</button>' : '') +
+    (typeof ADMIN_MODE !== 'undefined' && ADMIN_MODE && !s.mine ? '<button class="btn btn-ghost aq-admin" onclick="aqAdminRemove(\'' + f.id + '\')">🛠 관리자: 지우기</button>' : '');
   p.style.display = 'flex'; AQ.focus = AQ.swim.indexOf(s);
 }
 function aqFindMine(id) {
@@ -219,6 +247,7 @@ function aqFindMine(id) {
   var cur = AQ.swim[AQ.focus], i = mine.indexOf(cur);
   aqShowPop(mine[(i + 1) % mine.length]);
 }
+function aqToggleSea() { AQ.seaOn = !AQ.seaOn; document.getElementById('aq-sea').textContent = AQ.seaOn ? '🐙 바다 친구들 숨기기' : '🐙 바다 친구들 보이기'; }
 function aqToggleNames() { AQ.names = !AQ.names; document.getElementById('aq-names').textContent = AQ.names ? '🏷 이름 끄기' : '🏷 이름 켜기'; }
 function aqStep(dt) {
   AQ.food.forEach(function (f) { f.y = Math.min(AQ_TH - 46, f.y + f.v * dt); f.age = (f.age || 0) + dt; });
@@ -243,6 +272,13 @@ function aqStep(dt) {
     if (s.x < half && s.vx < 0) s.vx = Math.abs(s.vx); if (s.x > AQ_TW - half && s.vx > 0) s.vx = -Math.abs(s.vx);
     s.ph += dt * (3 + Math.abs(s.vx) / 30);
   });
+  AQ.sea.forEach(function (r) {
+    r.ph += dt * 2;
+    if (r.d.b) { if (r.d.walk) { r.x += r.vx * dt; if (r.x < 40 || r.x > AQ_TW - 40) r.vx = -r.vx; if (Math.random() < dt * 0.05) r.vx = -r.vx; } return; }
+    r.x += r.vx * dt; if (Math.random() < dt * 0.1) r.ty = 70 + Math.random() * (AQ_TH - 230); r.y += (r.ty - r.y) * dt * 0.3;
+    var h = r.d.s; if ((r.x < h && r.vx < 0) || (r.x > AQ_TW - h && r.vx > 0)) r.vx = -r.vx;
+    if (Math.random() < dt * 0.04) r.vx = -r.vx;
+  });
   AQ.bubbles.forEach(function (b, i) { b.y -= b.v * dt; b.ph += dt * 2; if (b.y < -10) AQ.bubbles[i] = aqNewBubble(false); });
 }
 function aqDrawTank() {
@@ -264,6 +300,15 @@ function aqDrawTank() {
   });
   /* 먹이 */
   x.fillStyle = '#8d6e63'; AQ.food.forEach(function (f) { x.beginPath(); x.arc(f.x, f.y, 3.2, 0, 6.2832); x.fill(); });
+  /* 바다 친구들 (그린 물고기보다 뒤) */
+  if (AQ.seaOn) AQ.sea.forEach(function (r) {
+    if (!(r.im.complete && r.im.naturalWidth)) return;
+    var h = r.d.s, w = h * r.im.naturalWidth / r.im.naturalHeight, flip = r.d.f && (r.vx > 0 ? 1 : -1) !== r.d.f;
+    var bob = r.d.b ? (r.d.walk ? -Math.abs(Math.sin(r.ph * 3)) * 2 : 0) : Math.sin(r.ph) * 5;
+    x.save(); x.translate(r.x, r.y + bob); if (flip) x.scale(-1, 1);
+    if (r.d.i === 'sea8-4') x.rotate(Math.sin(t * 1.2 + r.ph) * 0.06);
+    x.drawImage(r.im, -w / 2, r.d.b ? -h : -h / 2, w, h); x.restore();
+  });
   /* 물고기 */
   AQ.swim.forEach(function (s, idx) {
     var w = s.sp.w * s.scale, h = s.sp.h * s.scale, face = s.vx >= 0 ? 1 : -1;
@@ -285,5 +330,5 @@ function aqDrawTank() {
   /* 공기방울 */
   x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1.5;
   AQ.bubbles.forEach(function (b) { x.beginPath(); x.arc(b.x + Math.sin(b.ph) * 4, b.y, b.r, 0, 6.2832); x.stroke(); });
-  if (!AQ.swim.length) { x.fillStyle = 'rgba(255,255,255,.85)'; x.font = 'bold 26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('아직 물고기가 없어요. 🎨 첫 물고기를 그려 봐요!', AQ_TW / 2, AQ_TH / 2); }
+  if (!AQ.swim.length && !AQ.seaOn) { x.fillStyle = 'rgba(255,255,255,.85)'; x.font = 'bold 26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('아직 물고기가 없어요. 🎨 첫 물고기를 그려 봐요!', AQ_TW / 2, AQ_TH / 2); }
 }

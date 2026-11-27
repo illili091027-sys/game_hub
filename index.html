@@ -51,12 +51,13 @@ window.addEventListener('load', function () {
     <h1 class="home-title">쉬는 시간 게임판<span>혼자서도, 친구랑 온라인으로도 즐겨보세요</span></h1>
     <div class="chalk-rule"></div>
 
+    <div class="att-box" id="att-box"></div>
     <div class="mode-select" id="mode-select">
       <button class="mode-btn" onclick="chooseMode('solo')">혼자 할래요<span>바로 시작 · 로그인하면 기록 저장</span></button>
       <button class="mode-btn" onclick="chooseMode('online')">친구랑 온라인으로<span>같은 방 코드로 같이 플레이</span></button>
       <button class="mode-btn mode-casino" onclick="chooseCasinoMode()">🎰 도박방<span>분필로 홀짝 · 주사위 · 사다리 · 슬롯 · 야바위</span></button>
       <button class="mode-btn mode-soc" onclick="chooseSocialMode()">💬 소통방<span>화면 공유 · 채팅 · 같이 게임 · 후원</span></button>
-      <button class="mode-btn mode-heal" onclick="chooseHealMode()">🌿 힐링 공간<span>어항 · 별 · 고양이 낮잠 · 물고기 · 햄스터 · 오리</span></button>
+      <button class="mode-btn mode-heal" onclick="chooseHealMode()">🌿 힐링 공간<span>어항 · 별 · 고양이 낮잠 · 햄스터 · 오리</span></button>
       <button class="mode-btn mode-hw" onclick="chooseHomeworkMode()">📚 과제하기<span>채팅하며 같이 PPT 만들기 · 자료 공유</span></button>
     </div>
     <button class="mode-back" id="mode-back" style="display:none" onclick="backToModeSelect()">← 모드 다시 고르기</button>
@@ -287,13 +288,6 @@ window.addEventListener('load', function () {
           <div class="game-name">고양이 낮잠 협회</div>
         </div>
         <div class="game-desc" id="desc-catnap">고양이들이 새근새근 자고 있어요. 이름을 지어 주고 이불이나 베개를 놓아 주세요. 모두 같이 돌보는 고양이예요.</div>
-      </button>
-      <button class="game-card" id="card-fishzen" onclick="cardClicked('fishzen')">
-        <div class="game-card-top">
-          <div class="game-icon">🐟</div>
-          <div class="game-name">물고기 멍때리기</div>
-        </div>
-        <div class="game-desc" id="desc-fishzen">작은 어항 속 물고기 한 마리. 밥을 주고, 조명을 켜고, 그냥 헤엄치는 걸 멍하니 구경해요.</div>
       </button>
       <button class="game-card" id="card-hamster" onclick="cardClicked('hamster')">
         <div class="game-card-top">
@@ -775,13 +769,7 @@ window.addEventListener('load', function () {
     <h2 class="game-heading">화살표 탈출</h2>
     <div id="ar-difficulty-select">
       <p class="game-sub">화살표를 누르면 머리 방향으로 쭉 빠져나가요. 막히면 하트가 줄어요!</p>
-      <div class="diff-grid diff-5">
-        <button class="cat-btn diff-btn" data-lv="1" onclick="arChooseLevel(1)"><span class="diff-lv">1</span><span class="diff-text"><span class="diff-name">복잡</span><span class="diff-info">11×14 · 꼬불꼬불</span></span><span class="diff-stars">★☆☆☆☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="2" onclick="arChooseLevel(2)"><span class="diff-lv">2</span><span class="diff-text"><span class="diff-name">어려움</span><span class="diff-info">13×17</span></span><span class="diff-stars">★★☆☆☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="3" onclick="arChooseLevel(3)"><span class="diff-lv">3</span><span class="diff-text"><span class="diff-name">아주 어려움</span><span class="diff-info">15×20</span></span><span class="diff-stars">★★★☆☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="4" onclick="arChooseLevel(4)"><span class="diff-lv">4</span><span class="diff-text"><span class="diff-name">지옥</span><span class="diff-info">17×23 · 긴 화살표</span></span><span class="diff-stars">★★★★☆</span></button>
-        <button class="cat-btn diff-btn" data-lv="5" onclick="arChooseLevel(5)"><span class="diff-lv">5</span><span class="diff-text"><span class="diff-name">끝판왕</span><span class="diff-info">19×26 · 빽빽!</span></span><span class="diff-stars">★★★★★</span></button>
-      </div>
+      <div class="diff-grid diff-5 ar-lv-grid" id="ar-lv-grid"></div>
     </div>
     <div id="ar-game-area" style="display:none">
       <div class="ar-top">
@@ -1234,7 +1222,7 @@ window.addEventListener('load', function () {
   <div class="wrap sk-wrap">
     <div class="topbar">
       <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="sk-room-pill">별을 남기는 밤</span>
+      <span class="room-pill" id="st-room-pill">별을 남기는 밤</span>
     </div>
     <div id="sk-root"></div>
   </div>
@@ -1247,16 +1235,6 @@ window.addEventListener('load', function () {
       <span class="room-pill" id="cn-room-pill">고양이 낮잠 협회</span>
     </div>
     <div id="cn-root"></div>
-  </div>
-</div>
-
-<div id="fishzen" class="view">
-  <div class="wrap cz-wrap">
-    <div class="topbar">
-      <button class="back-btn" onclick="goHome()">← 홈으로</button>
-      <span class="room-pill" id="fz-room-pill">물고기 멍때리기</span>
-    </div>
-    <div id="fz-root"></div>
   </div>
 </div>
 
@@ -1625,8 +1603,10 @@ window.addEventListener('load', function () {
 <script src="js/channels.js"></script>
 <script src="js/screenshare.js"></script>
 <script src="js/gifts.js"></script>
+<script src="js/attend.js"></script>
 <script src="js/livechat.js"></script>
 <script src="js/tables.js"></script>
+<script src="js/bots.js"></script>
 <script src="data/bento-levels.js"></script>
 <script src="js/bento.js"></script>
 <script src="js/pizzashop.js"></script>

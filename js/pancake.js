@@ -49,7 +49,7 @@ function startPancakeGame() {
         '<div class="pc-tools"><button class="btn btn-ghost" onclick="pcToggleHelp()">📖 굽는 법</button><button class="btn btn-ghost" id="pc-shake" onclick="pcToggleShake()">📱 흔들어 뒤집기</button><button class="btn btn-ghost" onclick="pcRestart()">↺ 처음부터</button></div>' +
         '<div class="pc-help" id="pc-help" style="display:none">' +
           '<ol><li>🔥 불을 켜요 (약불 추천)</li><li>✏️ 팬 위를 따라 그리면 가는 반죽 선이 나와요</li><li>⏳ 선이 노릇하게 갈색이 될 때까지 기다려요 (막대가 다 차면 신호)</li>' +
-          '<li>🫗 붓기를 누르고 꾹 누른 채 움직여 그림을 다 덮어요</li><li>🫧 거품이 올라와 톡톡 터져 구멍이 되고, 가장자리가 마르면</li><li>🔄 뒤집어요! (폰은 흔들어도 돼요)</li><li>✅ 뒷면을 조금 굽고 완성 → 이름을 붙여요</li></ol>' +
+          '<li>🫗 붓기를 누르고 꾹 누른 채 움직여 그림을 다 덮어요</li><li>🫧 거품이 올라와 톡톡 터지고, 가장자리가 마르면</li><li>🔄 뒤집어요! (폰은 흔들어도 돼요)</li><li>✅ 뒷면을 조금 굽고 완성 → 이름을 붙여요</li></ol>' +
           '<p><b>이럴 땐?</b> 그림이 흐려요 → 선을 더 오래 구운 뒤 부어요 · 너무 일찍 뒤집으면 반죽이 흘러요 · 연기가 나면 불을 줄이거나 꺼요 · 그림은 뒤집히니까 글씨는 좌우가 바뀌어요!</p></div>' +
         '<div class="pc-gal-t">🖼 지난 작품 <small>(이 기기에만 저장)</small></div><div class="pc-gal" id="pc-gal"></div>' +
       '</div>' +
@@ -118,7 +118,7 @@ function pcAddBlob(p, r) {
   var d = Math.hypot(p.x - PC_CX, p.y - PC_CY), lim = PC_PAN - 10 - r;
   var x = p.x, y = p.y; if (d > lim && d > 0) { x = PC_CX + (p.x - PC_CX) / d * Math.max(0, lim); y = PC_CY + (p.y - PC_CY) / d * Math.max(0, lim); }
   var b = { x: x, y: y, r: r }; PC.blobs.push(b);
-  for (var i = 0; i < 3; i++) {                                 /* 표면 거품: 익으면 올라오고(t0) 톡 터져 구멍이 돼요(t1) */
+  for (var i = 0; i < (Math.random() < 0.5 ? 1 : 0); i++) {     /* 표면 거품: 몇 개만 반짝 올라왔다가 톡 사라져요 */
     var a = Math.random() * 6.283, rr = Math.random() * r * 0.8, t0 = 0.22 + Math.random() * 0.25;
     PC.bubbles.push({ b: b, dx: Math.cos(a) * rr, dy: Math.sin(a) * rr, s: 2 + Math.random() * 3.5, t0: t0, t1: t0 + 0.1 + Math.random() * 0.16 });
   }
@@ -199,7 +199,7 @@ function pcDrawBottom(ctx) {
   });
   ctx.filter = 'none';
   /* 굽는 무늬 (작은 점) */
-  for (var i = 0; i < 160; i++) { var a = i * 2.39996, r = Math.sqrt(i / 160) * PC_PAN * 0.95; ctx.fillStyle = 'rgba(120,70,30,.10)'; ctx.beginPath(); ctx.arc(PC_CX + Math.cos(a) * r, PC_CY + Math.sin(a) * r, 2.2, 0, 6.2832); ctx.fill(); }
+  var tg = ctx.createRadialGradient(PC_CX, PC_CY, 20, PC_CX, PC_CY, PC_PAN); tg.addColorStop(0, 'rgba(160,90,30,.10)'); tg.addColorStop(1, 'rgba(255,240,200,.08)'); ctx.fillStyle = tg; ctx.fillRect(0, 0, PC_S, PC_S);   /* 가운데가 조금 더 노릇하게 */
   ctx.restore(); ctx.restore();
 }
 function pcDrawTop(ctx) {
@@ -228,8 +228,8 @@ function pcDrawTop(ctx) {
     var x = q.b.x + q.dx, y = q.b.y + q.dy, c = PC.pourCook;
     if (c < q.t0) return;
     ctx.beginPath(); ctx.arc(x, y, q.s, 0, 6.2832);
-    if (c < q.t1) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill(); ctx.strokeStyle = 'rgba(200,160,90,.6)'; ctx.lineWidth = 1; ctx.stroke(); }
-    else { ctx.fillStyle = 'rgba(150,95,40,.55)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,240,200,.8)'; ctx.lineWidth = 1.2; ctx.stroke(); }
+    if (c < q.t1) { ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1; ctx.stroke(); }
+    else { var fade = Math.max(0, 1 - (c - q.t1) / 0.12); if (fade <= 0) return; ctx.strokeStyle = 'rgba(255,255,255,' + (0.6 * fade) + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, q.s * (1 + (1 - fade)), 0, 6.2832); ctx.stroke(); }   /* 톡! 하고 사라져요 */
   });
   ctx.restore();
 }

@@ -75,7 +75,8 @@ function qzBeginGameOnline() {
       applyQuizState(prev);
     } else {
       var questions = shuffleArray(QUIZ_BANK).slice(0, QUIZ_ROUND_SIZE);
-      var newState = { roundId: Date.now(), questions: questions, index: 0, answered: false, winner: '', qStart: Date.now(), leaderboard: (prev && prev.leaderboard) || {} };
+      var newState = { roundId: Date.now(), questions: questions, index: 0, answered: false, winner: '', qStart: Date.now(), leaderboard: (prev && prev.leaderboard) || {}, bots: botExtras('quiz') };
+      if (newState.bots.length) botNotice('quiz');   /* 🤖 혼자면 봇이 같이 (bots.js) */
       DBset(roomKey('quiz'), newState).then(function () { applyQuizState(newState); });
     }
   });
@@ -99,7 +100,7 @@ function pollQuiz() {
 var QZ_QUESTION_LIMIT_MS = 30000;
 function qzWrongKey(pid) { return roomKey('quiz_w_' + pid); }
 function qzCheckAllWrong(state) {
-  var list = roomPlayersList || [];
+  var list = (roomPlayersList || []).concat(state.bots || []);   /* 🤖 봇도 '틀림'을 내야 모두 틀린 걸로 쳐요 */
   var timedOut = state.qStart && Date.now() - state.qStart > QZ_QUESTION_LIMIT_MS;
   Promise.all(list.map(function (p) { return DBget(qzWrongKey(p.id)); })).then(function (marks) {
     var allWrong = list.length > 0 && marks.every(function (m) { return m && m.roundId === state.roundId && m.index === state.index; });
@@ -154,6 +155,7 @@ function applyQuizState(state) {
     document.getElementById('qz-msg').className = 'sd-msg';
     QZ_CURRENT_CHOICES = shuffleArray(q.c);
     qzRenderChoicesOnline(q);
+    botQuizOnQuestion(state);   /* 🤖 봇이 문제를 풀기 시작 */
   }
   renderQuizLeaderboard(state.leaderboard || {});
 }
@@ -205,7 +207,7 @@ function qzScheduleAdvance(fromIndex) {
     if (!document.getElementById('quiz').classList.contains('active') || playMode !== 'online') return;
     DBget(roomKey('quiz')).then(function (state) {
       if (!state || !state.questions || state.index !== fromIndex) { if (state) applyQuizState(state); return; }
-      var newState = { roundId: state.roundId, questions: state.questions, index: fromIndex + 1, answered: false, winner: '', qStart: Date.now(), leaderboard: state.leaderboard || {} };
+      var newState = { roundId: state.roundId, questions: state.questions, index: fromIndex + 1, answered: false, winner: '', qStart: Date.now(), leaderboard: state.leaderboard || {}, bots: state.bots || [] };
       DBset(roomKey('quiz'), newState).then(function () { applyQuizState(newState); });
     });
   }, 2000);

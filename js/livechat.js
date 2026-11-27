@@ -128,6 +128,7 @@ function donateOpen(toPid) {
     '<div class="donate-amts"><span class="donate-or">선물 없이 분필만</span><input type="number" id="donate-custom" min="1" placeholder="직접" /></div>' +
     '<div class="donate-label">후원 메시지 <small>(목소리로 읽어줘요)</small></div>' +
     '<input type="text" id="donate-msg" maxlength="60" placeholder="예: 그림 너무 잘 그린다ㅋㅋ" />' +
+    '<div class="donate-fee">💡 후원하면 수수료 10%를 떼고 받는 친구에게 가요</div>' +
     '<div class="donate-err" id="donate-err"></div>' +
     '<div class="donate-btns"><button class="btn btn-ghost" id="donate-cancel">취소</button><button class="btn btn-primary" id="donate-send">후원 보내기</button></div>' +
     '</div>';
@@ -162,6 +163,9 @@ function donateOpen(toPid) {
   };
 }
 
+/* 후원 수수료: 받는 사람은 90%만 받아요 (소수점은 버림) */
+var DONATE_FEE = 0.1;
+function donateNet(amount) { return Math.max(0, Math.floor((Math.floor(amount || 0)) * (1 - DONATE_FEE))); }
 function donateText(toName, amt, gift, msg) {
   return '💸 ' + toName + '님에게 ' + (gift ? '🎁' + gift.name + ' (분필 ' + amt + '개)' : '분필 ' + amt + '개') + ' 후원!' + (msg ? ' “' + msg + '”' : '');
 }
@@ -197,7 +201,9 @@ function donateCheck(messages) {
     if (!m || !m.don || w.got[m.id]) return;
     w.got[m.id] = Date.now(); changed = true;
     if (m.don.to === myPlayerId && m.pid !== myPlayerId) {
-      w.coins += Math.max(0, Math.floor(m.don.amount || 0));
+      var got = donateNet(m.don.amount);          /* 수수료 10%를 떼고 받아요 */
+      w.coins += got;
+      if (got > 0) setTimeout(function () { coinToast('💸 후원 받음 +' + got + ' 🖍️ (수수료 10% 빼고)'); }, 5600);
     }
     /* 방에 들어오기 전에 있던 옛날 후원은 알림 없이 기록만 */
     if (m.ts > DON_WATCH.joinedAt - 5000 && Date.now() - m.ts < 60000) donateAlert({ name: m.name, toName: m.don.toName, amount: m.don.amount, msg: m.don.msg, gift: m.don.gift });
@@ -285,7 +291,7 @@ function lcBuild(mode, inPip) {
   el.innerHTML = '<div class="lc-head"><span class="lc-grip">⠿</span> <span class="lc-title">💬 실시간 채팅</span><span class="lc-badge" style="display:none"></span> <span class="hw-spacer"></span>' + (inPip ? '' : '<input type="range" class="lc-op" min="20" max="100" title="투명도">') + '<button type="button" class="lc-don" title="화면 공유하는 친구에게 후원">💸 후원</button><button type="button" class="lc-pop">' + (inPip ? '⤓ 사이트로' : '⧉ 따로') + '</button>' + ('<button type="button" class="lc-min" title="작게 내리기 (다시 누르면 올라와요)">—</button>') + '</div>' +
     '<div class="lc-list"></div>' +
     '<div class="lc-donbar" style="display:none"><div class="lc-amts gift-strip">' + giftGridHtml('lc-amt', 'heart') + '</div><div class="lc-amts">' +
-    '<span class="lc-or">분필만</span><input type="number" class="lc-amt-custom" min="1" placeholder="직접" /></div><div class="lc-have">내 분필 ' + CHALK_IMG + ' <b class="coin-balance">0</b></div></div>' +
+    '<span class="lc-or">분필만</span><input type="number" class="lc-amt-custom" min="1" placeholder="직접" /><span class="lc-or">· 수수료 10%</span></div><div class="lc-have">내 분필 ' + CHALK_IMG + ' <b class="coin-balance">0</b></div></div>' +
     '<div class="lc-row"><input type="text" class="lc-input" maxlength="300" placeholder="채팅 입력 (엔터)" autocomplete="off" /><button type="button" class="lc-send">➤</button></div>';
   el.querySelector('.lc-send').onclick = function () { lcSend(el); };
   el.querySelector('.lc-input').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); lcSend(el); } e.stopPropagation(); });

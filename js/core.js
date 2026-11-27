@@ -294,8 +294,9 @@ function applyRoomState(state) {
     if (card.id === 'card-channels' || card.id === 'card-homework') { card.classList.remove('disabled'); return; }
     card.classList.toggle('disabled', !amHost);
   });
+  var aloneBotHint = (amHost && typeof botLobbyHint === 'function' && (roomPlayersList || []).length === 1) ? ' (' + botLobbyHint() + ')' : '';
   document.getElementById('lobby-hint').textContent = amHost
-    ? '같이 할 게임을 골라주세요!'
+    ? '같이 할 게임을 골라주세요!' + aloneBotHint
     : '방장이 게임을 고르면 같이 시작해요.';
   var activeView = document.querySelector('.view.active');
   var activeIsHome = activeView && activeView.id === 'home';
@@ -863,7 +864,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pzshop: 'ps-room-pill', blockpop: 'bp-room-pill', codetype: 'ct-room-pill', casino: 'cs-room-pill', ballz: 'bz-room-pill', wheelrace: 'wr-room-pill', pancake: 'pc-room-pill', aquarium: 'aq-room-pill', stars: 'sk-room-pill', catnap: 'cn-room-pill', fishzen: 'fz-room-pill', hamster: 'hm-room-pill', duckwalk: 'dw-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pzshop: 'ps-room-pill', blockpop: 'bp-room-pill', codetype: 'ct-room-pill', casino: 'cs-room-pill', ballz: 'bz-room-pill', wheelrace: 'wr-room-pill', pancake: 'pc-room-pill', aquarium: 'aq-room-pill', stars: 'st-room-pill', catnap: 'cn-room-pill', hamster: 'hm-room-pill', duckwalk: 'dw-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = gameId === 'casino' ? '도박방' : (playMode === 'solo' ? '혼자 하기' : (me.room + ' 방'));
@@ -899,7 +900,6 @@ function enterGame(gameId) {
     else if (gameId === 'aquarium') startAquarium();
     else if (gameId === 'stars') startStarsNight();
     else if (gameId === 'catnap') startCatNap();
-    else if (gameId === 'fishzen') startFishZen();
     else if (gameId === 'hamster') startHamster();
     else if (gameId === 'duckwalk') startDuckWalk();
     else if (gameId === 'wordsearch') startWordSearch();
@@ -969,6 +969,7 @@ function resetGameRoomState(gameId) {
 }
 
 function goHome() {
+  if (typeof attRender === 'function') setTimeout(attRender, 0);
   var activeView = document.querySelector('.view.active');
   var leavingGameId = (activeView && activeView.id !== 'home') ? activeView.id : null;
   /* 나가기 버그 수정: 준비 화면(설명서)에서 나가면 아직 "들어간 게임"으로 기록이 안 돼 있어서,
@@ -981,6 +982,7 @@ function goHome() {
   stopBombGame();
   clearInterval(QZ_TIMER_INTERVAL);
   clearTimeout(QZ_ADVANCE_TIMER);
+  if (typeof botQuizStop === 'function') botQuizStop();   /* 🤖 */
   stopHuesGame();
   stopTappleGame();
   stopBabyGame();
