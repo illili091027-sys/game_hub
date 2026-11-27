@@ -69,7 +69,7 @@ body { font-synthesis: none; background: var(--board); background-image: none; c
 
 /* ✍️ 글꼴: 손글씨 느낌 (바꾸고 싶으면 아래 두 줄만 고치면 돼요. index.html 맨 위 Google Fonts 주소에도 같은 글꼴이 있어야 해요)
    손글씨 후보: 'LeeSeoyun', 'Hi Melody' · 'Gaegu' · 'Gamja Flower' · 'Poor Story' · 'Nanum Pen Script' · 'Single Day' */
-:root { --font-hand: 'LeeSeoyun', 'Hi Melody', 'LeeSeoyun','Gaegu', 'Jua', cursive; --font-body: 'LeeSeoyun', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; }
+:root { --font-hand: 'LeeSeoyun', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', system-ui, sans-serif; --font-body: 'LeeSeoyun', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', system-ui, sans-serif; }
 body { font-family: var(--font-body); }
 
 /* 🤫 귓속말 */
@@ -191,3 +191,9 @@ body { font-family: var(--font-body); }
   .ctm-nm { font-size: min(var(--fs, 46px), calc((100cqw - 130px) / var(--len, 4))); }
 }
 @media (max-width: 720px) { .ctm-stage { height: 330px; } }
+
+/* 검정(--yellow) 배경 위에 어두운 글씨가 겹쳐 안 보이던 곳 → 글씨를 흰색으로 */
+.pj-tabs button.on, .ss-mini-btn, .bt-tool.on, .mt-mode.on,
+.cmsg.mine .cmsg-bubble, .cmsg.mine .cmsg-bubble * { color: #fff !important; }
+.cmsg.mine .cmsg-bubble.media { background: var(--ink); }
+.cmsg.mine .cmsg-link, .cmsg.mine .cmsg-bubble a { color: #cfe3ff !important; }

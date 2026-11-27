@@ -829,7 +829,7 @@ function bbDrawCloud(ctx, c) {
     }
     if (c.amp) {
       ctx.fillStyle = 'rgba(111,195,223,0.9)';
-      ctx.font = 'bold 12px "LeeSeoyun", sans-serif';
+      ctx.font = 'bold 12px "LeeSeoyun", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('◀ ▶', c.x, top + c.w * 0.22);
     }
@@ -956,7 +956,7 @@ function bbDraw() {
   // 떠오르는 글자
   BB.pops.forEach(function (p) {
     ctx.globalAlpha = Math.min(1, p.life * 1.5);
-    ctx.font = 'bold 20px "LeeSeoyun", "Gaegu", sans-serif';
+    ctx.font = 'bold 20px "LeeSeoyun", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif';
     ctx.textAlign = 'center';
     ctx.lineWidth = 4;
     ctx.strokeStyle = '#ffffff';

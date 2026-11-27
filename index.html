@@ -196,6 +196,13 @@ window.addEventListener('load', function () {
           <div class="game-name">땅따먹기</div>
         </div>
       </button>
+      <button class="game-card" id="card-wheelrace" onclick="cardClicked('wheelrace')">
+        <div class="game-card-top">
+          <div class="game-icon">13</div>
+          <div class="game-name">바퀴 레이스</div>
+        </div>
+        <div class="game-desc" id="desc-wheelrace">내가 그린 바퀴로 달려요! 모양과 크기에 따라 주행이 달라지는 물리 레이싱. 친구들과 기록으로 겨뤄요.</div>
+      </button>
       <!-- 혼자하기 전용 -->
       <button class="game-card" id="card-wordsearch" onclick="cardClicked('wordsearch')">
         <div class="game-card-top">
@@ -362,7 +369,7 @@ window.addEventListener('load', function () {
           <img class="bm-ufo" id="bm-ufo" src="" alt="" />
           <div class="bm-watch" id="bm-watch" style="display:none"></div>
           <div class="bm-overlay" id="bm-ready-overlay">
-            <div style="font-family:'LeeSeoyun', 'Hi Melody','LeeSeoyun','Gaegu',cursive; font-size:22px;">방향키(←/→)나 A/D 를 눌러서<br/>똥을 피해보세요!</div>
+            <div style="font-family:'LeeSeoyun', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', system-ui, sans-serif; font-size:22px;">방향키(←/→)나 A/D 를 눌러서<br/>똥을 피해보세요!</div>
           </div>
         </div>
           <div class="bm-touch-row">
@@ -1136,6 +1143,17 @@ window.addEventListener('load', function () {
   </div>
 </div>
 
+<div id="wheelrace" class="view">
+  <div class="wrap wr-wrap">
+    <div class="topbar">
+      <button class="back-btn" onclick="goHome()">← 홈으로</button>
+      <span class="room-pill" id="wr-room-pill">방</span>
+    </div>
+    <h2 class="game-heading">🛞 바퀴 레이스</h2>
+    <div id="wr-root"></div>
+  </div>
+</div>
+
 <div id="blockpop" class="view">
   <div class="wrap bp-wrap">
     <div class="topbar">
@@ -1492,6 +1510,8 @@ window.addEventListener('load', function () {
 <script src="data/casino-chars.js"></script>
 <script src="js/casino.js"></script>
 <script src="js/ballz.js"></script>
+<script src="js/matter.min.js"></script>
+<script src="js/wheelrace.js"></script>
 <script src="js/account.js"></script>
 <script src="js/pptx-writer.js"></script>
 <script src="js/homework.js"></script>

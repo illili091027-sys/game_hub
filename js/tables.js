@@ -20,6 +20,7 @@ var TBL_GAMES = {
   tapple: { n: '태플', min: 2, max: 10 }, relay: { n: '엉뚱 그림 릴레이', min: 3, max: 10 }, bingo: { n: '빙고 대작전', min: 2, max: 10 },
   tickbomb: { n: '폭탄 돌리기', min: 2, max: 12 }, dobble: { n: '얼른 버려!', min: 2, max: 8 }, catch: { n: '캐치마인드', min: 2, max: 10 },
   wasd: { n: 'WASD 대모험', min: 1, max: 4 }, yang: { n: '양세찬 게임', min: 2, max: 8 }, land: { n: '땅따먹기', min: 2, max: 10, team: true },
+  wheelrace: { n: '바퀴 레이스', min: 1, max: 10 },
   baby: { n: '먼작귀 키우기', min: 1, max: 10 }
 };
 var TEAM_NAMES = ['빨강팀', '파랑팀', '초록팀', '노랑팀'];

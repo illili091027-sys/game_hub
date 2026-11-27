@@ -400,7 +400,7 @@ function psFrame(now) {
     c.fillStyle = 'rgba(255,200,80,' + (.07 + .05 * Math.sin(now / 90)) + ')'; c.fillRect(0, 0, 360, 360); c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 2; for (var y = 12; y < 360; y += 24) { c.beginPath(); c.moveTo(0, y); c.lineTo(360, y); c.stroke(); }
   }
   c.save(); c.translate(PS_C, PS_C);
-  if (!p.dough) { c.setLineDash([8, 8]); c.strokeStyle = 'rgba(120,70,30,.4)'; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, PS_R, 0, 6.3); c.stroke(); c.setLineDash([]); c.fillStyle = 'rgba(120,70,30,.6)'; c.font = 'bold 18px "LeeSeoyun", sans-serif'; c.textAlign = 'center'; c.fillText(s === 'dough' ? '🫓 도우를 눌러 올려요' : '주문을 받아주세요', 0, 6); c.restore(); return; }
+  if (!p.dough) { c.setLineDash([8, 8]); c.strokeStyle = 'rgba(120,70,30,.4)'; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, PS_R, 0, 6.3); c.stroke(); c.setLineDash([]); c.fillStyle = 'rgba(120,70,30,.6)'; c.font = 'bold 18px "LeeSeoyun", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif'; c.textAlign = 'center'; c.fillText(s === 'dough' ? '🫓 도우를 눌러 올려요' : '주문을 받아주세요', 0, 6); c.restore(); return; }
   var v = s === 'oven' ? PS.bk : p.bk, sc = Math.min(1, (now - p.t0) / 300);
   c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.arc(4, 7, PS_R * (.65 + .35 * sc), 0, 6.3); c.fill();
   psDrawPizza(c, p, v, now, false);
@@ -410,7 +410,7 @@ function psFrame(now) {
 function psCursor(c, now) {
   var m = PS.m, s = PS.stage; if (!m) return; var x = PS_C + m.x, y = PS_C + m.y;
   if (s === 'sauce') { c.strokeStyle = '#7b4a22'; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 36, y - 36); c.stroke(); c.fillStyle = '#d8dde0'; c.beginPath(); c.arc(x, y, 14, 0, 6.3); c.fill(); c.fillStyle = '#c8321f'; c.beginPath(); c.arc(x, y, 10, 0, 6.3); c.fill(); c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.arc(x - 3, y - 3, 3, 0, 6.3); c.fill(); }
-  else if (s === 'cheese') { c.font = '30px "LeeSeoyun", sans-serif'; c.textAlign = 'center'; c.fillText('🧀', x + 14, y - 14); if (PS.paint) { c.fillStyle = '#ffe9a0'; for (var i = 0; i < 4; i++) c.fillRect(x + Math.sin(now / 60 + i * 2) * 10, y - 6 + ((now / 8 + i * 9) % 22), 2, 5); } }
+  else if (s === 'cheese') { c.font = '30px "LeeSeoyun", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif'; c.textAlign = 'center'; c.fillText('🧀', x + 14, y - 14); if (PS.paint) { c.fillStyle = '#ffe9a0'; for (var i = 0; i < 4; i++) c.fillRect(x + Math.sin(now / 60 + i * 2) * 10, y - 6 + ((now / 8 + i * 9) % 22), 2, 5); } }
 }
 function psDrawCut(c, p, now) {
   c.fillStyle = '#c89a62'; c.fillRect(0, 0, 360, 360); c.strokeStyle = 'rgba(120,70,30,.18)'; c.lineWidth = 2; for (var y = 10; y < 360; y += 22) { c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(90, y - 5, 250, y + 6, 360, y); c.stroke(); }

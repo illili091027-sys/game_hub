@@ -463,7 +463,7 @@ if (document.getElementById('in-server').value) {
    예전엔 카드마다 따로 style.display를 껐다 켰다 해서, 새 온라인 전용 게임을 추가할 때마다
    "온라인 모드로 다시 보이게 하는 줄"을 깜빡하기 쉬웠습니다(실제로 findx가 이 버그를 겪었음).
    지금은 배열 하나로 관리해서 새 온라인 전용 게임은 이 배열에만 추가하면 됩니다. */
-var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-catch', 'card-wasd', 'card-yang', 'card-land'];
+var ONLINE_ONLY_CARD_IDS = ['card-channels', 'card-bomb', 'card-quiz', 'card-hues', 'card-tapple', 'card-relay', 'card-bingo', 'card-tickbomb', 'card-dobble', 'card-catch', 'card-wasd', 'card-yang', 'card-land', 'card-wheelrace'];
 /* 반대로 혼자하기에서만 할 수 있는 게임 카드들 - 온라인에서는 숨깁니다.
    (2026-10-24: 혼자하기 모드는 영어 낱말 찾기 전용으로 정리 - 나머지 게임은 온라인에서만) */
 var SOLO_ONLY_CARD_IDS = ['card-ballz', 'card-codetype', 'card-blockpop', 'card-pzshop', 'card-bento', 'card-sudoku', 'card-wordsearch', 'card-stork', 'card-arrows', 'card-mermaid'];
@@ -596,7 +596,7 @@ function backToModeSelect() {
   playMode = null;
 }
 
-var ONLINE_ONLY_GAME_IDS = ['bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'catch', 'wasd', 'yang', 'land'];
+var ONLINE_ONLY_GAME_IDS = ['bomb', 'quiz', 'hues', 'tapple', 'relay', 'bingo', 'tickbomb', 'dobble', 'catch', 'wasd', 'yang', 'land', 'wheelrace'];
 var SOLO_ONLY_GAME_IDS = ['ballz', 'casino', 'codetype', 'blockpop', 'pzshop', 'bento', 'sudoku', 'wordsearch', 'stork', 'arrows', 'mermaid'];
 
 /* 온라인에서 방장이 게임을 골라 들어가면 멤버들은 카드에 있던 설명(게임 방법)을 볼 기회 없이
@@ -852,7 +852,7 @@ function enterGame(gameId) {
   }
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   document.getElementById(gameId).classList.add('active');
-  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pzshop: 'ps-room-pill', blockpop: 'bp-room-pill', codetype: 'ct-room-pill', casino: 'cs-room-pill', ballz: 'bz-room-pill' };
+  var PILL_IDS = { sudoku: 'sd-room-pill', bomb: 'bm-room-pill', quiz: 'qz-room-pill', hues: 'hu-room-pill', wordsearch: 'ws-room-pill', tapple: 'tp-room-pill', baby: 'bb-room-pill', stork: 'sk-room-pill', arrows: 'ar-room-pill', mermaid: 'mm-room-pill', relay: 'rl-room-pill', bingo: 'bg-room-pill', tickbomb: 'tb-room-pill', dobble: 'db-room-pill', catch: 'cm-room-pill', wasd: 'wd-room-pill', yang: 'yg-room-pill', land: 'ld-room-pill', bento: 'bt-room-pill', pzshop: 'ps-room-pill', blockpop: 'bp-room-pill', codetype: 'ct-room-pill', casino: 'cs-room-pill', ballz: 'bz-room-pill', wheelrace: 'wr-room-pill' };
   var pillId = PILL_IDS[gameId];
   if (pillId && document.getElementById(pillId)) {
     document.getElementById(pillId).textContent = gameId === 'casino' ? '도박방' : (playMode === 'solo' ? '혼자 하기' : (me.room + ' 방'));
@@ -883,6 +883,7 @@ function enterGame(gameId) {
     else if (gameId === 'codetype') startCodeTypeGame();
     else if (gameId === 'casino') startCasinoGame();
     else if (gameId === 'ballz') startBallzGame();
+    else if (gameId === 'wheelrace') startWheelRaceGame();
     else if (gameId === 'wordsearch') startWordSearch();
     lastAutoEnteredGame = gameId;
   };
@@ -919,6 +920,7 @@ var GAME_ROOM_STATE_KEYS = {
   wasd: ['wasd'],
   yang: ['yang'],
   land: ['land'],
+  wheelrace: ['wheelrace'],
   baby: ['baby_round']
 };
 var GAME_PER_PLAYER_STATE_KEYS = {
@@ -932,7 +934,8 @@ var GAME_PER_PLAYER_STATE_KEYS = {
   catch: 'cm_g_',
   wasd: 'wd_k_',
   yang: 'yg_',
-  land: 'ld_'
+  land: 'ld_',
+  wheelrace: 'wr_'
 };
 var GAME_VOTE_KEYS = ['sudoku'];
 
@@ -980,6 +983,7 @@ function goHome() {
   if (typeof stopCodeTypeGame === 'function') stopCodeTypeGame();
   if (typeof stopCasinoGame === 'function') stopCasinoGame();
   if (typeof stopBallzGame === 'function') stopBallzGame();
+  if (typeof stopWheelRaceGame === 'function') stopWheelRaceGame();
   stopWordSearch();
   if (typeof SD_VOTE_STOP === 'function') { SD_VOTE_STOP(); SD_VOTE_STOP = null; }
   document.getElementById('rules-overlay').style.display = 'none';

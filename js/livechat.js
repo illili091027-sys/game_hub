@@ -210,8 +210,14 @@ function lcPoll(force) {
     lcBoxes().forEach(function (el) { lcRender(el, msgs, force); });
   }, function () { LC.busy = false; });
 }
+function lcBadge(el) {
+  var b = el.querySelector('.lc-badge'); if (!b) return;
+  var n = el.classList.contains('tucked') ? Math.max(0, (el._n || 0) - (el._seen || 0)) : 0;
+  b.textContent = n > 99 ? '99+' : n; b.style.display = n ? '' : 'none';
+}
 function lcRender(el, msgs, force) {
   msgs = msgs.filter(chatVisible);
+  el._n = msgs.length; lcBadge(el);
   var list = el.querySelector('.lc-list');
   var sig = msgs.length + ':' + (msgs.length ? msgs[msgs.length - 1].id + (msgs[msgs.length - 1].text || '') : '');
   if (sig === el._sig && !force) return;
@@ -266,7 +272,7 @@ function lcDonate(el, msg) {
 function lcBuild(mode, inPip) {
   var el = document.createElement('div');
   el.className = 'lc-box' + (inPip ? ' in-pip' : '');
-  el.innerHTML = '<div class="lc-head"><span class="lc-grip">⠿</span> 💬 실시간 채팅 <span class="hw-spacer"></span><button type="button" class="lc-don" title="화면 공유하는 친구에게 후원">💸 후원</button><button type="button" class="lc-pop">' + (inPip ? '⤓ 사이트로' : '⧉ 따로') + '</button>' + (inPip ? '' : '<button type="button" class="lc-min" title="접기">—</button>') + '</div>' +
+  el.innerHTML = '<div class="lc-head"><span class="lc-grip">⠿</span> <span class="lc-title">💬 실시간 채팅</span><span class="lc-badge" style="display:none"></span> <span class="hw-spacer"></span>' + (inPip ? '' : '<input type="range" class="lc-op" min="20" max="100" title="투명도">') + '<button type="button" class="lc-don" title="화면 공유하는 친구에게 후원">💸 후원</button><button type="button" class="lc-pop">' + (inPip ? '⤓ 사이트로' : '⧉ 따로') + '</button>' + ('<button type="button" class="lc-min" title="작게 내리기 (다시 누르면 올라와요)">—</button>') + '</div>' +
     '<div class="lc-list"></div>' +
     '<div class="lc-donbar" style="display:none"><div class="lc-amts">' + [10, 30, 50, 100].map(function (a, i) { return '<button type="button" class="lc-amt' + (i === 0 ? ' on' : '') + '" data-a="' + a + '">' + CHALK_IMG + a + '</button>'; }).join('') +
     '<input type="number" class="lc-amt-custom" min="1" placeholder="직접" /></div><div class="lc-have">내 분필 ' + CHALK_IMG + ' <b class="coin-balance">0</b></div></div>' +
@@ -280,14 +286,40 @@ function lcBuild(mode, inPip) {
   el.querySelector('.lc-amt-custom').addEventListener('keydown', function (e) { e.stopPropagation(); });
   el.querySelector('.lc-pop').onclick = function () { if (inPip) lcPopIn(); else lcPopOut(); };
   var mn = el.querySelector('.lc-min');
-  if (mn) mn.onclick = function () { el.classList.toggle('folded'); this.textContent = el.classList.contains('folded') ? '+' : '—'; };
+  if (mn) {
+    var tuck = function (on) {
+      el.classList.toggle('tucked', on);
+      mn.textContent = on ? '▢' : '—';
+      if (on) el._seen = el._n || 0;
+      lcBadge(el);
+      if (inPip) {   /* 따로 띄운 창: 창 크기를 막대만큼 줄였다가 되돌려요 */
+        var w = el.ownerDocument.defaultView;
+        try {
+          if (on) { el._pipSize = { w: w.innerWidth, h: w.innerHeight }; w.resizeTo(w.outerWidth - w.innerWidth + 240, w.outerHeight - w.innerHeight + 44); }
+          else if (el._pipSize) w.resizeTo(w.outerWidth - w.innerWidth + el._pipSize.w, w.outerHeight - w.innerHeight + el._pipSize.h);
+        } catch (e) {}
+      }
+    };
+    mn.onclick = function (e) { e.stopPropagation(); tuck(!el.classList.contains('tucked')); };
+    el.addEventListener('click', function () { if (el.classList.contains('tucked')) tuck(false); });
+  }
+  var op = el.querySelector('.lc-op');
+  if (op) {
+    var v = 82; try { v = parseInt(localStorage.getItem('gamehub_lc_op') || '82', 10) || 82; } catch (e) {}
+    op.value = v; el.style.setProperty('--lc-a', v / 100);
+    op.addEventListener('input', function () {
+      el.style.setProperty('--lc-a', op.value / 100);
+      try { localStorage.setItem('gamehub_lc_op', op.value); } catch (e) {}
+    });
+    ['pointerdown', 'click', 'keydown'].forEach(function (ev) { op.addEventListener(ev, function (e) { e.stopPropagation(); }); });
+  }
   return el;
 }
 /* 공유하는 사람: 화면 어디든 떠 있는 창. 위쪽 막대를 끌어서 옮기고, 위치는 기억해요 */
 function lcMakeFloatDraggable(el) {
   var head = el.querySelector('.lc-head'), sx, sy, bx, by, drag = false;
   head.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('button')) return;
+    if (e.target.closest('button, input')) return;
     drag = true; sx = e.clientX; sy = e.clientY;
     var r = el.getBoundingClientRect(); bx = r.left; by = r.top;
     try { head.setPointerCapture(e.pointerId); } catch (er) {}
@@ -307,8 +339,22 @@ function lcMakeFloatDraggable(el) {
    크롬: 항상 맨 위에 떠 있는 작은 창(문서 PiP) → 다른 탭·프로그램을 공유하면서도 채팅이 보여요.
    안 되는 브라우저: 새 창(팝업). 사이트 안 채팅은 그동안 숨겨 두었다가, 창을 닫으면 다시 보여요.
    (예전엔 채팅창을 통째로 옮겼다가 창이 닫히면서 같이 망가져서 까맣게 보였어요 → 이제 새로 하나 만들어요) */
+/* 보는 사람 막대의 '💬 채팅 팝업' 버튼: 팝업이 떠 있으면 사이트로 되돌리고, 없으면 띄워요 */
+function lcPopToggle() {
+  if (LC.pip && !LC.pip.closed) { lcPopIn(); return; }
+  lcPopOut();
+}
+function lcPopBtnSync() {
+  var open = !!(LC.pip && !LC.pip.closed);
+  var b = document.getElementById('ss-chat-pop');
+  if (!b) return;
+  b.classList.toggle('on', open);
+  var l = b.querySelector('.lbl'); if (l) l.textContent = open ? ' 채팅 되돌리기' : ' 채팅 팝업';
+}
 function lcPopOut() {
-  if (!LC.mode || (LC.pip && !LC.pip.closed)) return;
+  if (typeof lcSync === 'function') lcSync();   /* 보기 시작 직후라 아직 채팅 모드가 안 잡혔으면 지금 맞춰요 */
+  if (!LC.mode) { coinToast('화면을 보는 중이거나 공유 중일 때 채팅을 띄울 수 있어요'); return; }
+  if (LC.pip && !LC.pip.closed) { try { LC.pip.focus(); } catch (e) {} return; }
   var setup = function (win) {
     if (!win) { coinToast('팝업이 막혔어요. 주소창 오른쪽에서 팝업 허용을 눌러 주세요'); return; }
     var d = win.document;
@@ -326,6 +372,7 @@ function lcPopOut() {
     clearInterval(LC.pipWatch);
     LC.pipWatch = setInterval(function () { if (LC.pip === win && win.closed) lcPopClosed(); }, 700);
     walletRender();
+    lcPopBtnSync();
     lcPoll(true);
   };
   try {
@@ -347,6 +394,7 @@ function lcPopClosed() {
   clearInterval(LC.pipWatch);
   LC.pip = null; LC.pipEl = null;
   if (LC.el) { LC.el.style.display = ''; LC.el._sig = ''; }
+  lcPopBtnSync();
   lcPoll(true);
 }
 /* 사이트로 돌아가기 버튼 */
@@ -359,25 +407,32 @@ function lcPopIn() {
 /* 지금 상황에 맞게 채팅창을 붙였다 뗐다 */
 function lcSync() {
   var viewer = document.getElementById('ss-viewer');
-  var viewing = !!(SS && SS.view && viewer && viewer.style.display !== 'none' && !viewer.classList.contains('mini') && !viewer.classList.contains('soc-inline'));
+  var viewerOn = !!(SS && SS.view && viewer && viewer.style.display !== 'none');
+  var full = viewerOn && !viewer.classList.contains('mini') && !viewer.classList.contains('soc-inline');
   var sharing = !!(SS && SS.share);
-  var mode = viewing ? 'view' : (sharing ? 'share' : null);
-  if (mode === LC.mode) return;
+  var mode = viewerOn ? 'view' : (sharing ? 'share' : null);
+  /* 보는 사람도 화면을 작게 보거나 소통방 안에서 봐도 채팅을 쓸 수 있어요: 크게 보기=영상 위, 작게 보기=왼쪽에 떠 있는 창, 소통방=팝업 전용 */
+  var place = !mode ? '' : (mode === 'view' ? (full ? 'in-view' : (viewer.classList.contains('soc-inline') ? 'none' : 'floating')) : 'floating');
+  var key = mode ? mode + ':' + place : '';
+  if (key === (LC.key || '')) return;
+  LC.key = key;
   /* 공유가 끝나면 따로 띄운 창도 닫아요 */
   if (!mode && LC.pip) lcPopIn();
   if (LC.el) { LC.el.remove(); LC.el = null; }
   LC.mode = mode;
   if (!mode) return;
+  if (place === 'none') { lcPoll(true); return; }
   LC.el = lcBuild(mode, false);
   if (LC.pip && !LC.pip.closed) LC.el.style.display = 'none';   /* 따로 띄운 창이 있으면 사이트 안 것은 숨김 */
-  if (mode === 'view') {
+  if (place === 'in-view') {
     LC.el.classList.add('in-view');
     viewer.querySelector('.ss-video-wrap').appendChild(LC.el);
   } else {
     LC.el.classList.add('floating');
+    if (mode === 'view') LC.el.classList.add('view-float');
     document.body.appendChild(LC.el);
     var pos = null;
-    try { pos = JSON.parse(localStorage.getItem('gamehub_lc_pos') || 'null'); } catch (e) {}
+    if (mode !== 'view') try { pos = JSON.parse(localStorage.getItem('gamehub_lc_pos') || 'null'); } catch (e) {}
     if (pos && pos.x >= 0 && pos.x < window.innerWidth - 60 && pos.y >= 0 && pos.y < window.innerHeight - 40) { LC.el.style.left = pos.x + 'px'; LC.el.style.top = pos.y + 'px'; LC.el.style.right = 'auto'; LC.el.style.bottom = 'auto'; }
     lcMakeFloatDraggable(LC.el);
   }
@@ -404,8 +459,8 @@ function coinPillSync() {
     if (roomJoined && !wasJoined) { DON_WATCH.joinedAt = Date.now(); }
     wasJoined = roomJoined;
     coinPillSync();
-    if (typeof HW_MODE !== 'undefined' && HW_MODE) { if (LC.pip) lcPopIn(); if (LC.el) { LC.el.remove(); LC.el = null; LC.mode = null; } return; }   /* 과제방: 후원 · 화면공유 채팅 없음 */
-    if (!roomJoined) { if (LC.pip) lcPopIn(); if (LC.el) { LC.el.remove(); LC.el = null; LC.mode = null; } return; }
+    if (typeof HW_MODE !== 'undefined' && HW_MODE) { if (LC.pip) lcPopIn(); if (LC.el) { LC.el.remove(); LC.el = null; LC.mode = null; LC.key = ''; } return; }   /* 과제방: 후원 · 화면공유 채팅 없음 */
+    if (!roomJoined) { if (LC.pip) lcPopIn(); if (LC.el) { LC.el.remove(); LC.el = null; LC.mode = null; LC.key = ''; } return; }
     lcSync();
     n++;
     if (LC.el || LC.pipEl || n % 5 === 0) lcPoll(false);

@@ -134,7 +134,7 @@ function accGateOn() { return ACC_REQUIRE_LOGIN && !ACC.token && !(ACC.guest && 
 /* ---------- 관리자 창 (큰 창으로 따로 떠요) ----------
    비밀번호를 치고 들어가면 가입한 사용자가 전부 뜨고, 사람마다
    분필 개수 조절 · 비밀번호 0000 초기화를 할 수 있어요.
-   (비밀번호는 서버가 확인해요. 서버의 관리자 비밀번호를 einbe4039 로 맞춰 두세요) */
+   (비밀번호는 서버가 확인해요. 서버를 켤 때 ADMIN_KEY 로 정한 비밀번호예요) */
 function accHtmlAdmin() { return ''; }   /* 예전 작은 관리자 칸은 없앴어요 → accRenderAdmin() */
 function accAdminModal() {
   var m = document.getElementById('acc-admin-modal');
@@ -285,7 +285,7 @@ function accAdminLoad() {
   accApi('/api/admin/search', 'POST', { adminKey: ACC.adminKey, query: q }, false, true).then(function (j) {
     if (j._status !== 200) {
       ACC.adminOk = false; ACC.adminRes = null;
-      ACC.msg = (j._status === 401 || j._status === 403) ? '관리자 비밀번호가 달라요' : (j.message || '잘 안 됐어요 (' + j._status + ')');
+      ACC.msg = (j._status === 401 || j._status === 403) ? '관리자 비밀번호가 달라요' : (j.error === 'admin_off' ? '서버에 관리자 비밀번호가 안 정해져 있어요. 서버켜기.bat 의 ADMIN_KEY 를 확인하고 서버를 다시 켜 주세요' : (j.message || '잘 안 됐어요 (' + j._status + ')'));
       accRender(); return;
     }
     ACC.adminOk = true;
